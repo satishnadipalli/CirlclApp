@@ -1,10 +1,24 @@
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Tabs, useRouter } from "expo-router";
 import React from "react";
-import { TouchableOpacity } from "react-native";
+import { Image, TouchableOpacity } from "react-native";
 
 export default function TabLayout() {
   const router = useRouter();
+  const [profilePic, setProfilePic] = React.useState<string>("");
+
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const userData = await AsyncStorage.getItem("user");
+        if (userData) {
+          const parsed = JSON.parse(userData);
+          setProfilePic(parsed?.profilePic || "");
+        }
+      } catch {}
+    })();
+  }, []);
 
 
   return (
@@ -55,10 +69,32 @@ export default function TabLayout() {
 
       {/* Chats tab must match the folder `(tabs)/chats` */}
       <Tabs.Screen
-        name="chats/index"
+        name="chats"
         options={{
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="chatbubble-outline" size={28} color={color} />
+          tabBarIcon: ({ color }) => (
+            <Ionicons name="chatbubble-ellipses-outline" size={28} color={color} />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="profile"
+        options={{
+          tabBarIcon: ({ color, focused }) => (
+            profilePic ? (
+              <Image
+                source={{ uri: profilePic }}
+                style={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: 14,
+                  borderWidth: 2,
+                  borderColor: focused ? "#000" : "transparent",
+                }}
+              />
+            ) : (
+              <Ionicons name="person-circle-outline" size={28} color={color} />
+            )
           ),
         }}
       />
