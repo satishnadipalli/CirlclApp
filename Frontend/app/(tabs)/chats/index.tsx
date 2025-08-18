@@ -11,9 +11,10 @@ import { Alert, FlatList, StyleSheet, Text, TextInput, View } from "react-native
 
 export function ChatsScreen() {
   const [search, setSearch] = useState("")
-  const [chats, setChats] = useState<Chat[]>([] as any)
+  const [chats, setChats] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState<User | null>(null)
+  const [typingState, setTypingState] = useState<Record<string, string>>({}) // key: chatId, value: text
   const router = useRouter()
 
   const loadUserFromStorage = async () => {
@@ -41,6 +42,14 @@ export function ChatsScreen() {
     }
   }
 
+  const sortChats = (list: any[]) => {
+    return [...list].sort((a, b) => {
+      const aTime = a?.lastMessage?.createdAt ? new Date(a.lastMessage.createdAt).getTime() : 0
+      const bTime = b?.lastMessage?.createdAt ? new Date(b.lastMessage.createdAt).getTime() : 0
+      return bTime - aTime
+    })
+  }
+
   const fetchChats = async () => {
     try {
       if (!user) {
@@ -49,15 +58,11 @@ export function ChatsScreen() {
       }
 
       const chatsData = await apiService.getChats()
-      console.log("[v0] Raw chats response:", chatsData)
-
-      const chatsArray = chatsData?.chats || []
-      console.log("[v0] Extracted chats array:", chatsArray)
-
-      setChats(Array.isArray(chatsArray) ? (chatsArray as any) : [])
+      const chatsArray = Array.isArray(chatsData?.chats) ? (chatsData.chats as any[]) : []
+      setChats(sortChats(chatsArray))
     } catch (err) {
       console.error("Error fetching chats:", err)
-      setChats([] as any)
+      setChats([])
     } finally {
       setLoading(false)
     }
@@ -65,20 +70,33 @@ export function ChatsScreen() {
 
   const setupRealTimeUpdates = async () => {
     try {
-      if (!user) {
-        console.log("[v0] User not loaded yet, skipping socket setup")
-        return
-      }
-
+      if (!user) return
       await socketService.connect()
       socketService.registerUser(user._id)
 
-      socketService.onReceiveDirectMessage((message) => {
-        fetchChats()
+      socketService.onReceiveDirectMessage(() => fetchChats())
+      socketService.onReceiveGroupMessage(() => fetchChats())
+
+      socketService.onTyping((data: any) => {
+        // direct typing
+        const fromId = data?.from
+        if (!fromId || fromId === user._id) return
+        setTypingState((prev) => ({ ...prev, [fromId]: `${data?.name || "Someone"} is typing...` }))
+        setTimeout(() => setTypingState((cur) => ({ ...cur, [fromId]: "" })), 1500)
       })
 
-      socketService.onReceiveGroupMessage((message) => {
-        fetchChats()
+      socketService.onGroupTyping((data: any) => {
+        const groupId = data?.groupId
+        const fromId = data?.from
+        if (!groupId || fromId === user._id) return
+        setTypingState((prev) => ({ ...prev, [groupId]: `${data?.name || "Someone"} is typing...` }))
+        setTimeout(() => setTypingState((cur) => ({ ...cur, [groupId]: "" })), 1500)
+      })
+
+      socketService.onStopTyping((data: any) => {
+        const fromId = data?.from
+        if (!fromId) return
+        setTypingState((prev) => ({ ...prev, [fromId]: "" }))
       })
     } catch (error) {
       console.error("Error setting up real-time updates:", error)
@@ -123,9 +141,18 @@ export function ChatsScreen() {
     }
   })
 
-  const renderItem = ({ item }: { item: any }) => (
-    <ChatListItem chat={item as any} currentUserId={user?._id || ""} />
-  )
+  const renderItem = ({ item }: { item: any }) => {
+    const typingText = item.chatType === "direct"
+      ? typingState[(item.user || item.participant)?._id]
+      : typingState[item.group?._id]
+    return (
+      <ChatListItem
+        chat={item as any}
+        currentUserId={user?._id || ""}
+        typingText={typingText}
+      />
+    )
+  }
 
   const getItemKey = (item: any) => {
     return item.chatType === "direct"

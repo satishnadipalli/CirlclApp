@@ -9,9 +9,10 @@ import { Avatar, Badge, List } from "react-native-paper"
 interface ChatListItemProps {
   chat: any
   currentUserId: string
+  typingText?: string
 }
 
-export const ChatListItem: React.FC<ChatListItemProps> = ({ chat, currentUserId }) => {
+export const ChatListItem: React.FC<ChatListItemProps> = ({ chat, currentUserId, typingText }) => {
   const router = useRouter()
 
   const getChatInfo = () => {
@@ -80,7 +81,8 @@ export const ChatListItem: React.FC<ChatListItemProps> = ({ chat, currentUserId 
     <TouchableOpacity onPress={handlePress}>
       <List.Item
         title={chatInfo.name}
-        description={chatInfo.lastMessage}
+        description={typingText && typingText.length > 0 ? typingText : chatInfo.lastMessage}
+        descriptionStyle={typingText && typingText.length > 0 ? styles.typingDescription : undefined}
         left={() => <Avatar.Image size={50} source={{ uri: chatInfo.avatar }} />}
         right={() => (
           <View style={styles.rightContainer}>
@@ -98,4 +100,5 @@ const styles = StyleSheet.create({
   listItem: { paddingVertical: 10, paddingHorizontal: 15 },
   rightContainer: { justifyContent: "center", alignItems: "flex-end" },
   timeText: { fontSize: 12, color: "#888", marginBottom: 5 },
+  typingDescription: { color: "#0095f6" },
 })

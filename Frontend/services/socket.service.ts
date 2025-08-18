@@ -99,6 +99,7 @@ class SocketService {
       const normalized = {
         from: data?.userId ?? data?.from,
         name: data?.userName ?? data?.name,
+        groupId: data?.groupId,
       };
       this.typingListeners.forEach((listener) => listener(normalized));
     });
@@ -106,6 +107,7 @@ class SocketService {
     this.socket.on("groupStopTyping", (data) => {
       const normalized = {
         from: data?.userId ?? data?.from,
+        groupId: data?.groupId,
       };
       this.stopTypingListeners.forEach((listener) => listener(normalized));
     });

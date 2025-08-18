@@ -146,11 +146,11 @@ io.on("connection", (socket) => {
 
   // Group typing
   socket.on("groupTyping", ({ groupId, userId, userName }) => {
-    socket.to(`group_${groupId}`).emit("groupTyping", { userId, userName });
+    socket.to(`group_${groupId}`).emit("groupTyping", { userId, userName, groupId });
   });
 
   socket.on("groupStopTyping", ({ groupId, userId }) => {
-    socket.to(`group_${groupId}`).emit("groupStopTyping", { userId });
+    socket.to(`group_${groupId}`).emit("groupStopTyping", { userId, groupId });
   });
 
   // Disconnect
