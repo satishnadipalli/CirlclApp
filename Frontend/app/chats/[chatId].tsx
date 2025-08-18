@@ -66,6 +66,7 @@ export default function ChatScreen() {
 
   const flatListRef = useRef<FlatList>(null)
   const messageIndexByIdRef = useRef<Map<string, number>>(new Map())
+  const messageByIdRef = useRef<Map<string, ChatMessage>>(new Map())
   const socketRef = useRef<any>(null)
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const currentUserRef = useRef<User | null>(null)
@@ -220,12 +221,14 @@ export default function ChatScreen() {
               }
             }
 
-            // Link reply if present and known
-            if (msg.replyTo) {
-              const replyId = typeof msg.replyTo === "object" ? msg.replyTo._id : msg.replyTo
-              const replied = prev.find((m) => m.id === replyId)
+            // Link reply when possible using current map
+            if ((msg as any).replyTo) {
+              const replyId = typeof (msg as any).replyTo === "object" ? (msg as any).replyTo._id || (msg as any).replyTo.id : (msg as any).replyTo
+              const replied = messageByIdRef.current.get(replyId)
               if (replied) {
-                newMessage = { ...newMessage, replyTo: replied as any }
+                (newMessage as any).replyTo = replied
+              } else {
+                (newMessage as any).replyTo = (msg as any).replyTo
               }
             }
 
@@ -489,6 +492,8 @@ export default function ChatScreen() {
       replyTo: replyingTo || undefined,
     }
     setMessages((prev) => [...prev, tempMessage])
+    // Auto-close reply preview immediately on send
+    setReplyingTo(null)
 
     console.log("[v0] Sending socket message:", messageText)
     if (params.chatType === "direct") {
@@ -515,7 +520,6 @@ export default function ChatScreen() {
       console.error("[v0] Error sending message via API:", error)
       Alert.alert("Error", "Failed to send message. Please try again.")
     }
-    setReplyingTo(null)
   }
 
   const isToday = (date: Date): boolean => {
@@ -551,6 +555,7 @@ export default function ChatScreen() {
     const items: ChatItem[] = []
     let lastDate = ""
     messageIndexByIdRef.current.clear()
+    messageByIdRef.current.clear()
 
     messages.forEach((message) => {
       if (message.createdAt) {
@@ -569,6 +574,7 @@ export default function ChatScreen() {
       }
       items.push(message)
       messageIndexByIdRef.current.set(message.id, items.length - 1)
+      messageByIdRef.current.set(message.id, message)
     })
 
     return items
@@ -701,24 +707,20 @@ export default function ChatScreen() {
           )}
 
           {"replyTo" in (message as any) && (message as any).replyTo && (
-            <View style={styles.replyBubble}>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => {
+                const ref = (message as any).replyTo
+                const refId = typeof ref === "object" ? ref._id || ref.id : ref
+                if (refId) scrollToMessage(refId)
+              }}
+              style={styles.replyChip}
+            >
               <View style={[styles.replyBar, { backgroundColor: isMyMessage ? "#9bd7a1" : "#bbb" }]} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.replyName}>
-                  {((message as any).replyTo.from?.name) || "Replied"}
-                </Text>
-                <Text
-                  style={styles.replyText}
-                  numberOfLines={2}
-                  onPress={() => {
-                    const refId = typeof (message as any).replyTo === "object" ? (message as any).replyTo._id || (message as any).replyTo.id : (message as any).replyTo
-                    if (refId) scrollToMessage(refId)
-                  }}
-                >
-                  {(message as any).replyTo.text}
-                </Text>
-              </View>
-            </View>
+              <Text style={styles.replyInline} numberOfLines={1}>
+                {`${(((message as any).replyTo.from?.name) || "Replied")} : ${((message as any).replyTo.text) || ""}`}
+              </Text>
+            </TouchableOpacity>
           )}
 
           <Text style={[styles.messageText, isMyMessage ? styles.myMessageText : styles.otherMessageText]}>
@@ -1200,6 +1202,17 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     gap: 8,
   },
+  replyChip: {
+    backgroundColor: "#e8e8e8",
+    borderRadius: 14,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginBottom: 6,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    maxWidth: "100%",
+  },
   replyBar: {
     width: 4,
     height: "100%",
@@ -1215,6 +1228,11 @@ const styles = StyleSheet.create({
   replyText: {
     fontSize: 12,
     color: "#555",
+  },
+  replyInline: {
+    fontSize: 12,
+    color: "#333",
+    flexShrink: 1,
   },
   input: {
     flex: 1,
