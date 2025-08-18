@@ -75,6 +75,31 @@ export function ChatsScreen() {
     }
   }
 
+  const ensureDirectPeerInfo = async (peerId: string) => {
+    try {
+      const res = await apiService.getUserProfile(peerId)
+      if (!res?.success) return
+      const peer = res
+      setChats((prev) =>
+        prev.map((c) =>
+          c.chatType === "direct" && (c.user || c.participant)?._id === peerId
+            ? { ...c, user: { _id: peerId, name: peer.name || peer.data?.name || "", profilePic: peer.profilePic || peer.data?.profilePic || "" } }
+            : c,
+        ),
+      )
+    } catch {}
+  }
+
+  const ensureGroupInfo = async (groupId: string) => {
+    try {
+      const res = await apiService.getGroupInfo(groupId)
+      if (!res?.success) return
+      const grp = res.group || res.data?.group
+      if (!grp) return
+      setChats((prev) => prev.map((c) => (c.chatType === "group" && c.group?._id === groupId ? { ...c, group: grp } : c)))
+    } catch {}
+  }
+
   const bumpChatOnMessage = (updater: (list: any[]) => { idx: number; updated: any } | { insert: any } | null) => {
     setChats((prev) => {
       const res = updater(prev)
@@ -106,19 +131,21 @@ export function ChatsScreen() {
         bumpChatOnMessage((list) => {
           const idx = list.findIndex((c) => c.chatType === "direct" && ((c.user || c.participant)?._id === peerId))
           const createdAt = (message.createdAt && typeof message.createdAt === 'string') ? message.createdAt : new Date().toISOString()
+          const fromName = message.from === user._id ? "You" : ((idx !== -1 && (list[idx].user || list[idx].participant)?.name) || "")
           if (idx === -1) {
             // create a minimal chat so it appears immediately
+            // then asynchronously fetch the peer info to fill name/avatar
+            ensureDirectPeerInfo(peerId)
             return {
               insert: {
                 chatType: "direct",
                 user: { _id: peerId, name: "", profilePic: "" },
-                lastMessage: { text: message.text, createdAt, from: { name: message.from === user._id ? "You" : "" } },
+                lastMessage: { text: message.text, createdAt, from: { name: fromName } },
                 unreadCount: message.from !== user._id ? 1 : 0,
               },
             }
           }
           const chat = list[idx]
-          const fromName = message.from === user._id ? "You" : (chat.user || chat.participant)?.name || ""
           const updated = {
             ...chat,
             lastMessage: {
@@ -138,12 +165,15 @@ export function ChatsScreen() {
         bumpChatOnMessage((list) => {
           const idx = list.findIndex((c) => c.chatType === "group" && c.group?._id === groupId)
           const createdAt = (message.createdAt && typeof message.createdAt === 'string') ? message.createdAt : new Date().toISOString()
+          const fromName = message.from === user._id ? "You" : ""
           if (idx === -1) {
+            // create minimal and fetch group info to fill name
+            ensureGroupInfo(groupId)
             return {
               insert: {
                 chatType: "group",
                 group: { _id: groupId, name: "", groupPic: "" },
-                lastMessage: { text: message.text, createdAt, from: { name: "" } },
+                lastMessage: { text: message.text, createdAt, from: { name: fromName } },
                 unreadCount: 1,
               },
             }
@@ -155,7 +185,7 @@ export function ChatsScreen() {
               ...(chat.lastMessage || {}),
               text: message.text,
               createdAt,
-              from: { name: "" },
+              from: { name: fromName },
             },
             unreadCount: (chat.unreadCount || 0) + 1,
           }
