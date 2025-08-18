@@ -65,6 +65,7 @@ export default function ChatScreen() {
   const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null)
 
   const flatListRef = useRef<FlatList>(null)
+  const messageIndexByIdRef = useRef<Map<string, number>>(new Map())
   const socketRef = useRef<any>(null)
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const currentUserRef = useRef<User | null>(null)
@@ -360,6 +361,7 @@ export default function ChatScreen() {
             to: msg.to,
             messageType: "direct",
             createdAt: msg.createdAt,
+            replyTo: (msg as any).replyTo || undefined,
           }))
           console.log("[v0] Loaded direct messages:", formattedMessages.length)
           setMessages(formattedMessages)
@@ -385,6 +387,7 @@ export default function ChatScreen() {
             group: msg.group,
             messageType: "group",
             createdAt: msg.createdAt,
+            replyTo: (msg as any).replyTo || undefined,
           }))
           console.log("[v0] Loaded group messages:", formattedMessages.length)
           setMessages(formattedMessages)
@@ -547,6 +550,7 @@ export default function ChatScreen() {
   const processMessagesWithDates = (messages: ChatMessage[]): ChatItem[] => {
     const items: ChatItem[] = []
     let lastDate = ""
+    messageIndexByIdRef.current.clear()
 
     messages.forEach((message) => {
       if (message.createdAt) {
@@ -564,9 +568,17 @@ export default function ChatScreen() {
         }
       }
       items.push(message)
+      messageIndexByIdRef.current.set(message.id, items.length - 1)
     })
 
     return items
+  }
+
+  const scrollToMessage = (messageId: string) => {
+    const index = messageIndexByIdRef.current.get(messageId)
+    if (index != null) {
+      flatListRef.current?.scrollToIndex({ index, animated: true })
+    }
   }
 
   useEffect(() => {
@@ -695,7 +707,14 @@ export default function ChatScreen() {
                 <Text style={styles.replyName}>
                   {((message as any).replyTo.from?.name) || "Replied"}
                 </Text>
-                <Text style={styles.replyText} numberOfLines={2}>
+                <Text
+                  style={styles.replyText}
+                  numberOfLines={2}
+                  onPress={() => {
+                    const refId = typeof (message as any).replyTo === "object" ? (message as any).replyTo._id || (message as any).replyTo.id : (message as any).replyTo
+                    if (refId) scrollToMessage(refId)
+                  }}
+                >
                   {(message as any).replyTo.text}
                 </Text>
               </View>
@@ -878,9 +897,9 @@ export default function ChatScreen() {
           </TouchableOpacity>
         )}
 
-        <View style={styles.inputContainer}>
-          {replyingTo && (
-            <View style={styles.replyPreview}>
+        {replyingTo && (
+          <View style={styles.replyPreviewContainer}>
+            <View style={styles.replyPreviewInner}>
               <View style={[styles.replyBar, { backgroundColor: "#0095f6" }]} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.replyName}>{replyingTo.from.name}</Text>
@@ -890,7 +909,9 @@ export default function ChatScreen() {
                 <Icon name="close" size={18} color="#666" />
               </TouchableOpacity>
             </View>
-          )}
+          </View>
+        )}
+        <View style={styles.inputContainer}>
           <TextInput
             style={styles.input}
             placeholder="Message..."
@@ -1149,6 +1170,18 @@ const styles = StyleSheet.create({
     left: 16,
     right: 66,
     bottom: 56,
+    backgroundColor: "#f2f2f2",
+    borderRadius: 12,
+    padding: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  replyPreviewContainer: {
+    paddingHorizontal: 10,
+    marginBottom: 6,
+  },
+  replyPreviewInner: {
     backgroundColor: "#f2f2f2",
     borderRadius: 12,
     padding: 8,
