@@ -63,6 +63,7 @@ export default function ChatScreen() {
   const [showScrollToBottom, setShowScrollToBottom] = useState(false)
   const [newMessagesCount, setNewMessagesCount] = useState(0)
   const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null)
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null)
 
   const flatListRef = useRef<FlatList>(null)
   const messageIndexByIdRef = useRef<Map<string, number>>(new Map())
@@ -580,10 +581,28 @@ export default function ChatScreen() {
     return items
   }
 
-  const scrollToMessage = (messageId: string) => {
+  const resolveReplyMeta = (reply: any) => {
+    if (!reply) return { id: undefined as string | undefined, name: "", text: "" }
+    if (typeof reply === "string") {
+      const m = messageByIdRef.current.get(reply)
+      return { id: reply, name: m?.from?.name || "Replied", text: m?.text || "" }
+    }
+    const id = reply._id || reply.id
+    const name = reply.from?.name || "Replied"
+    const text = reply.text || ""
+    return { id, name, text }
+  }
+
+  const scrollToMessageWithHighlight = (messageId: string) => {
     const index = messageIndexByIdRef.current.get(messageId)
-    if (index != null) {
+    if (index == null) return
+    try {
       flatListRef.current?.scrollToIndex({ index, animated: true })
+      setHighlightedMessageId(messageId)
+      setTimeout(() => setHighlightedMessageId((cur) => (cur === messageId ? null : cur)), 1800)
+    } catch (e) {
+      // fallback: scroll to end if index invalid
+      flatListRef.current?.scrollToEnd({ animated: true })
     }
   }
 
@@ -676,7 +695,7 @@ export default function ChatScreen() {
     const message = item as ChatMessage
     const messageTime = message.createdAt ? formatTime(new Date(message.createdAt)) : ""
     const isMyMessage = message.sender === "me"
-
+    const isHighlighted = highlightedMessageId && message.id === highlightedMessageId
     return (
       <TouchableOpacity
         activeOpacity={0.7}
@@ -700,6 +719,7 @@ export default function ChatScreen() {
             styles.messageContainer,
             isMyMessage ? styles.myMessage : styles.otherMessage,
             params.chatType === "group" && !isMyMessage ? styles.groupOtherMessage : {},
+            isHighlighted ? styles.highlightedMessage : {},
           ]}
         >
           {params.chatType === "group" && !isMyMessage && (
@@ -710,16 +730,20 @@ export default function ChatScreen() {
             <TouchableOpacity
               activeOpacity={0.8}
               onPress={() => {
-                const ref = (message as any).replyTo
-                const refId = typeof ref === "object" ? ref._id || ref.id : ref
-                if (refId) scrollToMessage(refId)
+                const meta = resolveReplyMeta((message as any).replyTo)
+                if (meta.id) scrollToMessageWithHighlight(meta.id)
               }}
               style={styles.replyChip}
             >
               <View style={[styles.replyBar, { backgroundColor: isMyMessage ? "#9bd7a1" : "#bbb" }]} />
-              <Text style={styles.replyInline} numberOfLines={1}>
-                {`${(((message as any).replyTo.from?.name) || "Replied")} : ${((message as any).replyTo.text) || ""}`}
-              </Text>
+              {(() => {
+                const meta = resolveReplyMeta((message as any).replyTo)
+                return (
+                  <Text style={styles.replyInline} numberOfLines={1}>
+                    {`${meta.name}: ${meta.text}`}
+                  </Text>
+                )
+              })()}
             </TouchableOpacity>
           )}
 
@@ -1233,6 +1257,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#333",
     flexShrink: 1,
+  },
+  highlightedMessage: {
+    borderWidth: 1,
+    borderColor: "#0095f6",
+    backgroundColor: "#e9f4ff",
   },
   input: {
     flex: 1,
