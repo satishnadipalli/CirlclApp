@@ -266,6 +266,20 @@ class SocketService {
     }
   }
 
+  removeDirectMessageListener(callback) {
+    const index = this.directMessageListeners.indexOf(callback);
+    if (index > -1) {
+      this.directMessageListeners.splice(index, 1);
+    }
+  }
+
+  removeGroupMessageListener(callback) {
+    const index = this.groupMessageListeners.indexOf(callback);
+    if (index > -1) {
+      this.groupMessageListeners.splice(index, 1);
+    }
+  }
+
   removeTypingListener(callback) {
     const index = this.typingListeners.indexOf(callback);
     if (index > -1) {

@@ -17,6 +17,8 @@ export function ChatsScreen() {
   const [user, setUser] = useState<User | null>(null)
   const [typingState, setTypingState] = useState<Record<string, string>>({}) // key: chatId, value: text
   const router = useRouter()
+  const directListenerRef = React.useRef<((message: any) => void) | null>(null)
+  const groupListenerRef = React.useRef<((message: any) => void) | null>(null)
 
   useEffect(() => {
     if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -133,8 +135,12 @@ export function ChatsScreen() {
         list.splice(idx, 1)
         list.unshift(updated)
       }
-      // Always resort by latest message time
-      list = sortChats(list)
+      // Resort by latest message time, falling back to now if missing
+      list = list.sort((a, b) => {
+        const aTime = a?.lastMessage?.createdAt ? new Date(a.lastMessage.createdAt).getTime() : 0
+        const bTime = b?.lastMessage?.createdAt ? new Date(b.lastMessage.createdAt).getTime() : 0
+        return bTime - aTime
+      })
       return list
     })
   }
@@ -146,7 +152,7 @@ export function ChatsScreen() {
       socketService.registerUser(user._id)
 
       // Ensure we only handle direct messages here
-      socketService.onReceiveDirectMessage((message: any) => {
+      const onDirect = (message: any) => {
         const peerId = message.from === user._id ? message.to : message.from
         bumpChatOnMessage((list) => {
           const idx = list.findIndex((c) => c.chatType === "direct" && ((c.user || c.participant)?._id === peerId))
@@ -178,10 +184,12 @@ export function ChatsScreen() {
           }
           return { idx, updated }
         })
-      })
+      }
+      socketService.onReceiveDirectMessage(onDirect)
+      directListenerRef.current = onDirect
 
       // Ensure we only handle group messages here
-      socketService.onReceiveGroupMessage((message: any) => {
+      const onGroup = (message: any) => {
         const groupId = message.group
         bumpChatOnMessage((list) => {
           const idx = list.findIndex((c) => c.chatType === "group" && c.group?._id === groupId)
@@ -212,7 +220,9 @@ export function ChatsScreen() {
           }
           return { idx, updated }
         })
-      })
+      }
+      socketService.onReceiveGroupMessage(onGroup)
+      groupListenerRef.current = onGroup
 
       socketService.onTyping((data: any) => {
         // direct typing
@@ -257,7 +267,15 @@ export function ChatsScreen() {
     initializeScreen()
 
     return () => {
-      // Ensure listeners are cleared and socket is disconnected on unmount
+      // Remove our chat list listeners if present, then disconnect socket
+      if (directListenerRef.current) {
+        socketService.removeDirectMessageListener(directListenerRef.current)
+        directListenerRef.current = null
+      }
+      if (groupListenerRef.current) {
+        socketService.removeGroupMessageListener(groupListenerRef.current)
+        groupListenerRef.current = null
+      }
       socketService.disconnect()
     }
   }, [])
