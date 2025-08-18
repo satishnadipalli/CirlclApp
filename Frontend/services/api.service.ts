@@ -84,13 +84,14 @@ class ApiService {
     return this.request(`/messages/direct/${withUserId}`)
   }
 
-  async sendDirectMessage(toUserId, text) {
+  async sendDirectMessage(toUserId, text, replyTo) {
     return this.request("/messages", {
       method: "POST",
       body: JSON.stringify({
         to: toUserId,
         text,
         messageType: "direct",
+        replyTo,
       }),
     })
   }
@@ -119,13 +120,14 @@ class ApiService {
     return this.request(`/groups/${groupId}/messages`)
   }
 
-  async sendGroupMessage(groupId, text) {
+  async sendGroupMessage(groupId, text, replyTo) {
     return this.request("/messages", {
       method: "POST",
       body: JSON.stringify({
         group: groupId,
         text,
         messageType: "group",
+        replyTo,
       }),
     })
   }

@@ -6,7 +6,7 @@ const mongoose = require("mongoose")
 // Send message (both direct and group)
 const sendMessage = async (req, res) => {
   try {
-    const { text, to, group, messageType } = req.body
+    const { text, to, group, messageType, replyTo } = req.body
     const from = req.user.id
 
     // Validate message type
@@ -76,8 +76,18 @@ const sendMessage = async (req, res) => {
       })
     }
 
+    // Optional replyTo association
+    if (replyTo && mongoose.Types.ObjectId.isValid(replyTo)) {
+      message.replyTo = replyTo
+    }
+
     await message.save()
     await message.populate("from", "name profilePic")
+    await message.populate({
+      path: "replyTo",
+      select: "text from createdAt",
+      populate: { path: "from", select: "name profilePic" },
+    })
 
     if (messageType === "group") {
       await message.populate("group", "name")
@@ -115,6 +125,11 @@ const getDirectMessages = async (req, res) => {
       ],
     })
       .populate("from to", "name profilePic")
+      .populate({
+        path: "replyTo",
+        select: "text from createdAt",
+        populate: { path: "from", select: "name profilePic" },
+      })
       .sort({ createdAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit)
@@ -218,43 +233,37 @@ const getAllChats = async (req, res) => {
     ])
 
     // Get user's groups with latest messages
-    const groups = await Group.find({
-      members: userId,
-      isActive: true,
-    }).populate("creator", "name profilePic")
-
-    const groupChats = await Promise.all(
-      groups.map(async (group) => {
-        const lastMessage = await Message.findOne({
-          group: group._id,
-          messageType: "group",
-        })
-          .populate("from", "name profilePic")
-          .sort({ createdAt: -1 })
-
-        return {
-          _id: group._id,
-          group: {
-            _id: group._id,
-            name: group.name,
-            groupPic: group.groupPic,
-          },
-          lastMessage,
+    const groupChats = await Group.aggregate([
+      { $match: { members: new mongoose.Types.ObjectId(userId), isActive: true } },
+      { $sort: { updatedAt: -1 } },
+      {
+        $lookup: {
+          from: "messages",
+          let: { groupId: "$_id" },
+          pipeline: [
+            { $match: { $expr: { $and: [{ $eq: ["$group", "$$groupId"] }, { $eq: ["$messageType", "group"] }] } } },
+            { $sort: { createdAt: -1 } },
+            { $limit: 1 },
+          ],
+          as: "lastMessage",
+        },
+      },
+      { $unwind: { path: "$lastMessage", preserveNullAndEmptyArrays: true } },
+      {
+        $project: {
+          _id: "$_id",
+          name: 1,
+          groupPic: 1,
+          memberCount: { $size: "$members" },
+          lastMessage: 1,
           chatType: "group",
-        }
-      }),
-    )
-
-    // Combine and sort by last message time
-    const allChats = [...directChats, ...groupChats].sort((a, b) => {
-      const aTime = a.lastMessage ? new Date(a.lastMessage.createdAt) : new Date(0)
-      const bTime = b.lastMessage ? new Date(b.lastMessage.createdAt) : new Date(0)
-      return bTime - aTime
-    })
+        },
+      },
+    ])
 
     res.status(200).json({
       success: true,
-      chats: allChats,
+      chats: [...directChats, ...groupChats],
     })
   } catch (error) {
     res.status(500).json({

@@ -96,11 +96,18 @@ class SocketService {
     });
 
     this.socket.on("groupTyping", (data) => {
-      this.typingListeners.forEach((listener) => listener(data));
+      const normalized = {
+        from: data?.userId ?? data?.from,
+        name: data?.userName ?? data?.name,
+      };
+      this.typingListeners.forEach((listener) => listener(normalized));
     });
 
     this.socket.on("groupStopTyping", (data) => {
-      this.stopTypingListeners.forEach((listener) => listener(data));
+      const normalized = {
+        from: data?.userId ?? data?.from,
+      };
+      this.stopTypingListeners.forEach((listener) => listener(normalized));
     });
 
     // User status events
@@ -156,8 +163,8 @@ class SocketService {
   }
 
   // direct
-  sendDirectMessage(toUserId, text) {
-    this.socket?.emit("sendMessage", { to: toUserId, text });
+  sendDirectMessage(toUserId, text, replyTo) {
+    this.socket?.emit("sendMessage", { to: toUserId, text, replyTo });
   }
 
   // groups
@@ -167,8 +174,8 @@ class SocketService {
   leaveGroup(groupId) {
     this.socket?.emit("leaveGroup", groupId);
   }
-  sendGroupMessage(groupId, text) {
-    this.socket?.emit("sendGroupMessage", { groupId, text, senderId: this.currentUserId });
+  sendGroupMessage(groupId, text, replyTo) {
+    this.socket?.emit("sendGroupMessage", { groupId, text, senderId: this.currentUserId, replyTo });
   }
 
   // typing (direct)

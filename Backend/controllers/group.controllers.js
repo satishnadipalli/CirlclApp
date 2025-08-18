@@ -328,6 +328,7 @@ const getGroupMessages = async (req, res) => {
       messageType: "group",
     })
       .populate("from", "name profilePic")
+      .populate({ path: "replyTo", select: "text from createdAt", populate: { path: "from", select: "name profilePic" } })
       .sort({ createdAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit)

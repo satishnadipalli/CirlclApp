@@ -34,6 +34,7 @@ interface ChatMessage {
   group?: string
   messageType: "direct" | "group"
   createdAt?: string
+  replyTo?: ChatMessage
 }
 
 interface DateHeader {
@@ -61,6 +62,7 @@ export default function ChatScreen() {
   const [showGroupInfo, setShowGroupInfo] = useState(false)
   const [showScrollToBottom, setShowScrollToBottom] = useState(false)
   const [newMessagesCount, setNewMessagesCount] = useState(0)
+  const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null)
 
   const flatListRef = useRef<FlatList>(null)
   const socketRef = useRef<any>(null)
@@ -182,7 +184,7 @@ export default function ChatScreen() {
             : groupId === params.chatId
 
         if (isRelevantMessage) {
-          const newMessage: ChatMessage = {
+          const baseMessage: ChatMessage = {
             id: msg._id || `socket-${Date.now()}-${Math.random()}`,
             text: msg.text,
             sender: fromUserId === user._id ? "me" : "other",
@@ -193,14 +195,15 @@ export default function ChatScreen() {
             createdAt: msg.createdAt || new Date().toISOString(),
           }
 
-          console.log("[v0] Processing socket message:", newMessage)
+          console.log("[v0] Processing socket message:", baseMessage)
 
           setMessages((prev) => {
             // If we already have this server message, skip
-            const exists = prev.find((m) => m.id === newMessage.id)
+            const exists = prev.find((m) => m.id === baseMessage.id)
             if (exists) return prev
 
             // Merge with a matching local temp message to avoid duplicates
+            let newMessage = baseMessage
             if (newMessage.sender === "me") {
               const idx = prev.findIndex(
                 (m) =>
@@ -213,6 +216,15 @@ export default function ChatScreen() {
                 const next = [...prev]
                 next[idx] = newMessage
                 return next
+              }
+            }
+
+            // Link reply if present and known
+            if (msg.replyTo) {
+              const replyId = typeof msg.replyTo === "object" ? msg.replyTo._id : msg.replyTo
+              const replied = prev.find((m) => m.id === replyId)
+              if (replied) {
+                newMessage = { ...newMessage, replyTo: replied as any }
               }
             }
 
@@ -476,17 +488,17 @@ export default function ChatScreen() {
 
     console.log("[v0] Sending socket message:", messageText)
     if (params.chatType === "direct") {
-      socketService.sendDirectMessage(params.chatId, messageText)
+      socketService.sendDirectMessage(params.chatId, messageText, replyingTo?.id)
     } else {
-      socketService.sendGroupMessage(params.chatId, messageText)
+      socketService.sendGroupMessage(params.chatId, messageText, replyingTo?.id)
     }
 
     try {
       let response
       if (params.chatType === "direct") {
-        response = await apiService.sendDirectMessage(params.chatId, messageText)
+        response = await apiService.sendDirectMessage(params.chatId, messageText, replyingTo?.id)
       } else {
-        response = await apiService.sendGroupMessage(params.chatId, messageText)
+        response = await apiService.sendGroupMessage(params.chatId, messageText, replyingTo?.id)
       }
 
       if (!response.success) {
@@ -499,6 +511,7 @@ export default function ChatScreen() {
       console.error("[v0] Error sending message via API:", error)
       Alert.alert("Error", "Failed to send message. Please try again.")
     }
+    setReplyingTo(null)
   }
 
   const isToday = (date: Date): boolean => {
@@ -646,7 +659,11 @@ export default function ChatScreen() {
     const isMyMessage = message.sender === "me"
 
     return (
-      <View style={[styles.messageRow, isMyMessage ? styles.myMessageRow : styles.otherMessageRow]}>
+      <TouchableOpacity
+        activeOpacity={0.7}
+        onLongPress={() => setReplyingTo(message)}
+        style={[styles.messageRow, isMyMessage ? styles.myMessageRow : styles.otherMessageRow]}
+      >
         {params.chatType === "group" && !isMyMessage && (
           <View style={styles.avatarContainer}>
             {message.from.profilePic ? (
@@ -670,6 +687,20 @@ export default function ChatScreen() {
             <Text style={[styles.senderName, { color: getUserColor(message.from._id) }]}>{message.from.name}</Text>
           )}
 
+          {"replyTo" in (message as any) && (message as any).replyTo && (
+            <View style={styles.replyBubble}>
+              <View style={[styles.replyBar, { backgroundColor: isMyMessage ? "#9bd7a1" : "#bbb" }]} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.replyName}>
+                  {((message as any).replyTo.from?.name) || "Replied"}
+                </Text>
+                <Text style={styles.replyText} numberOfLines={2}>
+                  {(message as any).replyTo.text}
+                </Text>
+              </View>
+            </View>
+          )}
+
           <Text style={[styles.messageText, isMyMessage ? styles.myMessageText : styles.otherMessageText]}>
             {message.text}
           </Text>
@@ -678,7 +709,7 @@ export default function ChatScreen() {
             <Text style={[styles.timeText, isMyMessage ? styles.myTimeText : styles.otherTimeText]}>{messageTime}</Text>
           )}
         </View>
-      </View>
+      </TouchableOpacity>
     )
   }
 
@@ -779,10 +810,11 @@ export default function ChatScreen() {
         status: onlineUsers.has(params.chatId) ? "Online" : "Offline",
       }
     } else {
+      const onlineCount = group?.members?.reduce((acc, m) => acc + (onlineUsers.has(m._id) ? 1 : 0), 0) || 0
       return {
         name: group?.name || "Group Chat",
         avatar: group?.groupPic || "https://i.pravatar.cc/150?img=1",
-        status: `${group?.members.length || 0} members`,
+        status: `${onlineCount} online · ${group?.members.length || 0} members`,
       }
     }
   }
@@ -846,6 +878,18 @@ export default function ChatScreen() {
         )}
 
         <View style={styles.inputContainer}>
+          {replyingTo && (
+            <View style={styles.replyPreview}>
+              <View style={[styles.replyBar, { backgroundColor: "#0095f6" }]} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.replyName}>{replyingTo.from.name}</Text>
+                <Text style={styles.replyText} numberOfLines={1}>{replyingTo.text}</Text>
+              </View>
+              <TouchableOpacity onPress={() => setReplyingTo(null)}>
+                <Icon name="close" size={18} color="#666" />
+              </TouchableOpacity>
+            </View>
+          )}
           <TextInput
             style={styles.input}
             placeholder="Message..."
@@ -1098,6 +1142,45 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 3,
     elevation: 2,
+  },
+  replyPreview: {
+    position: "absolute",
+    left: 16,
+    right: 66,
+    bottom: 56,
+    backgroundColor: "#f2f2f2",
+    borderRadius: 12,
+    padding: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  replyBubble: {
+    borderLeftWidth: 0,
+    backgroundColor: "#e8e8e8",
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    marginBottom: 6,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+  },
+  replyBar: {
+    width: 4,
+    height: "100%",
+    borderRadius: 2,
+    marginRight: 6,
+  },
+  replyName: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 2,
+  },
+  replyText: {
+    fontSize: 12,
+    color: "#555",
   },
   input: {
     flex: 1,

@@ -27,6 +27,10 @@ const messageSchema = new mongoose.Schema(
       enum: ["direct", "group"],
       required: true,
     },
+    replyTo: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Message",
+    },
     isRead: {
       type: Boolean,
       default: false,

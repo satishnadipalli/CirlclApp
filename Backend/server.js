@@ -57,10 +57,11 @@ io.on("connection", (socket) => {
     onlineUsers.set(userId, socket.id);
     socketToUser.set(socket.id, userId);
     console.log("✅ Registered user:", userId, "with socket:", socket.id);
+    io.emit("userStatusChange", { userId, status: "online" });
   });
 
   // Direct messaging
-  socket.on("sendMessage", ({ to, text }) => {
+  socket.on("sendMessage", ({ to, text, replyTo }) => {
     console.log("hi trigering");
     const recipientSocketId = onlineUsers.get(to);
     const fromUserId = socketToUser.get(socket.id);
@@ -76,6 +77,7 @@ io.on("connection", (socket) => {
       text,
       createdAt: new Date(),
       messageType: "direct",
+      replyTo: replyTo || null,
     };
 
     // Debug logs
@@ -96,13 +98,14 @@ io.on("connection", (socket) => {
   });
 
   // Group messaging
-  socket.on("sendGroupMessage", ({ groupId, text, senderId }) => {
+  socket.on("sendGroupMessage", ({ groupId, text, senderId, replyTo }) => {
     const payload = {
       from: senderId,
       group: groupId,
       text,
       createdAt: new Date(),
       messageType: "group",
+      replyTo: replyTo || null,
     };
 
     // Send to everyone in the room except sender
@@ -157,6 +160,7 @@ io.on("connection", (socket) => {
     console.log("User disconnected:", socket.id, reason);
     onlineUsers.delete(userId);
     socketToUser.delete(socket.id);
+    io.emit("userStatusChange", { userId, status: "offline" });
   });
 });
 
