@@ -6,7 +6,7 @@ import { socketService } from "@/services/socket.service"
 import type { Chat } from "@/types/chat.types"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import { useRouter } from "expo-router"
-import { useEffect, useState } from "react"
+import React, { useCallback, useEffect, useState } from "react"
 import { Alert, FlatList, LayoutAnimation, Platform, StyleSheet, Text, TextInput, UIManager, View } from "react-native"
 import { useFocusEffect } from "@react-navigation/native"
 
@@ -218,7 +218,7 @@ export function ChatsScreen() {
   }, [user])
 
   useFocusEffect(
-    React.useCallback(() => {
+    useCallback(() => {
       // when screen regains focus, refresh chats to sync unread from backend
       fetchChats()
       return () => {}
