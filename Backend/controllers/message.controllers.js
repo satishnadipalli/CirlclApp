@@ -175,7 +175,7 @@ const getAllChats = async (req, res) => {
                 {
                   $and: [
                     { $ne: ["$from", new mongoose.Types.ObjectId(userId)] },
-                    { $eq: ["$isRead", false] },
+                    { $ne: ["$isRead", true] },
                   ],
                 },
                 1,
@@ -237,7 +237,11 @@ const getAllChats = async (req, res) => {
                 cond: {
                   $and: [
                     { $ne: ["$$m.from", new mongoose.Types.ObjectId(userId)] },
-                    { $not: { $in: [new mongoose.Types.ObjectId(userId), "$$m.readBy"] } },
+                    {
+                      $not: {
+                        $in: [new mongoose.Types.ObjectId(userId), { $ifNull: ["$$m.readBy", []] }],
+                      },
+                    },
                   ],
                 },
               },
