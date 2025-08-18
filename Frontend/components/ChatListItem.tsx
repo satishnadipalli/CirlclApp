@@ -3,7 +3,7 @@
 import type { Chat } from "@/types/chat.types"
 import { useRouter } from "expo-router"
 import type React from "react"
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native"
+import { StyleSheet, Text, View } from "react-native"
 import { Avatar, Badge, List } from "react-native-paper"
 
 interface ChatListItemProps {
@@ -78,21 +78,20 @@ export const ChatListItem: React.FC<ChatListItemProps> = ({ chat, currentUserId,
   }
 
   return (
-    <TouchableOpacity onPress={handlePress}>
-      <List.Item
-        title={chatInfo.name}
-        description={typingText && typingText.length > 0 ? typingText : chatInfo.lastMessage}
-        descriptionStyle={typingText && typingText.length > 0 ? styles.typingDescription : undefined}
-        left={() => <Avatar.Image size={50} source={{ uri: chatInfo.avatar }} />}
-        right={() => (
-          <View style={styles.rightContainer}>
-            <Text style={styles.timeText}>{time}</Text>
-            {chat.unreadCount && chat.unreadCount > 0 && <Badge size={20}>{chat.unreadCount}</Badge>}
-          </View>
-        )}
-        style={styles.listItem}
-      />
-    </TouchableOpacity>
+    <List.Item
+      title={chatInfo.name}
+      description={typingText && typingText.length > 0 ? typingText : chatInfo.lastMessage}
+      descriptionStyle={typingText && typingText.length > 0 ? styles.typingDescription : undefined}
+      onPress={handlePress}
+      left={() => <Avatar.Image size={50} source={{ uri: chatInfo.avatar }} />}
+      right={() => (
+        <View style={styles.rightContainer}>
+          <Text style={styles.timeText}>{time}</Text>
+          {chat.unreadCount && chat.unreadCount > 0 && <Badge size={20}>{String(chat.unreadCount)}</Badge>}
+        </View>
+      )}
+      style={styles.listItem}
+    />
   )
 }
 
