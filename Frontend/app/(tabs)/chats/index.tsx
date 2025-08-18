@@ -78,16 +78,18 @@ export function ChatsScreen() {
     setChats((prev) => {
       const res = updater(prev)
       if (!res) return prev
-      const list = [...prev]
+      let list = [...prev]
       LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut)
       if ((res as any).insert) {
         list.unshift((res as any).insert)
-        return list
+      } else {
+        const { idx, updated } = res as any
+        if (idx < 0) return prev
+        list.splice(idx, 1)
+        list.unshift(updated)
       }
-      const { idx, updated } = res as any
-      if (idx < 0) return prev
-      list.splice(idx, 1)
-      list.unshift(updated)
+      // Always resort by latest message time
+      list = sortChats(list)
       return list
     })
   }
@@ -102,7 +104,7 @@ export function ChatsScreen() {
         const peerId = message.from === user._id ? message.to : message.from
         bumpChatOnMessage((list) => {
           const idx = list.findIndex((c) => c.chatType === "direct" && ((c.user || c.participant)?._id === peerId))
-          const createdAt = message.createdAt || new Date().toISOString()
+          const createdAt = (message.createdAt && typeof message.createdAt === 'string') ? message.createdAt : new Date().toISOString()
           if (idx === -1) {
             // create a minimal chat so it appears immediately
             return {
@@ -132,7 +134,7 @@ export function ChatsScreen() {
         const groupId = message.group
         bumpChatOnMessage((list) => {
           const idx = list.findIndex((c) => c.chatType === "group" && c.group?._id === groupId)
-          const createdAt = message.createdAt || new Date().toISOString()
+          const createdAt = (message.createdAt && typeof message.createdAt === 'string') ? message.createdAt : new Date().toISOString()
           if (idx === -1) {
             return {
               insert: {
