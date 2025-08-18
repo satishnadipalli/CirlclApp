@@ -91,6 +91,7 @@ export function ChatsScreen() {
   }
 
   const ensureGroupInfo = async (groupId: string) => {
+    if (!groupId) return
     try {
       const res = await apiService.getGroupInfo(groupId)
       if (!res?.success) return
@@ -168,7 +169,7 @@ export function ChatsScreen() {
           const fromName = message.from === user._id ? "You" : ""
           if (idx === -1) {
             // create minimal and fetch group info to fill name
-            ensureGroupInfo(groupId)
+            if (groupId) ensureGroupInfo(groupId)
             return {
               insert: {
                 chatType: "group",
