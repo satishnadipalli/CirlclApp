@@ -53,20 +53,9 @@ export default function TabLayout() {
         }}
       />
 
-
-
-
+      {/* Chats tab must match the folder `(tabs)/chats` */}
       <Tabs.Screen
-        name="profile"
-        options={{
-          tabBarIcon: ({ color }) => (
-            <Ionicons name="person" size={28} color={color} />
-          ),
-        }}
-      />
-
-      <Tabs.Screen
-        name="chats/index"  // This must match the folder `(tabs)/chats`
+        name="chats/index"
         options={{
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="chatbubble-outline" size={28} color={color} />
