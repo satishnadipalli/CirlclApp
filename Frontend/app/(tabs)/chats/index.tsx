@@ -11,7 +11,7 @@ import { Alert, FlatList, StyleSheet, Text, TextInput, View } from "react-native
 
 export function ChatsScreen() {
   const [search, setSearch] = useState("")
-  const [chats, setChats] = useState<Chat[]>([])
+  const [chats, setChats] = useState<Chat[]>([] as any)
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState<User | null>(null)
   const router = useRouter()
@@ -54,10 +54,10 @@ export function ChatsScreen() {
       const chatsArray = chatsData?.chats || []
       console.log("[v0] Extracted chats array:", chatsArray)
 
-      setChats(Array.isArray(chatsArray) ? chatsArray : [])
+      setChats(Array.isArray(chatsArray) ? (chatsArray as any) : [])
     } catch (err) {
       console.error("Error fetching chats:", err)
-      setChats([])
+      setChats([] as any)
     } finally {
       setLoading(false)
     }
@@ -113,19 +113,24 @@ export function ChatsScreen() {
     }
   }, [user])
 
-  const filteredChats = (chats || []).filter((chat) => {
+  const filteredChats = (chats || []).filter((chat: any) => {
     const searchTerm = search.toLowerCase()
     if (chat.chatType === "direct") {
-      return chat.user?.name?.toLowerCase().includes(searchTerm) || false
+      const participant = chat.user || chat.participant
+      return participant?.name?.toLowerCase().includes(searchTerm) || false
     } else {
       return chat.group?.name?.toLowerCase().includes(searchTerm) || false
     }
   })
 
-  const renderItem = ({ item }: { item: Chat }) => <ChatListItem chat={item} currentUserId={user?._id || ""} />
+  const renderItem = ({ item }: { item: any }) => (
+    <ChatListItem chat={item as any} currentUserId={user?._id || ""} />
+  )
 
-  const getItemKey = (item: Chat) => {
-    return item.chatType === "direct" ? `direct_${item.user._id}` : `group_${item.group._id}`
+  const getItemKey = (item: any) => {
+    return item.chatType === "direct"
+      ? `direct_${(item.user || item.participant)?._id}`
+      : `group_${item.group?._id}`
   }
 
   return (

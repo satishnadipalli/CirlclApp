@@ -483,6 +483,7 @@ export default function ChatScreen() {
       group: params.chatType === "group" ? params.chatId : undefined,
       messageType: params.chatType,
       createdAt: new Date().toISOString(),
+      replyTo: replyingTo || undefined,
     }
     setMessages((prev) => [...prev, tempMessage])
 

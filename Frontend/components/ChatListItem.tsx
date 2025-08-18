@@ -7,7 +7,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native"
 import { Avatar, Badge, List } from "react-native-paper"
 
 interface ChatListItemProps {
-  chat: Chat
+  chat: any
   currentUserId: string
 }
 
@@ -16,7 +16,8 @@ export const ChatListItem: React.FC<ChatListItemProps> = ({ chat, currentUserId 
 
   const getChatInfo = () => {
     if (chat.chatType === "direct") {
-      if (!chat.user) {
+      const participant = chat.user || chat.participant
+      if (!participant) {
         return {
           name: "Unknown User",
           avatar: "https://i.pravatar.cc/150?u=unknown",
@@ -27,10 +28,10 @@ export const ChatListItem: React.FC<ChatListItemProps> = ({ chat, currentUserId 
       }
 
       return {
-        name: chat.user.name || "Unknown User",
-        avatar: chat.user.profilePic || `https://i.pravatar.cc/150?u=${chat.user._id}`,
+        name: participant.name || "Unknown User",
+        avatar: participant.profilePic || `https://i.pravatar.cc/150?u=${participant._id}`,
         lastMessage: chat.lastMessage?.text || "No messages yet",
-        chatId: chat.user._id,
+        chatId: participant._id,
         chatType: "direct" as const,
       }
     } else {

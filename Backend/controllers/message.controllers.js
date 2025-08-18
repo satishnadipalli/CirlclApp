@@ -251,11 +251,14 @@ const getAllChats = async (req, res) => {
       { $unwind: { path: "$lastMessage", preserveNullAndEmptyArrays: true } },
       {
         $project: {
-          _id: "$_id",
-          name: 1,
-          groupPic: 1,
-          memberCount: { $size: "$members" },
-          lastMessage: 1,
+          _id: 0,
+          group: {
+            _id: "$_id",
+            name: "$name",
+            groupPic: "$groupPic",
+            members: "$members",
+          },
+          lastMessage: "$lastMessage",
           chatType: "group",
         },
       },
