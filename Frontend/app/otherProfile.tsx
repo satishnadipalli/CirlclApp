@@ -51,7 +51,7 @@ export default function ProfileScreen() {
         return
       }
 
-      const response = await fetch(`http://192.168.171.127:5000/api/users/${userId}/follow`, {
+      const response = await fetch(`http://192.168.53.127:5000/api/users/${userId}/follow`, {
         method: isFollowing ? "DELETE" : "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -123,7 +123,7 @@ export default function ProfileScreen() {
         socket.disconnect()
       }
 
-      const socketInstance = io("http://192.168.171.127:5000", {
+      const socketInstance = io("http://192.168.53.127:5000", {
         auth: { token },
       })
 
@@ -176,7 +176,7 @@ export default function ProfileScreen() {
       const token = await AsyncStorage.getItem("token")
       if (!token) return null
 
-      const response = await fetch("http://192.168.171.127:5000/api/users/me", {
+      const response = await fetch("http://192.168.53.127:5000/api/users/me", {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
@@ -203,8 +203,8 @@ export default function ProfileScreen() {
       }
 
       const endpoint = targetUserId
-        ? `http://192.168.171.127:5000/api/users/${targetUserId}`
-        : "http://192.168.171.127:5000/api/users/me"
+        ? `http://192.168.53.127:5000/api/users/${targetUserId}`
+        : "http://192.168.53.127:5000/api/users/me"
 
       const response = await fetch(endpoint, {
         headers: {
@@ -242,9 +242,9 @@ export default function ProfileScreen() {
 
       let endpoint
       if (userId && userId !== currentUser?._id) {
-        endpoint = `http://192.168.171.127:5000/api/posts?userId=${userId}&page=${page}&limit=10&t=${Date.now()}`
+        endpoint = `http://192.168.53.127:5000/api/posts?userId=${userId}&page=${page}&limit=10&t=${Date.now()}`
       } else {
-        endpoint = `http://192.168.171.127:5000/api/posts/me?page=${page}&limit=10&t=${Date.now()}`
+        endpoint = `http://192.168.53.127:5000/api/posts/me?page=${page}&limit=10&t=${Date.now()}`
       }
 
       console.log("[v0] Fetching posts from:", endpoint)
@@ -314,7 +314,7 @@ export default function ProfileScreen() {
       const token = await AsyncStorage.getItem("token")
       if (!token || !currentUser) return
 
-      const endpoint = `http://192.168.171.127:5000/api/posts/me?page=1&limit=100&t=${Date.now()}`
+      const endpoint = `http://192.168.53.127:5000/api/posts/me?page=1&limit=100&t=${Date.now()}`
 
       console.log("[v0] Fetching mentioned posts from:", endpoint)
 

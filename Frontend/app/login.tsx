@@ -20,7 +20,7 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
 
   // Local network backend API
-  const API_URL = "http://192.168.171.127:5000/api/users/login";
+  const API_URL = "http://192.168.53.127:5000/api/users/login";
 
   const handleLogin = async () => {
     if (!email || !password) {
