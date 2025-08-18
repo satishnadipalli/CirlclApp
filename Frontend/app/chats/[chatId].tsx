@@ -59,6 +59,8 @@ export default function ChatScreen() {
   const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set())
   const [isUserAtBottom, setIsUserAtBottom] = useState(true)
   const [showGroupInfo, setShowGroupInfo] = useState(false)
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false)
+  const [newMessagesCount, setNewMessagesCount] = useState(0)
 
   const flatListRef = useRef<FlatList>(null)
   const socketRef = useRef<any>(null)
@@ -70,6 +72,7 @@ export default function ChatScreen() {
   const typingListenerRef = useRef<((data: any) => void) | null>(null)
   const stopTypingListenerRef = useRef<((data: any) => void) | null>(null)
   const userStatusListenerRef = useRef<((data: any) => void) | null>(null)
+  const isUserAtBottomRef = useRef<boolean>(true)
   const router = useRouter()
   const params = useLocalSearchParams() as unknown as ChatParams
 
@@ -213,9 +216,16 @@ export default function ChatScreen() {
               }
             }
 
-            return [...prev, newMessage].sort(
+            const nextMessages = [...prev, newMessage].sort(
               (a, b) => new Date(a.createdAt || "").getTime() - new Date(b.createdAt || "").getTime(),
             )
+
+            if (!isUserAtBottomRef.current && newMessage.sender !== "me") {
+              setNewMessagesCount((c) => c + 1)
+              setShowScrollToBottom(true)
+            }
+
+            return nextMessages
           })
         }
       }
@@ -236,7 +246,7 @@ export default function ChatScreen() {
                   ...prev,
                   {
                     _id: fromUserId,
-                    name: data.name || "Unknown User",
+                    name: data.name || otherUserRef.current?.name || (params as any).chatName || "Someone",
                   },
                 ]
               }
@@ -274,7 +284,7 @@ export default function ChatScreen() {
                   ...prev,
                   {
                     _id: fromUserId,
-                    name: data.name || "Unknown User",
+                    name: data.name || groupRef.current?.members.find((m) => m._id === fromUserId)?.name || "Someone",
                   },
                 ]
               }
@@ -572,10 +582,6 @@ export default function ChatScreen() {
   }, [])
 
   useEffect(() => {
-    flatListRef.current?.scrollToEnd({ animated: true })
-  }, [messages])
-
-  useEffect(() => {
     if (typingUsers.length > 0 && isUserAtBottom) {
       setTimeout(() => {
         flatListRef.current?.scrollToEnd({ animated: true })
@@ -583,10 +589,23 @@ export default function ChatScreen() {
     }
   }, [typingUsers, isUserAtBottom])
 
+  useEffect(() => {
+    if (isUserAtBottom) {
+      flatListRef.current?.scrollToEnd({ animated: true })
+      setShowScrollToBottom(false)
+      setNewMessagesCount(0)
+    }
+  }, [messages, isUserAtBottom])
+
   const handleScroll = (event: any) => {
     const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent
     const isAtBottom = contentOffset.y + layoutMeasurement.height >= contentSize.height - 50
     setIsUserAtBottom(isAtBottom)
+    isUserAtBottomRef.current = isAtBottom
+    if (isAtBottom) {
+      setShowScrollToBottom(false)
+      setNewMessagesCount(0)
+    }
   }
 
   const getUserInitials = (name: string): string => {
@@ -813,6 +832,19 @@ export default function ChatScreen() {
           }}
         />
 
+        {showScrollToBottom && (
+          <TouchableOpacity style={styles.scrollToBottomButton} onPress={() => {
+            flatListRef.current?.scrollToEnd({ animated: true })
+            setShowScrollToBottom(false)
+            setNewMessagesCount(0)
+            setIsUserAtBottom(true)
+            isUserAtBottomRef.current = true
+          }}>
+            <Icon name="arrow-downward" size={20} color="#fff" />
+            {newMessagesCount > 0 && <Text style={styles.scrollToBottomText}>{newMessagesCount}</Text>}
+          </TouchableOpacity>
+        )}
+
         <View style={styles.inputContainer}>
           <TextInput
             style={styles.input}
@@ -964,6 +996,28 @@ const styles = StyleSheet.create({
   },
   typingIndicatorInList: {
     padding: 10,
+  },
+  scrollToBottomButton: {
+    position: "absolute",
+    right: 16,
+    bottom: 70,
+    backgroundColor: "#0095f6",
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 3,
+  },
+  scrollToBottomText: {
+    color: "#fff",
+    marginLeft: 6,
+    fontWeight: "bold",
   },
   modalContainer: {
     flex: 1,
