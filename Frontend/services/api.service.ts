@@ -96,6 +96,14 @@ class ApiService {
     })
   }
 
+  async markDirectRead(peerId) {
+    return this.request(`/messages/direct/${peerId}/read`, { method: "POST" })
+  }
+
+  async markGroupRead(groupId) {
+    return this.request(`/messages/group/${groupId}/read`, { method: "POST" })
+  }
+
   // Group Methods
   async createGroup(name, description, memberIds) {
     return this.request("/groups", {

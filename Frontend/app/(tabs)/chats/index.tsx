@@ -8,6 +8,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage"
 import { useRouter } from "expo-router"
 import { useEffect, useState } from "react"
 import { Alert, FlatList, LayoutAnimation, Platform, StyleSheet, Text, TextInput, UIManager, View } from "react-native"
+import { useFocusEffect } from "@react-navigation/native"
 
 export function ChatsScreen() {
   const [search, setSearch] = useState("")
@@ -112,6 +113,7 @@ export function ChatsScreen() {
                 chatType: "direct",
                 user: { _id: peerId, name: "", profilePic: "" },
                 lastMessage: { text: message.text, createdAt, from: { name: message.from === user._id ? "You" : "" } },
+                unreadCount: message.from !== user._id ? 1 : 0,
               },
             }
           }
@@ -125,6 +127,7 @@ export function ChatsScreen() {
               createdAt,
               from: { name: fromName },
             },
+            unreadCount: (message.from !== user._id) ? ((chat.unreadCount || 0) + 1) : (chat.unreadCount || 0),
           }
           return { idx, updated }
         })
@@ -141,6 +144,7 @@ export function ChatsScreen() {
                 chatType: "group",
                 group: { _id: groupId, name: "", groupPic: "" },
                 lastMessage: { text: message.text, createdAt, from: { name: "" } },
+                unreadCount: 1,
               },
             }
           }
@@ -153,6 +157,7 @@ export function ChatsScreen() {
               createdAt,
               from: { name: "" },
             },
+            unreadCount: (chat.unreadCount || 0) + 1,
           }
           return { idx, updated }
         })
@@ -211,6 +216,14 @@ export function ChatsScreen() {
       setupRealTimeUpdates()
     }
   }, [user])
+
+  useFocusEffect(
+    React.useCallback(() => {
+      // when screen regains focus, refresh chats to sync unread from backend
+      fetchChats()
+      return () => {}
+    }, [])
+  )
 
   const filteredChats = (chats || []).filter((chat: any) => {
     const searchTerm = search.toLowerCase()

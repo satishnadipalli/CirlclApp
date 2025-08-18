@@ -609,6 +609,12 @@ export default function ChatScreen() {
   useEffect(() => {
     const processedItems = processMessagesWithDates(messages)
     setChatItems(processedItems)
+    // mark read when we are at bottom and there are messages
+    if (currentUser && params.chatId && params.chatType === "direct") {
+      apiService.markDirectRead(params.chatId).catch(() => {})
+    } else if (params.chatType === "group") {
+      apiService.markGroupRead(params.chatId).catch(() => {})
+    }
   }, [messages])
 
   useEffect(() => {

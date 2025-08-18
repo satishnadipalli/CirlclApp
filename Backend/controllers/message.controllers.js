@@ -42,6 +42,7 @@ const sendMessage = async (req, res) => {
         to,
         text,
         messageType: "direct",
+        readBy: [from],
       })
     } else {
       // Group message validation
@@ -73,6 +74,7 @@ const sendMessage = async (req, res) => {
         group,
         text,
         messageType: "group",
+        readBy: [from],
       })
     }
 
@@ -159,15 +161,28 @@ const getAllChats = async (req, res) => {
           $or: [{ from: new mongoose.Types.ObjectId(userId) }, { to: new mongoose.Types.ObjectId(userId) }],
         },
       },
-      {
-        $sort: { createdAt: -1 },
-      },
+      { $sort: { createdAt: -1 } },
       {
         $group: {
           _id: {
             $cond: [{ $eq: ["$from", new mongoose.Types.ObjectId(userId)] }, "$to", "$from"],
           },
           lastMessage: { $first: "$$ROOT" },
+          total: { $sum: 1 },
+          unread: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $ne: ["$from", new mongoose.Types.ObjectId(userId)] },
+                    { $eq: ["$isRead", false] },
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
+          },
         },
       },
       {
@@ -178,64 +193,26 @@ const getAllChats = async (req, res) => {
           as: "user",
         },
       },
-      {
-        $unwind: "$user",
-      },
-      {
-        $lookup: {
-          from: "users",
-          localField: "lastMessage.from",
-          foreignField: "_id",
-          as: "lastMessage.from",
-        },
-      },
-      {
-        $lookup: {
-          from: "users",
-          localField: "lastMessage.to",
-          foreignField: "_id",
-          as: "lastMessage.to",
-        },
-      },
-      {
-        $unwind: "$lastMessage.from",
-      },
-      {
-        $unwind: "$lastMessage.to",
-      },
+      { $unwind: "$user" },
       {
         $project: {
-          _id: 1,
-          user: {
-            _id: "$user._id",
-            name: "$user.name",
-            profilePic: "$user.profilePic",
-          },
+          _id: 0,
+          user: { _id: "$user._id", name: "$user.name", profilePic: "$user.profilePic" },
           lastMessage: {
             _id: "$lastMessage._id",
-            from: {
-              _id: "$lastMessage.from._id",
-              name: "$lastMessage.from.name",
-              profilePic: "$lastMessage.from.profilePic",
-            },
-            to: {
-              _id: "$lastMessage.to._id",
-              name: "$lastMessage.to.name",
-              profilePic: "$lastMessage.to.profilePic",
-            },
+            from: "$lastMessage.from",
+            to: "$lastMessage.to",
             text: "$lastMessage.text",
             createdAt: "$lastMessage.createdAt",
-            isRead: "$lastMessage.isRead",
           },
+          unreadCount: "$unread",
           chatType: "direct",
         },
       },
     ])
 
-    // Get user's groups with latest messages
     const groupChats = await Group.aggregate([
       { $match: { members: new mongoose.Types.ObjectId(userId), isActive: true } },
-      { $sort: { updatedAt: -1 } },
       {
         $lookup: {
           from: "messages",
@@ -243,22 +220,29 @@ const getAllChats = async (req, res) => {
           pipeline: [
             { $match: { $expr: { $and: [{ $eq: ["$group", "$$groupId"] }, { $eq: ["$messageType", "group"] }] } } },
             { $sort: { createdAt: -1 } },
-            { $limit: 1 },
           ],
-          as: "lastMessage",
+          as: "messages",
         },
       },
-      { $unwind: { path: "$lastMessage", preserveNullAndEmptyArrays: true } },
       {
         $project: {
           _id: 0,
-          group: {
-            _id: "$_id",
-            name: "$name",
-            groupPic: "$groupPic",
-            members: "$members",
+          group: { _id: "$_id", name: "$name", groupPic: "$groupPic" },
+          lastMessage: { $arrayElemAt: ["$messages", 0] },
+          unreadCount: {
+            $size: {
+              $filter: {
+                input: "$messages",
+                as: "m",
+                cond: {
+                  $and: [
+                    { $ne: ["$$m.from", new mongoose.Types.ObjectId(userId)] },
+                    { $not: { $in: [new mongoose.Types.ObjectId(userId), "$$m.readBy"] } },
+                  ],
+                },
+              },
+            },
           },
-          lastMessage: "$lastMessage",
           chatType: "group",
         },
       },
@@ -277,8 +261,40 @@ const getAllChats = async (req, res) => {
   }
 }
 
+// Mark messages as read in a direct chat
+const markDirectRead = async (req, res) => {
+  try {
+    const userId = req.user.id
+    const { peerId } = req.params
+    await Message.updateMany(
+      { messageType: "direct", from: peerId, to: userId, isRead: false },
+      { $set: { isRead: true }, $addToSet: { readBy: userId } },
+    )
+    res.json({ success: true })
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message })
+  }
+}
+
+// Mark messages as read in a group
+const markGroupRead = async (req, res) => {
+  try {
+    const userId = req.user.id
+    const { groupId } = req.params
+    await Message.updateMany(
+      { messageType: "group", group: groupId, from: { $ne: userId } },
+      { $addToSet: { readBy: userId } },
+    )
+    res.json({ success: true })
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message })
+  }
+}
+
 module.exports = {
   sendMessage,
   getDirectMessages,
   getAllChats,
+  markDirectRead,
+  markGroupRead,
 }
