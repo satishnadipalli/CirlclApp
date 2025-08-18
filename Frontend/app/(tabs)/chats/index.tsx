@@ -294,7 +294,13 @@ export function ChatsScreen() {
     useCallback(() => {
       // when screen regains focus, refresh chats to sync unread from backend
       fetchChats()
-      return () => {}
+      // Also start a lightweight poll as a robustness fallback in case sockets drop
+      const intervalId = setInterval(() => {
+        fetchChats()
+      }, 5000)
+      return () => {
+        clearInterval(intervalId)
+      }
     }, [])
   )
 
