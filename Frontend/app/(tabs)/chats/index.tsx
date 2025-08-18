@@ -7,7 +7,7 @@ import type { Chat } from "@/types/chat.types"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import { useRouter } from "expo-router"
 import { useEffect, useState } from "react"
-import { Alert, FlatList, StyleSheet, Text, TextInput, View } from "react-native"
+import { Alert, FlatList, LayoutAnimation, Platform, StyleSheet, Text, TextInput, UIManager, View } from "react-native"
 
 export function ChatsScreen() {
   const [search, setSearch] = useState("")
@@ -16,6 +16,12 @@ export function ChatsScreen() {
   const [user, setUser] = useState<User | null>(null)
   const [typingState, setTypingState] = useState<Record<string, string>>({}) // key: chatId, value: text
   const router = useRouter()
+
+  useEffect(() => {
+    if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
+      UIManager.setLayoutAnimationEnabledExperimental(true)
+    }
+  }, [])
 
   const loadUserFromStorage = async () => {
     try {
@@ -68,14 +74,64 @@ export function ChatsScreen() {
     }
   }
 
+  const bumpChatOnMessage = (updater: (list: any[]) => { idx: number; updated: any } | null) => {
+    setChats((prev) => {
+      const res = updater(prev)
+      if (!res) return prev
+      const list = [...prev]
+      const { idx, updated } = res
+      if (idx < 0) return prev
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut)
+      list.splice(idx, 1)
+      list.unshift({ ...list[0], ...updated }) // ensure object shape
+      return list
+    })
+  }
+
   const setupRealTimeUpdates = async () => {
     try {
       if (!user) return
       await socketService.connect()
       socketService.registerUser(user._id)
 
-      socketService.onReceiveDirectMessage(() => fetchChats())
-      socketService.onReceiveGroupMessage(() => fetchChats())
+      socketService.onReceiveDirectMessage((message: any) => {
+        const peerId = message.from === user._id ? message.to : message.from
+        bumpChatOnMessage((list) => {
+          const idx = list.findIndex((c) => c.chatType === "direct" && ((c.user || c.participant)?._id === peerId))
+          if (idx === -1) return null
+          const chat = list[idx]
+          const fromName = message.from === user._id ? "You" : (chat.user || chat.participant)?.name || ""
+          const updated = {
+            ...chat,
+            lastMessage: {
+              ...(chat.lastMessage || {}),
+              text: message.text,
+              createdAt: message.createdAt || new Date().toISOString(),
+              from: { name: fromName },
+            },
+          }
+          return { idx, updated }
+        })
+      })
+
+      socketService.onReceiveGroupMessage((message: any) => {
+        const groupId = message.group
+        bumpChatOnMessage((list) => {
+          const idx = list.findIndex((c) => c.chatType === "group" && c.group?._id === groupId)
+          if (idx === -1) return null
+          const chat = list[idx]
+          const updated = {
+            ...chat,
+            lastMessage: {
+              ...(chat.lastMessage || {}),
+              text: message.text,
+              createdAt: message.createdAt || new Date().toISOString(),
+              from: { name: "" },
+            },
+          }
+          return { idx, updated }
+        })
+      })
 
       socketService.onTyping((data: any) => {
         // direct typing
