@@ -60,7 +60,7 @@ export const ChatListItem: React.FC<ChatListItemProps> = ({ chat, currentUserId,
   }
 
   const chatInfo = getChatInfo()
-  const time = chat.lastMessage
+  const time = chat.lastMessage && chat.lastMessage.createdAt
     ? new Date(chat.lastMessage.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
     : ""
 
@@ -87,7 +87,7 @@ export const ChatListItem: React.FC<ChatListItemProps> = ({ chat, currentUserId,
       right={() => (
         <View style={styles.rightContainer}>
           <Text style={styles.timeText}>{time}</Text>
-          {chat.unreadCount && chat.unreadCount > 0 && <Badge size={20}>{String(chat.unreadCount)}</Badge>}
+          {chat.unreadCount && chat.unreadCount > 0 ? <Badge size={20}>{String(chat.unreadCount)}</Badge> : null}
         </View>
       )}
       style={styles.listItem}

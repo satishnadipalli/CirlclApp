@@ -10,6 +10,8 @@ class SocketService {
     this.reconnectDelay = 1000;
 
     this.messageListeners = [];
+    this.directMessageListeners = [];
+    this.groupMessageListeners = [];
     this.typingListeners = [];
     this.stopTypingListeners = [];
     this.userStatusListeners = [];
@@ -78,12 +80,18 @@ class SocketService {
     // Message events
     this.socket.on("receiveDirectMessage", (message) => {
       console.log("[v0] Received direct message:", message);
+      // Generic listeners (used by chat detail screen)
       this.messageListeners.forEach((listener) => listener(message));
+      // Direct-only listeners (used by chat list screen)
+      this.directMessageListeners.forEach((listener) => listener(message));
     });
 
     this.socket.on("receiveGroupMessage", (message) => {
       console.log("[v0] Received group message:", message);
+      // Generic listeners (used by chat detail screen)
       this.messageListeners.forEach((listener) => listener(message));
+      // Group-only listeners (used by chat list screen)
+      this.groupMessageListeners.forEach((listener) => listener(message));
     });
 
     // Typing events
@@ -149,6 +157,8 @@ class SocketService {
       this.socket.disconnect();
       this.socket = null;
       this.isConnected = false;
+      // Clear all listeners to avoid duplicate callbacks on next mount
+      this.clearAllListeners();
     }
   }
 
@@ -211,6 +221,15 @@ class SocketService {
     this.messageListeners.push(callback);
   }
 
+  // Chat list specific listeners
+  onReceiveDirectMessage(callback) {
+    this.directMessageListeners.push(callback);
+  }
+
+  onReceiveGroupMessage(callback) {
+    this.groupMessageListeners.push(callback);
+  }
+
   onTyping(callback) {
     this.typingListeners.push(callback);
   }
@@ -271,6 +290,8 @@ class SocketService {
   // Clear all listeners
   clearAllListeners() {
     this.messageListeners = [];
+    this.directMessageListeners = [];
+    this.groupMessageListeners = [];
     this.typingListeners = [];
     this.stopTypingListeners = [];
     this.userStatusListeners = [];

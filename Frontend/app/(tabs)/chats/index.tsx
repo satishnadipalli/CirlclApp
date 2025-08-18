@@ -66,7 +66,24 @@ export function ChatsScreen() {
 
       const chatsData = await apiService.getChats()
       const chatsArray = Array.isArray(chatsData?.chats) ? (chatsData.chats as any[]) : []
-      setChats(sortChats(chatsArray))
+      // Normalize structures to a consistent shape
+      const normalized = chatsArray.map((c) => {
+        if (c.chatType === "direct") {
+          return {
+            chatType: "direct",
+            user: c.user || c.participant,
+            lastMessage: c.lastMessage,
+            unreadCount: c.unreadCount || 0,
+          }
+        }
+        return {
+          chatType: "group",
+          group: c.group,
+          lastMessage: c.lastMessage,
+          unreadCount: c.unreadCount || 0,
+        }
+      })
+      setChats(sortChats(normalized))
     } catch (err) {
       console.error("Error fetching chats:", err)
       setChats([])
@@ -76,14 +93,15 @@ export function ChatsScreen() {
   }
 
   const ensureDirectPeerInfo = async (peerId: string) => {
+    if (!peerId) return
     try {
       const res = await apiService.getUserProfile(peerId)
       if (!res?.success) return
-      const peer = res
+      const peer = (res.user || res.data || res) as any
       setChats((prev) =>
         prev.map((c) =>
           c.chatType === "direct" && (c.user || c.participant)?._id === peerId
-            ? { ...c, user: { _id: peerId, name: peer.name || peer.data?.name || "", profilePic: peer.profilePic || peer.data?.profilePic || "" } }
+            ? { ...c, user: { _id: peerId, name: peer.name || "", profilePic: peer.profilePic || "" } }
             : c,
         ),
       )
@@ -127,6 +145,7 @@ export function ChatsScreen() {
       await socketService.connect()
       socketService.registerUser(user._id)
 
+      // Ensure we only handle direct messages here
       socketService.onReceiveDirectMessage((message: any) => {
         const peerId = message.from === user._id ? message.to : message.from
         bumpChatOnMessage((list) => {
@@ -161,6 +180,7 @@ export function ChatsScreen() {
         })
       })
 
+      // Ensure we only handle group messages here
       socketService.onReceiveGroupMessage((message: any) => {
         const groupId = message.group
         bumpChatOnMessage((list) => {
@@ -237,6 +257,7 @@ export function ChatsScreen() {
     initializeScreen()
 
     return () => {
+      // Ensure listeners are cleared and socket is disconnected on unmount
       socketService.disconnect()
     }
   }, [])
@@ -244,7 +265,10 @@ export function ChatsScreen() {
   useEffect(() => {
     if (user) {
       fetchChats()
-      setupRealTimeUpdates()
+      // Avoid re-registering socket listeners if already connected
+      if (!socketService.isSocketConnected()) {
+        setupRealTimeUpdates()
+      }
     }
   }, [user])
 
@@ -274,7 +298,7 @@ export function ChatsScreen() {
       <ChatListItem
         chat={item as any}
         currentUserId={user?._id || ""}
-        typingText={typingText}
+        typingText={typingText || ""}
       />
     )
   }

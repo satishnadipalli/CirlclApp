@@ -108,7 +108,7 @@ export default function ChatScreen() {
         if (params.chatType === "direct" && params.chatId) {
           const seededOther: User = {
             _id: params.chatId,
-            name: (params as any).chatName || "",
+            name: (params as any).name || (params as any).chatName || "",
             profilePic: "",
           }
           setOtherUser((prev) => prev ?? seededOther)
@@ -826,7 +826,7 @@ export default function ChatScreen() {
                     <Text style={styles.memberName}>{member.name}</Text>
                     <Text style={styles.memberStatus}>
                       {onlineUsers.has(member._id) ? "Online" : "Offline"}
-                      {group.admins.includes(member._id) && " • Admin"}
+                      {group.admins.includes(member._id) ? " • Admin" : ""}
                     </Text>
                   </View>
                 </View>
