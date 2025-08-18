@@ -74,16 +74,20 @@ export function ChatsScreen() {
     }
   }
 
-  const bumpChatOnMessage = (updater: (list: any[]) => { idx: number; updated: any } | null) => {
+  const bumpChatOnMessage = (updater: (list: any[]) => { idx: number; updated: any } | { insert: any } | null) => {
     setChats((prev) => {
       const res = updater(prev)
       if (!res) return prev
       const list = [...prev]
-      const { idx, updated } = res
-      if (idx < 0) return prev
       LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut)
+      if ((res as any).insert) {
+        list.unshift((res as any).insert)
+        return list
+      }
+      const { idx, updated } = res as any
+      if (idx < 0) return prev
       list.splice(idx, 1)
-      list.unshift({ ...list[0], ...updated }) // ensure object shape
+      list.unshift(updated)
       return list
     })
   }
@@ -98,7 +102,17 @@ export function ChatsScreen() {
         const peerId = message.from === user._id ? message.to : message.from
         bumpChatOnMessage((list) => {
           const idx = list.findIndex((c) => c.chatType === "direct" && ((c.user || c.participant)?._id === peerId))
-          if (idx === -1) return null
+          const createdAt = message.createdAt || new Date().toISOString()
+          if (idx === -1) {
+            // create a minimal chat so it appears immediately
+            return {
+              insert: {
+                chatType: "direct",
+                user: { _id: peerId, name: "", profilePic: "" },
+                lastMessage: { text: message.text, createdAt, from: { name: message.from === user._id ? "You" : "" } },
+              },
+            }
+          }
           const chat = list[idx]
           const fromName = message.from === user._id ? "You" : (chat.user || chat.participant)?.name || ""
           const updated = {
@@ -106,7 +120,7 @@ export function ChatsScreen() {
             lastMessage: {
               ...(chat.lastMessage || {}),
               text: message.text,
-              createdAt: message.createdAt || new Date().toISOString(),
+              createdAt,
               from: { name: fromName },
             },
           }
@@ -118,14 +132,23 @@ export function ChatsScreen() {
         const groupId = message.group
         bumpChatOnMessage((list) => {
           const idx = list.findIndex((c) => c.chatType === "group" && c.group?._id === groupId)
-          if (idx === -1) return null
+          const createdAt = message.createdAt || new Date().toISOString()
+          if (idx === -1) {
+            return {
+              insert: {
+                chatType: "group",
+                group: { _id: groupId, name: "", groupPic: "" },
+                lastMessage: { text: message.text, createdAt, from: { name: "" } },
+              },
+            }
+          }
           const chat = list[idx]
           const updated = {
             ...chat,
             lastMessage: {
               ...(chat.lastMessage || {}),
               text: message.text,
-              createdAt: message.createdAt || new Date().toISOString(),
+              createdAt,
               from: { name: "" },
             },
           }
