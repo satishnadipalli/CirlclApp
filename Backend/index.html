@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Notifications Test</title>
+  <script src="https://cdn.socket.io/4.7.1/socket.io.min.js"></script>
+  <style>
+    body { font-family: Arial; padding: 20px; }
+    ul { list-style: none; padding: 0; }
+    li { padding: 5px 0; border-bottom: 1px solid #eee; }
+    input, button { padding: 5px; margin: 5px 0; }
+    a { color: blue; cursor: pointer; text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <h1>Notifications Test</h1>
+
+  <label for="userId">Enter your MongoDB User ID:</label><br>
+  <input id="userId" placeholder="e.g., 64f9abc1234567890def1234" />
+  <button onclick="registerUser()">Register</button>
+
+  <h3>Notifications:</h3>
+  <ul id="notifications"></ul>
+
+  <script>
+    const socket = io("http://localhost:5000");
+    const notificationsList = document.getElementById("notifications");
+    let myUserId = null;
+
+    function registerUser() {
+      const userId = document.getElementById("userId").value.trim();
+      if (!userId) return alert("Enter your MongoDB userId!");
+      myUserId = userId;
+      socket.emit("register", userId);
+      alert("Registered as " + userId);
+
+      fetchExistingNotifications();
+    }
+
+    async function fetchExistingNotifications() {
+      try {
+        const token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4OWM1NGRkNzZmZWVlZTA4YjhlZGU3MyIsImlhdCI6MTc1NTA3NjgxNCwiZXhwIjoxNzU1NjgxNjE0fQ._YrdYCxj4DFnMCYkw3Vn4mDk2tw_K0BIwDuZp_Nu5eE"; // Replace with your login token
+        if (!token) return alert("No token found. Please login first.");
+
+        const res = await fetch("http://localhost:5000/api/notifications", {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+
+        const data = await res.json();
+        if (!data.success) return console.error("Failed to fetch notifications");
+
+        data.notifications.forEach(addNotificationItem);
+      } catch (err) {
+        console.error("Failed to fetch notifications:", err);
+      }
+    }
+
+    
+function addNotificationItem(notif) {
+  const li = document.createElement("li");
+
+  // Display text
+  const textSpan = document.createElement("span");
+  textSpan.textContent = `${notif.senderName || 'Unknown'}: ${notif.text || notif.type} (${new Date(notif.createdAt).toLocaleTimeString()}) `;
+  li.appendChild(textSpan);
+
+  // Add clickable "Go" link
+  const link = document.createElement("a");
+  link.textContent = "Go";
+  link.href = "#"; // we don’t actually navigate
+  link.style.marginLeft = "10px";
+
+  link.addEventListener("click", (e) => {
+    e.preventDefault();
+
+    console.log("🔹 Notification clicked:", notif);
+
+    // Example: log type-specific details
+    switch(notif.type) {
+      case "like":
+        console.log(`👍 Post liked: PostID=${notif.postId}, Liked by=${notif.senderName}`);
+        break;
+      case "comment":
+        console.log(`💬 Comment on PostID=${notif.postId} by ${notif.senderName}: "${notif.commentText}"`);
+        break;
+      case "follow":
+        console.log(`👤 New follower: ${notif.senderName} (UserID=${notif.senderId})`);
+        break;
+      default:
+        console.log("ℹ️ Other notification:", notif);
+    }
+
+    alert("Check console for detailed log!"); // optional
+  });
+
+  li.appendChild(link);
+  notificationsList.prepend(li);
+}
+
+
+    // Live notifications
+    socket.on("newNotification", addNotificationItem);
+
+    // Socket connection logs
+    socket.on("connect", () => console.log("Socket connected:", socket.id));
+    socket.on("disconnect", () => console.log("Socket disconnected"));
+  </script>
+</body>
+</html>

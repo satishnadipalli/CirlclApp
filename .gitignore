@@ -1,0 +1,12 @@
+# Frontend
+Frontend/node_modules/
+Frontend/.env
+
+# Backend
+Backend/node_modules/
+Backend/.env
+
+# Optional: OS / editor files
+.DS_Store
+Thumbs.db
+.vscode/

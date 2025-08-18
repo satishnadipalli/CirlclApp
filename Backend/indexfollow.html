@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Live Followers/Following</title>
+  <script src="https://cdn.socket.io/4.7.1/socket.io.min.js"></script>
+  <style>
+    body { font-family: Arial; padding: 20px; }
+    ul { list-style: none; padding: 0; }
+    li { padding: 5px 0; border-bottom: 1px solid #eee; }
+  </style>
+</head>
+<body>
+  <h1>Live Followers/Following</h1>
+
+  <label for="myUserId">Enter your MongoDB User ID:</label><br>
+  <input id="myUserId" placeholder="Your user _id" />
+  <button onclick="registerUser()">Register</button>
+
+  <h3>Your Stats:</h3>
+  <p>Followers: <span id="followersCount">0</span></p>
+  <p>Following: <span id="followingCount">0</span></p>
+
+  <h3>Live Events:</h3>
+  <ul id="events"></ul>
+
+  <script>
+    const socket = io("http://localhost:5000");
+    let myUserId = null;
+    const eventsList = document.getElementById("events");
+    const followersCountEl = document.getElementById("followersCount");
+    const followingCountEl = document.getElementById("followingCount");
+
+    async function registerUser() {
+      myUserId = document.getElementById("myUserId").value.trim();
+      if (!myUserId) return alert("Enter your MongoDB userId!");
+
+      socket.emit("register", myUserId);
+      alert("Registered for live updates as " + myUserId);
+
+      // Fetch current followers/following from backend
+      try {
+        const token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4OWM1NGRkNzZmZWVlZTA4YjhlZGU3MyIsImlhdCI6MTc1NTE1MDUyOSwiZXhwIjoxNzU1NzU1MzI5fQ.uoNXDM413Y7OrN5fk0YbjiHPP7xdqsOcrh4mIY8vXyQ"; // replace with valid JWT
+        const res = await fetch(`http://localhost:5000/api/users/me`, {
+          headers: { "Authorization": "Bearer " + token }
+        });
+        const data = await res.json();
+        followersCountEl.textContent = data.followers?.length || 0;
+        followingCountEl.textContent = data.following?.length || 0;
+      } catch (err) {
+        console.error("Error fetching profile:", err);
+      }
+    }
+
+    // Listen for live events
+    socket.on("newFollower", (data) => {
+      if (data.followedId === myUserId) {
+        followersCountEl.textContent = parseInt(followersCountEl.textContent) + 1;
+        addEventItem(`🔹 ${data.followerName} followed you!`);
+      }
+    });
+
+    socket.on("unfollowed", (data) => {
+      if (data.unfollowedId === myUserId) {
+        followersCountEl.textContent = Math.max(0, parseInt(followersCountEl.textContent) - 1);
+        addEventItem(`⚪ ${data.unfollowerName} unfollowed you.`);
+      }
+    });
+
+    function addEventItem(text) {
+      const li = document.createElement("li");
+      li.textContent = text;
+      eventsList.prepend(li);
+    }
+  </script>
+</body>
+</html>

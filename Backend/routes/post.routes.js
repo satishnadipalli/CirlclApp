@@ -1,0 +1,52 @@
+const express = require("express");
+const router = express.Router();
+const postController = require("../controllers/post.controllers");          // keep your current filename
+const { uploadToCloudinary } = require("../controllers/upload.controllers"); // keep your current filename
+const upload = require("../middlewares/upload.middleware");
+const protect = require("../middlewares/auth.middleware");
+
+
+
+// Create with media (multipart/form-data)
+router.post("/", protect, upload.single("file"), uploadToCloudinary, postController.createPost);
+
+// Feed (with pagination: ?page=1&limit=10)
+router.get("/", protect, postController.getAllPosts);
+
+// My posts (also paginated)
+router.get("/me", protect, postController.getMyPosts);
+
+// Delete
+router.delete("/:id", protect, postController.deletePost);
+
+// Like/unlike post
+router.put("/:id/like", protect, postController.likePost);
+
+// Comments
+router.post("/:id/comment", protect, postController.addComment);
+
+// Replies (Instagram-style thread)
+router.post("/:id/comment/:commentId/reply", protect, postController.replyToComment); // ✅ new
+
+// Like/unlike comment or reply (send { commentId } or { commentId, replyId } in body)
+router.put("/:id/comment/like", protect, postController.likeComment);
+
+// Delete comment
+router.delete("/:id/comment/:commentId", protect, postController.deleteComment);
+
+// Delete reply
+router.delete("/:id/comment/:commentId/reply/:replyId", protect, postController.deleteReply);
+
+// Edit comment
+router.put("/:id/comment/:commentId", protect, postController.editComment);
+
+// Edit reply
+router.put("/:id/comment/:commentId/reply/:replyId", protect, postController.editReply);
+
+// Save Post
+router.put("/:id/save", protect, postController.savePost);
+
+// get saved post
+router.get("/saved", protect, postController.getSavedPosts);
+
+module.exports = router;

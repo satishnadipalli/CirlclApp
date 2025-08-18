@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Group Chat WebSocket Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .section {
+            margin-bottom: 30px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .section h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        input, button, select {
+            padding: 8px 12px;
+            margin: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #messages {
+            height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            background-color: #f9f9f9;
+            margin: 10px 0;
+        }
+        .message {
+            margin-bottom: 10px;
+            padding: 8px;
+            border-radius: 4px;
+        }
+        .direct-message {
+            background-color: #e3f2fd;
+        }
+        .group-message {
+            background-color: #f3e5f5;
+        }
+        .system-message {
+            background-color: #fff3e0;
+            font-style: italic;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .connected {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .disconnected {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Group Chat WebSocket Test</h1>
+        
+        <div id="status" class="status disconnected">Disconnected</div>
+        
+        <div class="section">
+            <h3>Connection</h3>
+            <input type="text" id="serverUrl" placeholder="Server URL" value="http://localhost:5000">
+            <input type="text" id="userId" placeholder="Your User ID">
+            <button onclick="connect()">Connect</button>
+            <button onclick="disconnect()">Disconnect</button>
+        </div>
+
+        <div class="section">
+            <h3>Direct Message</h3>
+            <input type="text" id="directRecipient" placeholder="Recipient User ID">
+            <input type="text" id="directMessage" placeholder="Message">
+            <button onclick="sendDirectMessage()">Send Direct Message</button>
+        </div>
+
+        <div class="section">
+            <h3>Group Message</h3>
+            <input type="text" id="groupId" placeholder="Group ID">
+            <input type="text" id="groupMessage" placeholder="Message">
+            <button onclick="joinGroup()">Join Group</button>
+            <button onclick="sendGroupMessage()">Send Group Message</button>
+            <button onclick="leaveGroup()">Leave Group</button>
+        </div>
+
+        <div class="section">
+            <h3>Typing Indicators</h3>
+            <button onclick="startTyping()">Start Typing (Group)</button>
+            <button onclick="stopTyping()">Stop Typing (Group)</button>
+        </div>
+
+        <div class="section">
+            <h3>Messages</h3>
+            <div id="messages"></div>
+            <button onclick="clearMessages()">Clear Messages</button>
+        </div>
+    </div>
+
+    <!-- Using Socket.io CDN instead of local server -->
+    <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+    <script>
+        let socket = null;
+        let currentUserId = null;
+        let currentGroupId = null;
+
+        function connect() {
+            const serverUrl = document.getElementById('serverUrl').value;
+            const userId = document.getElementById('userId').value;
+            
+            if (!userId) {
+                alert('Please enter your User ID');
+                return;
+            }
+
+            currentUserId = userId;
+            socket = io(serverUrl);
+
+            socket.on('connect', () => {
+                updateStatus('Connected', true);
+                addMessage('System', 'Connected to server', 'system');
+                
+                // Register user
+                socket.emit('register', userId);
+                addMessage('System', `Registered as user: ${userId}`, 'system');
+            });
+
+            socket.on('disconnect', () => {
+                updateStatus('Disconnected', false);
+                addMessage('System', 'Disconnected from server', 'system');
+            });
+
+            // Direct message received
+            socket.on('receiveMessage', (data) => {
+                addMessage(`User ${data.from}`, data.text, 'direct');
+            });
+
+            // Group message received
+            socket.on('receiveGroupMessage', (data) => {
+                addMessage(`Group ${data.groupId} - User ${data.from}`, data.text, 'group');
+            });
+
+            // Typing indicators
+            socket.on('groupTyping', (data) => {
+                addMessage('System', `${data.userName} is typing in group...`, 'system');
+            });
+
+            socket.on('groupStopTyping', (data) => {
+                addMessage('System', `User ${data.userId} stopped typing`, 'system');
+            });
+
+            socket.on('error', (error) => {
+                addMessage('Error', error.message, 'system');
+            });
+        }
+
+        function disconnect() {
+            if (socket) {
+                socket.disconnect();
+                socket = null;
+                currentUserId = null;
+                currentGroupId = null;
+            }
+        }
+
+        function sendDirectMessage() {
+            if (!socket) {
+                alert('Please connect first');
+                return;
+            }
+
+            const recipient = document.getElementById('directRecipient').value;
+            const message = document.getElementById('directMessage').value;
+
+            if (!recipient || !message) {
+                alert('Please enter recipient and message');
+                return;
+            }
+
+            socket.emit('sendMessage', {
+                toUserId: recipient,
+                text: message
+            });
+
+            addMessage('You (Direct)', message, 'direct');
+            document.getElementById('directMessage').value = '';
+        }
+
+        function joinGroup() {
+            if (!socket) {
+                alert('Please connect first');
+                return;
+            }
+
+            const groupId = document.getElementById('groupId').value;
+            if (!groupId) {
+                alert('Please enter Group ID');
+                return;
+            }
+
+            currentGroupId = groupId;
+            socket.emit('joinGroup', groupId);
+            addMessage('System', `Joined group: ${groupId}`, 'system');
+        }
+
+        function sendGroupMessage() {
+            if (!socket) {
+                alert('Please connect first');
+                return;
+            }
+
+            const groupId = document.getElementById('groupId').value;
+            const message = document.getElementById('groupMessage').value;
+
+            if (!groupId || !message) {
+                alert('Please enter group ID and message');
+                return;
+            }
+
+            socket.emit('sendGroupMessage', {
+                groupId: groupId,
+                text: message,
+                senderId: currentUserId
+            });
+
+            addMessage(`You (Group ${groupId})`, message, 'group');
+            document.getElementById('groupMessage').value = '';
+        }
+
+        function leaveGroup() {
+            if (!socket || !currentGroupId) {
+                alert('Please join a group first');
+                return;
+            }
+
+            socket.emit('leaveGroup', currentGroupId);
+            addMessage('System', `Left group: ${currentGroupId}`, 'system');
+            currentGroupId = null;
+        }
+
+        function startTyping() {
+            if (!socket || !currentGroupId) {
+                alert('Please join a group first');
+                return;
+            }
+
+            socket.emit('groupTyping', {
+                groupId: currentGroupId,
+                userId: currentUserId,
+                userName: `User ${currentUserId}`
+            });
+        }
+
+        function stopTyping() {
+            if (!socket || !currentGroupId) {
+                alert('Please join a group first');
+                return;
+            }
+
+            socket.emit('groupStopTyping', {
+                groupId: currentGroupId,
+                userId: currentUserId
+            });
+        }
+
+        function updateStatus(message, connected) {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = message;
+            statusEl.className = `status ${connected ? 'connected' : 'disconnected'}`;
+        }
+
+        function addMessage(sender, text, type) {
+            const messagesEl = document.getElementById('messages');
+            const messageEl = document.createElement('div');
+            messageEl.className = `message ${type}-message`;
+            messageEl.innerHTML = `<strong>${sender}:</strong> ${text} <small>(${new Date().toLocaleTimeString()})</small>`;
+            messagesEl.appendChild(messageEl);
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+        }
+
+        function clearMessages() {
+            document.getElementById('messages').innerHTML = '';
+        }
+    </script>
+</body>
+</html>
