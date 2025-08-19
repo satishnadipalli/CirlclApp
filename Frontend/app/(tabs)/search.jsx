@@ -1,9 +1,7 @@
 import { useEffect, useState, useRef } from "react"
-import { FlatList } from "react-native"
-import { Image } from "react-native"
-import { useRouter } from "next/navigation"
+import { FlatList, Image, StyleSheet, Dimensions } from "react-native"
+import { useRouter } from "expo-router"
 import { apiService } from "@/services/api.service"
-import { styles } from "@/styles/styles"
 
 const Search = () => {
   const [isSearching, setIsSearching] = useState(false)
@@ -48,5 +46,10 @@ const Search = () => {
     />
   )
 }
+
+const { width } = Dimensions.get("window")
+const styles = StyleSheet.create({
+  image: { width: width / 3, height: width / 3 },
+})
 
 export default Search
