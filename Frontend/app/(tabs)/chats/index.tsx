@@ -26,11 +26,13 @@ export default function ChatsScreen() {
     if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
       UIManager.setLayoutAnimationEnabledExperimental(true)
     }
+    console.log("working: ChatsScreen mounted")
   }, [])
 
   // Fetch once userId is available (covers first navigation into tab)
   useEffect(() => {
     if (!userId) return
+    console.log("working: userId available, fetching chats for", userId)
     fetchChats()
   }, [userId])
 
@@ -66,6 +68,7 @@ export default function ChatsScreen() {
 
   const fetchChats = async () => {
     try {
+      console.log("working: fetchChats() called")
       const res = await apiService.getChats()
       if (res && (res as any).success !== false) {
         const list = normalize(Array.isArray(res?.chats) ? res.chats : [])
