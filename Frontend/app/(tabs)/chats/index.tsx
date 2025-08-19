@@ -28,6 +28,12 @@ export default function ChatsScreen() {
     }
   }, [])
 
+  // Fetch once userId is available (covers first navigation into tab)
+  useEffect(() => {
+    if (!userId) return
+    fetchChats()
+  }, [userId])
+
   const loadUser = async () => {
     try {
       const raw = await AsyncStorage.getItem("user")
@@ -202,9 +208,9 @@ export default function ChatsScreen() {
   useFocusEffect(
     useCallback(() => {
       fetchChats()
-      const id = setInterval(fetchChats, 5000) // fallback polling
+      const id = setInterval(fetchChats, 5000) // fallback polling in case socket missed
       return () => clearInterval(id)
-    }, []),
+    }, [userId]),
   )
 
   const filtered = chats.filter((c) => {
