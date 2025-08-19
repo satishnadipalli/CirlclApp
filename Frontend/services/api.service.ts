@@ -180,6 +180,10 @@ class ApiService {
   async getFollowing(userId, page = 1, limit = 20) {
     return this.request(`/users/${userId}/following?page=${page}&limit=${limit}`)
   }
+  async searchUsers(q: string, page = 1, limit = 20, groupId?: string) {
+    const gid = groupId ? `&groupId=${encodeURIComponent(groupId)}` : ""
+    return this.request(`/users/search?q=${encodeURIComponent(q)}&page=${page}&limit=${limit}${gid}`)
+  }
   async followUser(userId) {
     return this.request(`/users/${userId}/follow`, { method: "POST" })
   }
