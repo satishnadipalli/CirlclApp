@@ -3,8 +3,9 @@
 import { apiService } from "@/services/api.service"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import { useLocalSearchParams, useRouter } from "expo-router"
-import React, { useEffect, useMemo, useState } from "react"
+import React, { useEffect, useMemo, useRef, useState } from "react"
 import { Alert, FlatList, Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native"
+import Icon from "react-native-vector-icons/MaterialIcons"
 
 interface Member { _id: string; name: string; profilePic?: string }
 interface Group {
@@ -22,6 +23,7 @@ export default function GroupDetailsScreen() {
   const [group, setGroup] = useState<Group | null>(null)
   const [search, setSearch] = useState("")
   const router = useRouter()
+  const searchInputRef = useRef<TextInput>(null)
 
   const isAdmin = (userId: string) => {
     const admins = (group?.admins || []) as any[]
@@ -120,18 +122,20 @@ export default function GroupDetailsScreen() {
           <Text style={styles.back}>{"‹"}</Text>
         </TouchableOpacity>
         <Text style={styles.title}>{group.name}</Text>
-        <View style={{ width: 24 }} />
+        {meIsAdmin ? (
+          <TouchableOpacity onPress={() => searchInputRef.current?.focus()}>
+            <Icon name="person-add" size={22} color="#0095f6" />
+          </TouchableOpacity>
+        ) : (
+          <View style={{ width: 24 }} />
+        )}
       </View>
 
       <View style={styles.groupHero}>
         <Image source={{ uri: group.groupPic || "https://i.pravatar.cc/150?img=14" }} style={styles.heroAvatar} />
         <Text style={styles.heroName}>{group.name}</Text>
         {group.description ? <Text style={styles.heroDesc}>{group.description}</Text> : null}
-        {meIsAdmin && (
-          <TouchableOpacity onPress={onAddMembers} style={styles.addFab}>
-            <Text style={styles.addFabText}>＋</Text>
-          </TouchableOpacity>
-        )}
+        {/* add button moved to header */}
       </View>
 
       <View style={styles.actionsBar}>
@@ -140,6 +144,7 @@ export default function GroupDetailsScreen() {
           value={search}
           onChangeText={setSearch}
           style={styles.search}
+          ref={searchInputRef}
         />
         {meIsAdmin && (
           <TouchableOpacity onPress={onAddMembers}>
