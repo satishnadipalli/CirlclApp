@@ -7,7 +7,7 @@ import { LinearGradient } from "expo-linear-gradient"
 import { useRouter } from "expo-router"
 import { useEffect, useState } from "react"
 import { Dimensions, FlatList, Image, Modal, StyleSheet, Text, TouchableOpacity, View } from "react-native"
-import io from "socket.io-client"
+import socketService from "@/services/socket.service"
 import logo from "../../assets/images/circle-full.png"
 const { width } = Dimensions.get("window")
 
@@ -42,34 +42,8 @@ export default function HomeScreen() {
 
   const initializeSocket = async () => {
     try {
-      const token = await AsyncStorage.getItem("token")
-      if (!token) return
-
-      const response = await fetch(`${BASE_URL}/api/users/me`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-
-      if (!response.ok) return
-
-      const userData = await response.json()
-      const userId = userData._id
-
-      const socketInstance = io(BASE_URL)
-      setSocket(socketInstance)
-
-      socketInstance.on("connect", () => {
-        socketInstance.emit("register", userId)
-      })
-
-      socketInstance.on("newNotification", (notificationData) => {
-        setUnreadCount((prev) => prev + 1)
-      })
-
-      socketInstance.on("disconnect", (reason) => {
-        console.log("Socket disconnected:", reason)
-      })
+      await socketService.connect()
+      socketService.onNotification(() => setUnreadCount((prev) => prev + 1))
     } catch (error) {
       console.error("Error initializing socket:", error)
     }
@@ -79,11 +53,7 @@ export default function HomeScreen() {
     fetchUnreadCount()
     initializeSocket()
 
-    return () => {
-      if (socket) {
-        socket.disconnect()
-      }
-    }
+    return () => {}
   }, [])
 
   const openComments = (post) => {
