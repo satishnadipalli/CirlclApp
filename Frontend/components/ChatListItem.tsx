@@ -87,6 +87,16 @@ export const ChatListItem: React.FC<ChatListItemProps> = ({ chat, currentUserId,
       right={() => (
         <View style={styles.rightContainer}>
           <Text style={styles.timeText}>{time}</Text>
+          {chat.chatType === "group" && chatInfo.chatId !== "unknown" ? (
+            <Text
+              style={{ color: "#0095f6", marginBottom: 6 }}
+              onPress={() => {
+                router.push(`/groups/${chatInfo.chatId}`)
+              }}
+            >
+              Details
+            </Text>
+          ) : null}
           {chat.unreadCount && chat.unreadCount > 0 ? <Badge size={20}>{String(chat.unreadCount)}</Badge> : null}
         </View>
       )}

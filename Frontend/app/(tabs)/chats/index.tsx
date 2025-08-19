@@ -6,7 +6,7 @@ import { socketService } from "@/services/socket.service"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import { useRouter } from "expo-router"
 import React, { useCallback, useEffect, useRef, useState } from "react"
-import { Alert, FlatList, LayoutAnimation, Platform, StyleSheet, Text, TextInput, UIManager, View } from "react-native"
+import { Alert, FlatList, LayoutAnimation, Platform, StyleSheet, Text, TextInput, UIManager, View, TouchableOpacity } from "react-native"
 import { useFocusEffect } from "@react-navigation/native"
 
 type AnyChat = any
@@ -220,7 +220,12 @@ export default function ChatsScreen() {
 
   return (
     <View style={styles.container}>
-      <TextInput style={styles.searchBar} placeholder="Search chats..." value={search} onChangeText={setSearch} />
+      <View style={styles.headerRow}>
+        <TextInput style={[styles.searchBar, { flex: 1 }]} placeholder="Search chats..." value={search} onChangeText={setSearch} />
+        <TouchableOpacity onPress={() => router.push("/groups/create")}>
+          <Text style={styles.createLink}>Create</Text>
+        </TouchableOpacity>
+      </View>
       {loading ? (
         <Text style={{ textAlign: "center", marginTop: 20 }}>Loading chats...</Text>
       ) : !userId ? (
@@ -234,7 +239,9 @@ export default function ChatsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff" },
+  headerRow: { flexDirection: "row", alignItems: "center", paddingRight: 10 },
   searchBar: { height: 40, margin: 10, marginTop: 50, paddingLeft: 16, borderRadius: 10, backgroundColor: "#d3d3d3ff", fontSize: 16 },
+  createLink: { color: "#0095f6", fontWeight: "700", marginTop: 50, marginLeft: 6 },
   separator: { height: 1, backgroundColor: "#eee", marginLeft: 75 },
 })
 
