@@ -175,10 +175,32 @@ class ApiService {
     return this.request(`/users/${userId}`)
   }
   async getFollowers(userId, page = 1, limit = 20) {
-    return this.request(`/users/${userId}/followers?page=${page}&limit=${limit}`)
+    try {
+      let id = userId
+      if (!id) {
+        const me = await this.getMe()
+        const meObj: any = me
+        id = meObj?._id || meObj?.user?._id || null
+      }
+      if (!id) throw new Error("No user id available")
+      return this.request(`/users/${id}/followers?page=${page}&limit=${limit}`)
+    } catch (e) {
+      return { success: false, message: e instanceof Error ? e.message : "Failed to resolve user id" }
+    }
   }
   async getFollowing(userId, page = 1, limit = 20) {
-    return this.request(`/users/${userId}/following?page=${page}&limit=${limit}`)
+    try {
+      let id = userId
+      if (!id) {
+        const me = await this.getMe()
+        const meObj: any = me
+        id = meObj?._id || meObj?.user?._id || null
+      }
+      if (!id) throw new Error("No user id available")
+      return this.request(`/users/${id}/following?page=${page}&limit=${limit}`)
+    } catch (e) {
+      return { success: false, message: e instanceof Error ? e.message : "Failed to resolve user id" }
+    }
   }
   async searchUsers(q: string, page = 1, limit = 20, groupId?: string) {
     const gid = groupId ? `&groupId=${encodeURIComponent(groupId)}` : ""
