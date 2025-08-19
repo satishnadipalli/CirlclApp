@@ -67,9 +67,9 @@ export default function TabLayout() {
         }}
       />
 
-      {/* Chats tab must match the folder `(tabs)/chats` */}
+      {/* Chats tab must match the nested index route */}
       <Tabs.Screen
-        name="chats"
+        name="chats/index"
         options={{
           tabBarIcon: ({ color }) => (
             <Ionicons name="chatbubble-ellipses-outline" size={28} color={color} />
