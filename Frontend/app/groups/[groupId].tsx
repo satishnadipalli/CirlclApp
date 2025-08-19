@@ -62,9 +62,13 @@ export default function GroupDetailsScreen() {
   const onAddMembers = async () => {
     try {
       const token = await AsyncStorage.getItem("token")
+
       if (!token) return
-      const resp = await fetch(`http://192.168.53.127:5000/api/users/search?q=${encodeURIComponent(search || "a")}&page=1&limit=20`, { headers: { Authorization: `Bearer ${token}` } })
+
+      const resp = await fetch(`http://192.168.104.127:5000/api/users/search?q=${encodeURIComponent(search || "a")}&page=1&limit=20`, { headers: { Authorization: `Bearer ${token}` } })
       const data = await resp.json()
+
+            console.log("data data",data)
       const pool: Member[] = Array.isArray(data?.users) ? data.users : []
       const existing = new Set((group?.members || []).map((m) => m._id))
       const candidates = pool.filter((u) => !existing.has(u._id))
@@ -73,9 +77,11 @@ export default function GroupDetailsScreen() {
       if (res?.success) {
         await loadGroup()
       } else {
+        console.log("add new")
         Alert.alert("Failed", res?.message || "Could not add members")
       }
     } catch (e) {
+      console.log("error")
       Alert.alert("Error", (e as Error).message)
     }
   }
@@ -125,6 +131,7 @@ export default function GroupDetailsScreen() {
         {meIsAdmin ? (
           <TouchableOpacity onPress={() => searchInputRef.current?.focus()}>
             <Icon name="person-add" size={22} color="#0095f6" />
+            <Text>Add</Text>
           </TouchableOpacity>
         ) : (
           <View style={{ width: 24 }} />
