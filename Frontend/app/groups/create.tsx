@@ -31,15 +31,28 @@ export default function CreateGroupScreen() {
       try {
         const token = await AsyncStorage.getItem("token")
         if (!token) return
-        const me = await apiService.getMe()
-        const meData = me as any
-        const myId = meData?._id || meData?.user?._id || ""
+        let myId = ""
+        try {
+          const me = await apiService.getMe()
+          const meData = me as any
+          myId = meData?._id || meData?.user?._id || ""
+        } catch {}
+        if (!myId) {
+          const raw = await AsyncStorage.getItem("user")
+          const parsed = raw ? JSON.parse(raw) : null
+          myId = parsed?.id || parsed?._id || ""
+        }
         meIdRef.current = myId
-        const resp = await apiService.getFollowers(myId, 1, 20)
-        const users = (resp as any)?.users || []
-        setFriends(users)
-        setFollowersPage(2)
-        setHasMoreFollowers(((resp as any)?.page || 1) < ((resp as any)?.pages || 1))
+        if (myId) {
+          const resp = await apiService.getFollowers(myId, 1, 20)
+          const users = (resp as any)?.users || []
+          setFriends(users)
+          setFollowersPage(2)
+          setHasMoreFollowers(((resp as any)?.page || 1) < ((resp as any)?.pages || 1))
+        } else {
+          setFriends([])
+          setHasMoreFollowers(false)
+        }
       } catch (e) {
         console.log("load followers error", e)
       }
