@@ -169,12 +169,7 @@ const searchuser = async (req, res) => {
 
     const regex = new RegExp(q, "i"); // case-insensitive regex
 
-    const users = await User.find({
-      $or: [
-        { name: regex },
-        { username: regex }
-      ]
-    })
+    const users = await User.find({ name: regex })
       .select("_id name username profilePic") // include fields you need
       .limit(10);
 

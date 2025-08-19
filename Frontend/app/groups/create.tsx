@@ -114,7 +114,7 @@ export default function CreateGroupScreen() {
         <TextInput
           placeholder="Search people..."
           placeholderTextColor="#666"
-          style={[styles.input, { flex: 1, marginHorizontal: 0 }]}
+          style={[styles.input, { flex: 1, marginHorizontal: 0, height: 48, paddingVertical: 12 }]}
           value={search}
           onChangeText={(t) => {
             setSearch(t)
