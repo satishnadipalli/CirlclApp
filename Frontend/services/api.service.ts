@@ -174,19 +174,17 @@ class ApiService {
   async getUserProfile(userId) {
     return this.request(`/users/${userId}`)
   }
-
-  async getFollowers(userId, page = 1, limit = 20) {
-    return this.request(`/users/${userId}/followers?page=${page}&limit=${limit}`)
-  }
-
-  async getFollowing(userId, page = 1, limit = 20) {
-    return this.request(`/users/${userId}/following?page=${page}&limit=${limit}`)
-  }
   async getFollowers(userId, page = 1, limit = 20) {
     return this.request(`/users/${userId}/followers?page=${page}&limit=${limit}`)
   }
   async getFollowing(userId, page = 1, limit = 20) {
     return this.request(`/users/${userId}/following?page=${page}&limit=${limit}`)
+  }
+  async followUser(userId) {
+    return this.request(`/users/${userId}/follow`, { method: "POST" })
+  }
+  async unfollowUser(userId) {
+    return this.request(`/users/${userId}/unfollow`, { method: "POST" })
   }
 
   async updateProfile(profileData) {
