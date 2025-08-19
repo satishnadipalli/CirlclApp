@@ -35,6 +35,7 @@ interface ChatMessage {
   messageType: "direct" | "group"
   createdAt?: string
   replyTo?: ChatMessage
+  system?: boolean
 }
 
 interface DateHeader {
@@ -193,6 +194,7 @@ export default function ChatScreen() {
             group: msg.group,
             messageType: params.chatType,
             createdAt: msg.createdAt || new Date().toISOString(),
+            system: typeof msg.from === "string" && msg.from === fromUserId && msg.text && /added/.test(String(msg.text)) ? true : false,
           }
 
           console.log("[v0] Processing socket message:", baseMessage)
@@ -576,7 +578,14 @@ export default function ChatScreen() {
   }
 
   useEffect(() => {
-    const processedItems = processMessagesWithDates(messages)
+    // Interleave date headers and transform system messages into centered banners
+    const withDates = processMessagesWithDates(messages)
+    const processedItems: ChatItem[] = withDates.map((item) => {
+      if ((item as any)?.system) {
+        return { id: (item as any).id, type: "date", date: (item as any).createdAt || new Date().toISOString(), displayText: (item as any).text }
+      }
+      return item
+    })
     setChatItems(processedItems)
   }, [messages])
 

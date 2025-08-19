@@ -133,6 +133,57 @@ const addMembers = async (req, res) => {
     await group.save()
     await group.populate("members", "name email profilePic")
 
+    // Emit system message to group chat
+    try {
+      const adder = await User.findById(userId).select("name")
+      const addedUsers = await User.find({ _id: { $in: newMembers } }).select("name")
+      const addedNames = addedUsers.map((u) => u.name).filter(Boolean)
+      const genericText = addedNames.length > 0
+        ? `${adder?.name || "Someone"} added ${addedNames.join(", ")}`
+        : `${adder?.name || "Someone"} added new member(s)`
+
+      // Persist a message
+      const systemMsg = new Message({
+        from: userId,
+        group: groupId,
+        text: genericText,
+        messageType: "group",
+        readBy: [userId],
+      })
+      await systemMsg.save()
+
+      const io = req.app.get("io")
+      const onlineUsers = req.app.get("onlineUsers")
+
+      const payloadBase = {
+        _id: systemMsg._id,
+        from: userId,
+        group: groupId,
+        createdAt: systemMsg.createdAt,
+        messageType: "group",
+        replyTo: null,
+      }
+
+      // Emit generic to room
+      io.to(`group_${groupId}`).emit("receiveGroupMessage", { ...payloadBase, text: genericText })
+
+      // Tailored emits
+      const adderSocket = onlineUsers.get(String(userId))
+      if (adderSocket) {
+        const youText = addedNames.length > 0 ? `You added ${addedNames.join(", ")}` : `You added new member(s)`
+        io.to(adderSocket).emit("receiveGroupMessage", { ...payloadBase, text: youText })
+      }
+      for (const added of newMembers) {
+        const sock = onlineUsers.get(String(added))
+        if (sock) {
+          const youWereAdded = `${adder?.name || "Someone"} added you to the group`
+          io.to(sock).emit("receiveGroupMessage", { ...payloadBase, text: youWereAdded })
+        }
+      }
+    } catch (e) {
+      // best-effort only
+    }
+
     res.status(200).json({
       success: true,
       message: "Members added successfully",
