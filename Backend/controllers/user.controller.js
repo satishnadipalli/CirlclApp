@@ -160,6 +160,10 @@ const unfollowUser = async (req, res) => {
 const searchuser = async (req, res) => {
   try {
     const { q } = req.query;
+    let page = Number.parseInt(req.query.page) || 1
+    let limit = Number.parseInt(req.query.limit) || 10
+    if (limit > 50) limit = 50
+    if (limit < 1) limit = 10
 
     console.log(q);
 
@@ -170,13 +174,14 @@ const searchuser = async (req, res) => {
     const regex = new RegExp(q, "i"); // case-insensitive regex
 
     const users = await User.find({ name: regex })
-      .select("_id name username profilePic") // include fields you need
-      .limit(10);
+      .select("_id name username profilePic")
+      .skip((page - 1) * limit)
+      .limit(limit);
 
       
       console.log(users)
 
-    res.json({ success: true, users });
+    res.json({ success: true, users, page, limit });
   } catch (err) {
     console.error("Search user error:", err);
     res.status(500).json({ success: false, message: err.message });
