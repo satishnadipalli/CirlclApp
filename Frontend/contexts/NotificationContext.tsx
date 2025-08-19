@@ -213,7 +213,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [socket, setSocket] = useState<Socket | null>(null)
   const [currentNotification, setCurrentNotification] = useState<NotificationData | null>(null)
 
-  const BASE_URL = "http://192.168.81.127:5000"
+  const BASE_URL = "http://192.168.140.127:5000"
 
   useEffect(() => {
     initializeSocket()

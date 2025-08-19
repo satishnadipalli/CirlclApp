@@ -93,7 +93,7 @@ export default function SearchScreen() {
 
     try {
       // Replace with your actual API endpoint and token
-      const response = await fetch(`http://192.168.81.127:5000/api/users/search?q=${encodeURIComponent(query)}`, {
+      const response = await fetch(`http://192.168.140.127:5000/api/users/search?q=${encodeURIComponent(query)}`, {
         method: "GET",
         headers: {
           Authorization: `Bearer ${token}`,
