@@ -4,7 +4,7 @@ import { apiService } from "@/services/api.service"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import { useRouter } from "expo-router"
 import React, { useEffect, useState } from "react"
-import { Alert, FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View, ActivityIndicator, Image, ScrollView } from "react-native"
+import { Alert, FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View, ActivityIndicator, Image } from "react-native"
 
 interface UserLite { _id: string; name: string; profilePic?: string; username?: string }
 
@@ -13,31 +13,30 @@ export default function CreateGroupScreen() {
   const [description, setDescription] = useState("")
   const [selected, setSelected] = useState<Record<string, boolean>>({})
   const [friends, setFriends] = useState<UserLite[]>([])
+  const [followersPage, setFollowersPage] = useState(1)
+  const [hasMoreFollowers, setHasMoreFollowers] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [search, setSearch] = useState("")
   const [loading, setLoading] = useState(false)
   const router = useRouter()
   const meIdRef = React.useRef<string>("")
   const [debounceId, setDebounceId] = useState<any>(null)
 
-  // Load followers by default
+  // Load followers by default with pagination (20 per page)
   useEffect(() => {
-    (async () => {
+    ;(async () => {
       try {
         const token = await AsyncStorage.getItem("token")
         if (!token) return
         const me = await apiService.getMe()
-        const meData = (me as any)
-        const followerIds: string[] = meData?.followers || meData?.data?.followers || meData?.user?.followers || []
-        meIdRef.current = meData?._id || meData?.user?._id || ""
-        // Fetch follower profiles in parallel (limit to 30 for performance)
-        const limited = followerIds.slice(0, 30)
-        const results = await Promise.all(
-          limited.map(async (id) => {
-            const r = await apiService.getUserProfile(id)
-            return (r as any)?.user || (r as any)?.data || null
-          }),
-        )
-        setFriends((results.filter(Boolean) as any).filter((u: any) => u?._id !== meIdRef.current))
+        const meData = me as any
+        const myId = meData?._id || meData?.user?._id || ""
+        meIdRef.current = myId
+        const resp = await apiService.getFollowers(myId, 1, 20)
+        const users = (resp as any)?.users || []
+        setFriends(users)
+        setFollowersPage(2)
+        setHasMoreFollowers(((resp as any)?.page || 1) < ((resp as any)?.pages || 1))
       } catch (e) {
         console.log("load followers error", e)
       }
@@ -61,6 +60,23 @@ export default function CreateGroupScreen() {
       setFriends(Array.from(map.values()))
     } catch (e) {
       console.log("search error", e)
+    }
+  }
+
+  const loadMoreFollowers = async () => {
+    if (loadingMore || !hasMoreFollowers) return
+    setLoadingMore(true)
+    try {
+      const myId = meIdRef.current
+      const resp = await apiService.getFollowers(myId, followersPage, 20)
+      const next = (resp as any)?.users || []
+      setFriends((prev) => [...prev, ...next])
+      setFollowersPage((p) => p + 1)
+      setHasMoreFollowers(((resp as any)?.page || 1) < ((resp as any)?.pages || 1))
+    } catch (e) {
+      console.log("pagination error", e)
+    } finally {
+      setLoadingMore(false)
     }
   }
 
@@ -93,7 +109,7 @@ export default function CreateGroupScreen() {
         </TouchableOpacity>
       </View>
       <TextInput placeholder="Group name" style={styles.input} value={name} onChangeText={setName} />
-      <TextInput placeholder="Description (optional)" style={styles.input} value={description} onChangeText={setDescription} />
+      <TextInput placeholder="Description (optional)" style={[styles.input, { height: 80 }]} value={description} onChangeText={setDescription} multiline />
       <View style={styles.searchRow}>
         <TextInput
           placeholder="Search people..."
@@ -127,6 +143,11 @@ export default function CreateGroupScreen() {
           </TouchableOpacity>
         )}
         ItemSeparatorComponent={() => <View style={styles.sep} />}
+        onEndReached={loadMoreFollowers}
+        onEndReachedThreshold={0.2}
+        ListFooterComponent={loadingMore ? (
+          <View style={{ paddingVertical: 12 }}><ActivityIndicator /></View>
+        ) : null}
       />
     </View>
   )

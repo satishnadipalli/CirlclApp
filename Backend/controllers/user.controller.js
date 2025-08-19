@@ -178,7 +178,7 @@ const searchuser = async (req, res) => {
       .select("_id name username profilePic") // include fields you need
       .limit(10);
 
-    
+      
       console.log(users)
 
     res.json({ success: true, users });
@@ -209,8 +209,43 @@ const getUserById = async (req, res) => {
   }
 };
 
+// Paginated followers
+const getFollowers = async (req, res) => {
+  try {
+    const { id } = req.params
+    const page = Number.parseInt(req.query.page) || 1
+    const limit = Number.parseInt(req.query.limit) || 20
+    const user = await User.findById(id || req.user.id).select("followers")
+    if (!user) return res.status(404).json({ success: false, message: "User not found" })
+    const total = user.followers.length
+    const start = (page - 1) * limit
+    const end = start + limit
+    const ids = user.followers.slice(start, end)
+    const docs = await User.find({ _id: { $in: ids } }).select("_id name username profilePic")
+    res.json({ success: true, page, pages: Math.ceil(total / limit), total, users: docs })
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message })
+  }
+}
 
-
+// Paginated following
+const getFollowing = async (req, res) => {
+  try {
+    const { id } = req.params
+    const page = Number.parseInt(req.query.page) || 1
+    const limit = Number.parseInt(req.query.limit) || 20
+    const user = await User.findById(id || req.user.id).select("following")
+    if (!user) return res.status(404).json({ success: false, message: "User not found" })
+    const total = user.following.length
+    const start = (page - 1) * limit
+    const end = start + limit
+    const ids = user.following.slice(start, end)
+    const docs = await User.find({ _id: { $in: ids } }).select("_id name username profilePic")
+    res.json({ success: true, page, pages: Math.ceil(total / limit), total, users: docs })
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message })
+  }
+}
 
 module.exports = {
   register,
@@ -219,6 +254,7 @@ module.exports = {
   followUser,
   unfollowUser,
   searchuser,
-  getUserById
+  getUserById,
+  getFollowers,
+  getFollowing,
 };
-

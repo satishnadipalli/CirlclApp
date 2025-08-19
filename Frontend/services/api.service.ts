@@ -175,6 +175,20 @@ class ApiService {
     return this.request(`/users/${userId}`)
   }
 
+  async getFollowers(userId, page = 1, limit = 20) {
+    return this.request(`/users/${userId}/followers?page=${page}&limit=${limit}`)
+  }
+
+  async getFollowing(userId, page = 1, limit = 20) {
+    return this.request(`/users/${userId}/following?page=${page}&limit=${limit}`)
+  }
+  async getFollowers(userId, page = 1, limit = 20) {
+    return this.request(`/users/${userId}/followers?page=${page}&limit=${limit}`)
+  }
+  async getFollowing(userId, page = 1, limit = 20) {
+    return this.request(`/users/${userId}/following?page=${page}&limit=${limit}`)
+  }
+
   async updateProfile(profileData) {
     return this.request("/users/profile", {
       method: "PUT",
