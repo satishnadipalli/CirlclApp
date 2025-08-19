@@ -22,8 +22,12 @@ export default function GroupDetailsScreen() {
   const { groupId } = useLocalSearchParams<{ groupId: string }>()
   const [group, setGroup] = useState<Group | null>(null)
   const [search, setSearch] = useState("")
+  const [searchResults, setSearchResults] = useState<Member[]>([])
+  const [searchLoading, setSearchLoading] = useState(false)
+  const [selectedToAdd, setSelectedToAdd] = useState<Record<string, boolean>>({})
   const router = useRouter()
   const searchInputRef = useRef<TextInput>(null)
+  const debounceRef = useRef<any>(null)
 
   const isAdmin = (userId: string) => {
     const admins = (group?.admins || []) as any[]
@@ -61,15 +65,14 @@ export default function GroupDetailsScreen() {
 
   const onAddMembers = async () => {
     try {
-      if (!search.trim()) return Alert.alert("Type a name to search")
-      const data = await apiService.searchUsers(search.trim(), 1, 20, String(groupId))
-      const pool: Member[] = Array.isArray((data as any)?.users) ? (data as any).users : []
-      const existing = new Set((group?.members || []).map((m) => m._id))
-      const candidates = pool.filter((u) => !existing.has(u._id))
-      if (candidates.length === 0) return Alert.alert("No matching users to add")
-      const res = await apiService.addGroupMembers(groupId, candidates.map((c) => c._id))
+      const ids = Object.keys(selectedToAdd).filter((id) => selectedToAdd[id])
+      if (ids.length === 0) return Alert.alert("Select users to add")
+      const res = await apiService.addGroupMembers(groupId, ids)
       if (res?.success) {
         await loadGroup()
+        setSelectedToAdd({})
+        setSearchResults([])
+        setSearch("")
       } else {
         Alert.alert("Failed", res?.message || "Could not add members")
       }
@@ -140,7 +143,27 @@ export default function GroupDetailsScreen() {
         <TextInput
           placeholder="Type a name to find people to add"
           value={search}
-          onChangeText={setSearch}
+          onChangeText={(t) => {
+            setSearch(t)
+            if (debounceRef.current) clearTimeout(debounceRef.current)
+            if (t.trim().length < 2) {
+              setSearchResults([])
+              setSelectedToAdd({})
+              return
+            }
+            debounceRef.current = setTimeout(async () => {
+              try {
+                setSearchLoading(true)
+                const resp = await apiService.searchUsers(t.trim(), 1, 20, String(groupId))
+                const list: Member[] = Array.isArray((resp as any)?.users) ? (resp as any).users : []
+                setSearchResults(list)
+              } catch {
+                setSearchResults([])
+              } finally {
+                setSearchLoading(false)
+              }
+            }, 300)
+          }}
           style={[styles.search, { height: 44 }]}
           ref={searchInputRef}
         />
@@ -150,6 +173,38 @@ export default function GroupDetailsScreen() {
           </TouchableOpacity>
         )}
       </View>
+
+      {/* Live search results for adding members */}
+      {meIsAdmin && search.trim().length >= 2 && (
+        <View style={{ maxHeight: 260 }}>
+          {searchLoading ? (
+            <Text style={{ textAlign: "center", color: "#666", paddingVertical: 8 }}>Searching...</Text>
+          ) : (
+            <FlatList
+              data={searchResults}
+              keyExtractor={(u) => u._id}
+              renderItem={({ item }) => {
+                const selected = !!selectedToAdd[item._id]
+                return (
+                  <TouchableOpacity
+                    style={styles.resultRow}
+                    onPress={() => setSelectedToAdd((p) => ({ ...p, [item._id]: !p[item._id] }))}
+                  >
+                    <Image source={{ uri: item.profilePic || "https://i.pravatar.cc/100?img=12" }} style={styles.resultAvatar} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.resultName}>{item.name}</Text>
+                    </View>
+                    <View style={[styles.checkPill, selected && styles.checkPillOn]}>
+                      <Text style={[styles.checkText, selected && styles.checkTextOn]}>{selected ? "Selected" : "Select"}</Text>
+                    </View>
+                  </TouchableOpacity>
+                )
+              }}
+              ItemSeparatorComponent={() => <View style={styles.sep} />}
+            />)
+          }
+        </View>
+      )}
 
       <FlatList
         data={members}
@@ -268,5 +323,12 @@ const styles = StyleSheet.create({
   followingBtn: { color: "#0095f6", borderColor: "#0095f6", borderWidth: 1, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, overflow: "hidden", fontSize: 12, fontWeight: "700" },
   addFab: { position: "absolute", right: 16, top: 8, backgroundColor: "#0095f6", borderRadius: 16, paddingHorizontal: 10, paddingVertical: 4 },
   addFabText: { color: "#fff", fontSize: 16, fontWeight: "800" },
+  resultRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 10 },
+  resultAvatar: { width: 36, height: 36, borderRadius: 18, marginRight: 10, backgroundColor: "#eee" },
+  resultName: { fontSize: 14, fontWeight: "600" },
+  checkPill: { borderWidth: 1, borderColor: "#ccc", borderRadius: 16, paddingHorizontal: 10, paddingVertical: 4 },
+  checkPillOn: { borderColor: "#0095f6" },
+  checkText: { color: "#666", fontWeight: "600" },
+  checkTextOn: { color: "#0095f6" },
 })
 
