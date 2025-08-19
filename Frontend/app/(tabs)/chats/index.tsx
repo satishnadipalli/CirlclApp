@@ -62,6 +62,7 @@ export default function ChatsScreen() {
     try {
       if (!userId) return
       const res = await apiService.getChats()
+      console.log("res res",res)
       const list = normalize(Array.isArray(res?.chats) ? res.chats : [])
       setChats((prev) => sortChats(list))
     } catch (e) {

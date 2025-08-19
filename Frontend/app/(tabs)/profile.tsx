@@ -135,7 +135,7 @@ export default function ProfileScreen() {
       }
 
       console.log("[v0] Fetching user profile from API")
-      const response = await fetch("http://192.168.53.127:5000/api/users/me", {
+      const response = await fetch("http://192.168.81.127:5000/api/users/me", {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
@@ -177,7 +177,7 @@ export default function ProfileScreen() {
         socket.disconnect()
       }
 
-      const socketInstance = io("http://192.168.53.127:5000", {
+      const socketInstance = io("http://192.168.81.127:5000", {
         auth: { token },
       })
 
@@ -239,7 +239,7 @@ export default function ProfileScreen() {
         return
       }
 
-      const endpoint = `http://192.168.53.127:5000/api/posts/me?page=${page}&limit=10&t=${Date.now()}`
+      const endpoint = `http://192.168.81.127:5000/api/posts/me?page=${page}&limit=10&t=${Date.now()}`
 
       console.log("[v0] Fetching posts from:", endpoint)
 
