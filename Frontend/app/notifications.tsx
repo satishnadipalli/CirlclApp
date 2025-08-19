@@ -52,7 +52,7 @@ const NotificationsScreen = () => {
   const [socket, setSocket] = useState<Socket | null>(null)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
 
-  const BASE_URL = "http://192.168.140.127:5000"
+  const BASE_URL = "http://192.168.104.127:5000"
 
   const fetchNotifications = async (pageNum = 1, refresh = false) => {
     try {
