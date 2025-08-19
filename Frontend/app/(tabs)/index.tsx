@@ -18,7 +18,7 @@ export default function HomeScreen() {
   const [socket, setSocket] = useState(null)
   const router = useRouter()
 
-  const BASE_URL = "http://192.168.155.127:5000"
+  const BASE_URL = "http://192.168.225.127:5000"
 
   const fetchUnreadCount = async () => {
     try {
