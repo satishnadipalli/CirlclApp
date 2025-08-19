@@ -45,7 +45,14 @@ interface DateHeader {
   displayText: string
 }
 
-type ChatItem = ChatMessage | DateHeader
+interface SystemChipItem {
+  id: string
+  type: "system"
+  text: string
+  createdAt?: string
+}
+
+type ChatItem = ChatMessage | DateHeader | SystemChipItem
 
 export default function ChatScreen() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -194,7 +201,7 @@ export default function ChatScreen() {
             group: msg.group,
             messageType: params.chatType,
             createdAt: msg.createdAt || new Date().toISOString(),
-            system: typeof msg.from === "string" && msg.from === fromUserId && msg.text && /added/.test(String(msg.text)) ? true : false,
+            system: /\badded\b/i.test(String(msg.text || "")),
           }
 
           console.log("[v0] Processing socket message:", baseMessage)
@@ -390,6 +397,7 @@ export default function ChatScreen() {
             group: msg.group,
             messageType: "group",
             createdAt: msg.createdAt,
+            system: /\badded\b/i.test(String(msg.text || "")),
           }))
           console.log("[v0] Loaded group messages:", formattedMessages.length)
           setMessages(formattedMessages)
@@ -578,11 +586,16 @@ export default function ChatScreen() {
   }
 
   useEffect(() => {
-    // Interleave date headers and transform system messages into centered banners
+    // Interleave date headers and transform system messages into centered chips
     const withDates = processMessagesWithDates(messages)
     const processedItems: ChatItem[] = withDates.map((item) => {
       if ((item as any)?.system) {
-        return { id: (item as any).id, type: "date", date: (item as any).createdAt || new Date().toISOString(), displayText: (item as any).text }
+        return {
+          id: (item as any).id,
+          type: "system",
+          text: (item as any).text,
+          createdAt: (item as any).createdAt || new Date().toISOString(),
+        }
       }
       return item
     })
@@ -666,6 +679,16 @@ export default function ChatScreen() {
       return (
         <View style={styles.dateHeader}>
           <Text style={styles.dateHeaderText}>{item.displayText}</Text>
+        </View>
+      )
+    }
+
+    if ("type" in item && item.type === "system") {
+      return (
+        <View style={styles.systemChipContainer}>
+          <View style={styles.systemChip}>
+            <Text style={styles.systemChipText}>{item.text}</Text>
+          </View>
         </View>
       )
     }
@@ -1147,6 +1170,25 @@ const styles = StyleSheet.create({
   dateHeaderText: {
     fontSize: 14,
     color: "#666",
+  },
+  systemChipContainer: {
+    alignItems: "center",
+    marginVertical: 8,
+    paddingHorizontal: 10,
+  },
+  systemChip: {
+    backgroundColor: "#f0f6ff",
+    borderRadius: 16,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: "#cfe2ff",
+  },
+  systemChipText: {
+    color: "#0b5ed7",
+    fontSize: 12,
+    fontWeight: "600",
+    textAlign: "center",
   },
   inputContainer: {
     flexDirection: "row",
