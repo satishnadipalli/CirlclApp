@@ -97,6 +97,42 @@ const sendMessage = async (req, res) => {
       await message.populate("to", "name profilePic")
     }
 
+    // Emit via socket after persistence
+    try {
+      const io = req.app.get("io")
+      const onlineUsers = req.app.get("onlineUsers")
+      if (messageType === "direct") {
+        const recipientSocketId = onlineUsers.get(to?.toString?.() || String(to))
+        const payload = {
+          from: message.from?._id || message.from,
+          to: message.to?._id || message.to,
+          text: message.text,
+          createdAt: message.createdAt,
+          messageType: "direct",
+          replyTo: message.replyTo?._id || null,
+          _id: message._id,
+        }
+        if (recipientSocketId) io.to(recipientSocketId).emit("receiveDirectMessage", payload)
+        const senderSocketId = onlineUsers.get((req.user.id || "").toString())
+        if (senderSocketId) io.to(senderSocketId).emit("receiveDirectMessage", payload)
+      } else {
+        const payload = {
+          from: message.from?._id || message.from,
+          group: message.group?._id || message.group,
+          text: message.text,
+          createdAt: message.createdAt,
+          messageType: "group",
+          replyTo: message.replyTo?._id || null,
+          _id: message._id,
+        }
+        io.to(`group_${message.group?._id || message.group}`).emit("receiveGroupMessage", payload)
+        const senderSocketId = onlineUsers.get((req.user.id || "").toString())
+        if (senderSocketId) io.to(senderSocketId).emit("receiveGroupMessage", payload)
+      }
+    } catch (e) {
+      // best-effort socket emit; do not fail request
+    }
+
     res.status(201).json({
       success: true,
       message: "Message sent successfully",

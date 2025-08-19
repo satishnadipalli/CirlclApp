@@ -6,7 +6,8 @@ import type React from "react"
 import { createContext, useContext, useEffect, useRef, useState } from "react"
 import { Animated, Dimensions, StyleSheet, Text, TouchableOpacity, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
-import { io, type Socket } from "socket.io-client"
+import { type Socket } from "socket.io-client"
+import socketService from "@/services/socket.service"
 
 const { width } = Dimensions.get("window")
 
@@ -220,67 +221,21 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     fetchUnreadCount()
 
     return () => {
-      if (socket) {
-        socket.disconnect()
-      }
+      socketService.removeNotificationListener(handleNewNotification)
     }
   }, [])
 
+  const handleNewNotification = (notificationData: any) => {
+    setUnreadCount((prev) => prev + 1)
+    setTimeout(() => {
+      showNotification(notificationData)
+    }, 100)
+  }
+
   const initializeSocket = async () => {
     try {
-      const token = await AsyncStorage.getItem("token")
-      if (!token) {
-        console.log("[v0] No token found, cannot initialize socket")
-        return
-      }
-
-      const response = await fetch(`${BASE_URL}/api/users/me`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-
-      if (!response.ok) {
-        console.log("[v0] Failed to get user data")
-        return
-      }
-
-      const userData = await response.json()
-      const userId = userData._id
-      console.log("[v0] Current user ID:", userId)
-
-      const socketInstance = io(BASE_URL)
-      setSocket(socketInstance)
-
-      socketInstance.on("connect", () => {
-        console.log("[v0] Socket connected globally, ID:", socketInstance.id)
-        console.log("[v0] Registering user:", userId)
-        socketInstance.emit("register", userId)
-      })
-
-      socketInstance.on("newNotification", (notificationData) => {
-        console.log("[v0] ===== NEW NOTIFICATION RECEIVED =====")
-        console.log("[v0] Notification data:", JSON.stringify(notificationData, null, 2))
-        console.log("[v0] About to call showNotification...")
-
-        setUnreadCount((prev) => {
-          console.log("[v0] Updating unread count from", prev, "to", prev + 1)
-          return prev + 1
-        })
-
-        setTimeout(() => {
-          console.log("[v0] Calling showNotification with delay...")
-          showNotification(notificationData)
-        }, 100)
-      })
-
-      socketInstance.on("disconnect", (reason) => {
-        console.log("[v0] Socket disconnected globally:", reason)
-      })
-
-      socketInstance.on("connect_error", (error) => {
-        console.log("[v0] Socket connection error:", error)
-      })
+      await socketService.connect()
+      socketService.onNotification(handleNewNotification)
     } catch (error) {
       console.error("[v0] Socket initialization error:", error)
     }

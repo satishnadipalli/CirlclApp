@@ -15,6 +15,8 @@ class SocketService {
     this.typingListeners = [];
     this.stopTypingListeners = [];
     this.userStatusListeners = [];
+    this.notificationListeners = [];
+    this.followEventListeners = [];
     this.currentUserId = null;
   }
 
@@ -123,6 +125,19 @@ class SocketService {
     // User status events
     this.socket.on("userStatusChange", (data) => {
       this.userStatusListeners.forEach((listener) => listener(data));
+    });
+
+    // Notification events
+    this.socket.on("newNotification", (notification) => {
+      this.notificationListeners.forEach((listener) => listener(notification));
+    });
+
+    // Follow/unfollow events
+    this.socket.on("newFollower", (data) => {
+      this.followEventListeners.forEach((listener) => listener({ type: "follow", data }));
+    });
+    this.socket.on("unfollowed", (data) => {
+      this.followEventListeners.forEach((listener) => listener({ type: "unfollow", data }));
     });
 
     this.socket.on("connect", () => {
@@ -242,6 +257,14 @@ class SocketService {
     this.userStatusListeners.push(callback);
   }
 
+  onNotification(callback) {
+    this.notificationListeners.push(callback);
+  }
+
+  onFollowEvent(callback) {
+    this.followEventListeners.push(callback);
+  }
+
   onGroupTyping(callback) {
     this.typingListeners.push(callback);
   }
@@ -293,6 +316,16 @@ class SocketService {
     }
   }
 
+  removeNotificationListener(callback) {
+    const index = this.notificationListeners.indexOf(callback);
+    if (index > -1) this.notificationListeners.splice(index, 1);
+  }
+
+  removeFollowEventListener(callback) {
+    const index = this.followEventListeners.indexOf(callback);
+    if (index > -1) this.followEventListeners.splice(index, 1);
+  }
+
   // Clear all listeners
   clearAllListeners() {
     this.messageListeners = [];
@@ -301,6 +334,8 @@ class SocketService {
     this.typingListeners = [];
     this.stopTypingListeners = [];
     this.userStatusListeners = [];
+    this.notificationListeners = [];
+    this.followEventListeners = [];
   }
 }
 

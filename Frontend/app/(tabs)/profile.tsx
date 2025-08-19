@@ -16,7 +16,7 @@ import {
     TouchableOpacity,
     View,
 } from "react-native"
-import { io } from "socket.io-client"
+import socketService from "@/services/socket.service"
 const { width } = Dimensions.get("window")
 
 interface User {
@@ -73,11 +73,7 @@ export default function ProfileScreen() {
   useEffect(() => {
     initializeProfile()
 
-    return () => {
-      if (socket) {
-        socket.disconnect()
-      }
-    }
+    return () => {}
   }, [])
 
   useEffect(() => {
@@ -170,24 +166,10 @@ export default function ProfileScreen() {
 
   const setupSocket = async (userId: string) => {
     try {
-      const token = await AsyncStorage.getItem("token")
-      if (!token) return
-
-      if (socket) {
-        socket.disconnect()
-      }
-
-      const socketInstance = io("http://192.168.53.127:5000", {
-        auth: { token },
-      })
-
-      socketInstance.on("connect", () => {
-        console.log("[v0] Socket connected for profile updates")
-        socketInstance.emit("register", userId)
-        console.log("[v0] Registered user with socket:", userId)
-      })
-
-      socketInstance.on("newFollower", (data) => {
+      await socketService.connect()
+      socketService.onFollowEvent((evt: any) => {
+        if (evt.type !== "follow") return
+        const data = evt.data
         console.log("[v0] New follower received:", data)
         if (data.followedId === userId) {
           setUser((prev) =>
@@ -201,8 +183,9 @@ export default function ProfileScreen() {
           console.log("[v0] Updated followers count after new follower")
         }
       })
-
-      socketInstance.on("unfollowed", (data) => {
+      socketService.onFollowEvent((evt: any) => {
+        if (evt.type !== "unfollow") return
+        const data = evt.data
         console.log("[v0] Unfollowed received:", data)
         if (data.unfollowedId === userId) {
           setUser((prev) =>
@@ -216,16 +199,6 @@ export default function ProfileScreen() {
           console.log("[v0] Updated followers count after unfollowed")
         }
       })
-
-      socketInstance.on("connect_error", (error) => {
-        console.error("[v0] Socket connection error:", error)
-      })
-
-      socketInstance.on("disconnect", (reason) => {
-        console.log("[v0] Socket disconnected:", reason)
-      })
-
-      setSocket(socketInstance)
     } catch (error) {
       console.error("Socket setup error:", error)
     }

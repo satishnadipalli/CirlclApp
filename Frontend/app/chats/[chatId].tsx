@@ -364,6 +364,9 @@ export default function ChatScreen() {
           console.log("[v0] Loaded direct messages:", formattedMessages.length)
           setMessages(formattedMessages)
 
+          // Mark as read
+          try { await apiService.markDirectRead(params.chatId) } catch {}
+
           const firstMessage = response.messages[0]
           if (firstMessage) {
             const otherUserData = firstMessage.from._id === user._id ? firstMessage.to : firstMessage.from
@@ -388,6 +391,9 @@ export default function ChatScreen() {
           }))
           console.log("[v0] Loaded group messages:", formattedMessages.length)
           setMessages(formattedMessages)
+
+          // Mark as read for group
+          try { await apiService.markGroupRead(params.chatId) } catch {}
         }
 
         if (groupResponse.success) {
