@@ -49,7 +49,7 @@ export default function CreateGroupScreen() {
       const token = await AsyncStorage.getItem("token")
       if (!token) return
       if (!q.trim()) return
-      const response = await fetch(`http://192.168.104.127:5000/api/users/search?q=${encodeURIComponent(q)}`, {
+      const response = await fetch(`http://192.168.155.127:5000/api/users/search?q=${encodeURIComponent(q)}`, {
         headers: { Authorization: `Bearer ${token}` },
       })
       const data = await response.json()
