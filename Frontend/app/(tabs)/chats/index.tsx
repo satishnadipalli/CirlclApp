@@ -221,9 +221,15 @@ export default function ChatsScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
-        <TextInput style={[styles.searchBar, { flex: 1 }]} placeholder="Search chats..." value={search} onChangeText={setSearch} />
-        <TouchableOpacity onPress={() => router.push("/groups/create")}>
-          <Text style={styles.createLink}>Create</Text>
+        <TextInput
+          style={[styles.searchBar, { flex: 1, marginTop: 0 }]}
+          placeholder="Search chats..."
+          value={search}
+          onChangeText={setSearch}
+          placeholderTextColor="#666"
+        />
+        <TouchableOpacity onPress={() => router.push("/groups/create")} style={styles.createBtn}>
+          <Text style={styles.createBtnText}>Create</Text>
         </TouchableOpacity>
       </View>
       {loading ? (
@@ -239,9 +245,10 @@ export default function ChatsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff" },
-  headerRow: { flexDirection: "row", alignItems: "center", paddingRight: 10 },
-  searchBar: { height: 40, margin: 10, marginTop: 50, paddingLeft: 16, borderRadius: 10, backgroundColor: "#d3d3d3ff", fontSize: 16 },
-  createLink: { color: "#0095f6", fontWeight: "700", marginTop: 50, marginLeft: 6 },
+  headerRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 10, paddingTop: 50, gap: 8 },
+  searchBar: { height: 40, paddingLeft: 16, borderRadius: 10, backgroundColor: "#f2f2f2", fontSize: 16 },
+  createBtn: { backgroundColor: "#0095f6", height: 40, borderRadius: 10, paddingHorizontal: 12, justifyContent: "center" },
+  createBtnText: { color: "#fff", fontWeight: "700" },
   separator: { height: 1, backgroundColor: "#eee", marginLeft: 75 },
 })
 

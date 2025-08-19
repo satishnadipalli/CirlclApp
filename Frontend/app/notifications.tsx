@@ -4,7 +4,8 @@ import { Ionicons } from "@expo/vector-icons"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import { useCallback, useEffect, useState } from "react"
 import { Alert, FlatList, Image, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native"
-import io, { type Socket } from "socket.io-client"
+import { type Socket } from "socket.io-client"
+import socketService from "@/services/socket.service"
 
 interface User {
   _id: string
@@ -298,55 +299,10 @@ const NotificationsScreen = () => {
 
   const initializeSocket = async () => {
     try {
-      const token = await AsyncStorage.getItem("token")
-      if (!token) {
-        console.log("[v0] No token found, cannot initialize socket")
-        return
-      }
-
-      // Get current user ID first
-      const response = await fetch(`${BASE_URL}/api/users/me`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-
-      if (!response.ok) {
-        console.log("[v0] Failed to get user data")
-        return
-      }
-
-      const userData = await response.json()
-      const userId = userData._id
-      setCurrentUserId(userId)
-      console.log("[v0] Current user ID:", userId)
-
-      // Initialize socket connection
-      const socketInstance = io(BASE_URL)
-      setSocket(socketInstance)
-
-      socketInstance.on("connect", () => {
-        console.log("[v0] Socket connected, ID:", socketInstance.id)
-        console.log("[v0] Registering user:", userId)
-        socketInstance.emit("register", userId)
-      })
-
-      socketInstance.on("newNotification", (notificationData) => {
-        console.log("[v0] New notification received:", notificationData)
-        console.log("[v0] Sender data structure:", JSON.stringify(notificationData.sender, null, 2))
-        console.log("[v0] Notification type:", notificationData.type)
-
-        // Add notification directly to the list (like HTML version)
+      await socketService.connect()
+      socketService.onNotification((notificationData: any) => {
         setNotifications((prev) => [notificationData, ...prev])
         setUnreadCount((prev) => prev + 1)
-      })
-
-      socketInstance.on("disconnect", (reason) => {
-        console.log("[v0] Socket disconnected:", reason)
-      })
-
-      socketInstance.on("connect_error", (error) => {
-        console.log("[v0] Socket connection error:", error)
       })
     } catch (error) {
       console.error("[v0] Error initializing socket:", error)
@@ -363,12 +319,7 @@ const NotificationsScreen = () => {
     initApp()
 
     // Cleanup socket on unmount
-    return () => {
-      if (socket) {
-        console.log("[v0] Cleaning up socket connection")
-        socket.disconnect()
-      }
-    }
+    return () => {}
   }, [])
 
   const renderNotification = ({ item }: { item: Notification }) => (

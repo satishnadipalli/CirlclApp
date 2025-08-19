@@ -1,10 +1,12 @@
 const express = require("express");
 const dotenv = require("dotenv");
+require("express-async-errors");
 const connectDB = require("./config/db");
 const { errorHandler } = require("./middlewares/error.middleware");
 const http = require("http");
 const { Server } = require("socket.io");
 const cors = require("cors");
+const jwt = require("jsonwebtoken");
 
 dotenv.config();
 connectDB();
@@ -14,15 +16,15 @@ const app = express();
 // Allow your frontend origin
 app.use(
   cors({
-    origin: "http://127.0.0.1:5500", // frontend URL
-    methods: ["GET", "POST", "PUT", "DELETE"],
+    origin: "*",
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
   })
 );
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(errorHandler);
 
 // Routes
 app.use("/api/users", require("./routes/user.routes"));
@@ -51,82 +53,47 @@ const socketToUser = new Map();
 app.set("io", io);
 app.set("onlineUsers", onlineUsers);
 
+// Authenticate sockets with JWT from handshake.auth.token
+io.use((socket, next) => {
+  try {
+    const token = socket.handshake?.auth?.token;
+    if (!token) return next(new Error("Unauthorized"));
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    socket.userId = decoded.id;
+    next();
+  } catch (e) {
+    next(new Error("Unauthorized"));
+  }
+});
+
 io.on("connection", (socket) => {
-  // Register user
-  socket.on("register", (userId) => {
+  // Register user (trust verified JWT over client payload)
+  socket.on("register", (clientUserId) => {
+    const userId = socket.userId || clientUserId;
+    if (!userId) return;
     onlineUsers.set(userId, socket.id);
     socketToUser.set(socket.id, userId);
-    console.log("✅ Registered user:", userId, "with socket:", socket.id);
     io.emit("userStatusChange", { userId, status: "online" });
   });
 
-  // Direct messaging
-  socket.on("sendMessage", ({ to, text, replyTo }) => {
-    console.log("hi trigering");
-    const recipientSocketId = onlineUsers.get(to);
-    const fromUserId = socketToUser.get(socket.id);
-
-    if (!fromUserId) {
-      console.log("⚠️ No fromUserId found for socket:", socket.id);
-      return;
-    }
-
-    const payload = {
-      from: fromUserId,
-      to,
-      text,
-      createdAt: new Date(),
-      messageType: "direct",
-      replyTo: replyTo || null,
-    };
-
-    // Debug logs
-    console.log("📝 Direct message payload:", payload);
-    console.log("🎯 Recipient socketId:", recipientSocketId);
-
-    // Send to recipient if online
-    if (recipientSocketId) {
-      io.to(recipientSocketId).emit("receiveDirectMessage", payload);
-      console.log("📡 Emitted to recipient:", to);
-    } else {
-      console.log("❌ Recipient is offline, not emitted:", to);
-    }
-
-    // Always send back to sender so they also see it live
-    socket.emit("receiveDirectMessage", payload);
-    console.log("📡 Emitted back to sender:", fromUserId);
+  // Direct messaging (no-op; REST controller will emit after persistence)
+  socket.on("sendMessage", () => {
+    // intentionally no-op to avoid duplicate emits
   });
 
-  // Group messaging
-  socket.on("sendGroupMessage", ({ groupId, text, senderId, replyTo }) => {
-    const payload = {
-      from: senderId,
-      group: groupId,
-      text,
-      createdAt: new Date(),
-      messageType: "group",
-      replyTo: replyTo || null,
-    };
-
-    // Send to everyone in the room except sender
-    socket.to(`group_${groupId}`).emit("receiveGroupMessage", payload);
-
-    // Also send back to sender
-    socket.emit("receiveGroupMessage", payload);
-
-    console.log(`Group message from ${senderId} to group ${groupId}: ${text}`);
+  // Group messaging (no-op; REST controller will emit after persistence)
+  socket.on("sendGroupMessage", () => {
+    // intentionally no-op to avoid duplicate emits
   });
 
   // Join group room
   socket.on("joinGroup", (groupId) => {
     socket.join(`group_${groupId}`);
-    console.log(`User ${socket.id} joined group ${groupId}`);
   });
 
   // Leave group room
   socket.on("leaveGroup", (groupId) => {
     socket.leave(`group_${groupId}`);
-    console.log(`User ${socket.id} left group ${groupId}`);
   });
 
   // Typing indicators
@@ -154,15 +121,17 @@ io.on("connection", (socket) => {
   });
 
   // Disconnect
-  socket.on("disconnect", (reason) => {
-    const userId = socketToUser.get(socket.id);
-    if (!userId) return; // already cleaned
-    console.log("User disconnected:", socket.id, reason);
+  socket.on("disconnect", () => {
+    const userId = socketToUser.get(socket.id) || socket.userId;
+    if (!userId) return;
     onlineUsers.delete(userId);
     socketToUser.delete(socket.id);
     io.emit("userStatusChange", { userId, status: "offline" });
   });
 });
+
+// Register error handler after routes and socket
+app.use(errorHandler);
 
 // Start server
 const PORT = process.env.PORT || 5000;

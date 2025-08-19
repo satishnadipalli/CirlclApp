@@ -442,9 +442,9 @@ const likeComment = async (req, res) => {
         if (reply.user.toString() !== req.user.id.toString()) {
           await createNotification({
             req,
-            receiverId: reply.user, // ✅ correct
-            senderId: req.user.id, // ✅ correct
-            type: "like_reply",
+            receiverId: reply.user,
+            senderId: req.user.id,
+            type: "reply", // normalize to supported type
             postId: post._id,
             commentId: comment._id,
             replyId: reply._id,
@@ -464,9 +464,9 @@ const likeComment = async (req, res) => {
         if (comment.user.toString() !== req.user.id.toString()) {
           await createNotification({
             req,
-            receiverId: comment.user, // ✅ correct
-            senderId: req.user.id, // ✅ correct
-            type: "like_comment",
+            receiverId: comment.user,
+            senderId: req.user.id,
+            type: "like", // normalize to supported type
             postId: post._id,
             commentId: comment._id,
           });
