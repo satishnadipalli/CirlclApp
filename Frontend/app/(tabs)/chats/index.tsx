@@ -60,10 +60,13 @@ export default function ChatsScreen() {
 
   const fetchChats = async () => {
     try {
-      if (!userId) return
       const res = await apiService.getChats()
-      const list = normalize(Array.isArray(res?.chats) ? res.chats : [])
-      setChats((prev) => sortChats(list))
+      if (res && (res as any).success !== false) {
+        const list = normalize(Array.isArray(res?.chats) ? res.chats : [])
+        setChats(sortChats(list))
+      } else {
+        setChats([])
+      }
     } catch (e) {
       console.error("fetch chats error", e)
     } finally {
