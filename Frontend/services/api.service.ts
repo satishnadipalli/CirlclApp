@@ -168,6 +168,9 @@ class ApiService {
   }
 
   // User Methods
+  async getMe() {
+    return this.request("/users/me")
+  }
   async getUserProfile(userId) {
     return this.request(`/users/${userId}`)
   }
