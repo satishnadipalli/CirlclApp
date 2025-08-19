@@ -22,6 +22,10 @@ const createPost = async (req, res) => {
     const hashtags = (description.match(/#\w+/g) || []).map((t) => t.substring(1).toLowerCase())
     const mentions = (description.match(/@\w+/g) || []).map((u) => u.substring(1))
 
+    const lng = req.body?.lng != null ? Number(req.body.lng) : null
+    const lat = req.body?.lat != null ? Number(req.body.lat) : null
+    const locationName = req.body?.locationName || ""
+
     const newPost = await Post.create({
       title,
       description,
@@ -29,6 +33,8 @@ const createPost = async (req, res) => {
       user: req.user._id,
       hashtags,
       mentions,
+      locationName,
+      geo: lat != null && lng != null ? { type: "Point", coordinates: [lng, lat] } : undefined,
     })
 
     if (mentions.length > 0) {
@@ -660,6 +666,70 @@ const getSavedPosts = async (req, res) => {
   }
 };
 
+// EXPLORE FEED: basic heuristic combining following, interactions, hashtags, trending
+const getExplorePosts = async (req, res) => {
+  try {
+    const userId = req.user.id
+    let { page = 1, limit = 18, lat, lng } = req.query
+    page = Number.parseInt(page)
+    limit = Math.min(50, Math.max(6, Number.parseInt(limit)))
+
+    // Signals
+    const me = await User.findById(userId).select("following savedPosts")
+    const following = me?.following || []
+    const saved = me?.savedPosts || []
+
+    // Pull recent posts and score
+    const recent = await Post.find({}).sort({ createdAt: -1 }).limit(800).populate("user", "name profilePic")
+
+    const userLat = lat != null && lng != null ? Number(lat) : null
+    const userLng = lat != null && lng != null ? Number(lng) : null
+
+    const scorePost = (p) => {
+      let score = 0
+      // Popularity
+      score += (p.likes?.length || 0) * 2
+      score += (p.comments?.length || 0) * 3
+      // Recency
+      const ageHours = Math.max(1, (Date.now() - new Date(p.createdAt).getTime()) / (1000 * 60 * 60))
+      score += 100 / ageHours
+      // From following
+      if (following.some((f) => String(f) === String(p.user?._id || p.user))) score += 25
+      // Saved by me historically -> taste affinity
+      if (saved.some((s) => String(s) === String(p._id))) score += 20
+      // Hashtag affinity: crude - count hashtags
+      score += (p.hashtags?.length || 0) * 1
+      // Proximity (if available): within ~50km boosts, inverse with distance
+      if (userLat != null && userLng != null && p?.geo?.coordinates?.length === 2) {
+        const [plng, plat] = p.geo.coordinates
+        const R = 6371 // km
+        const dLat = ((plat - userLat) * Math.PI) / 180
+        const dLng = ((plng - userLng) * Math.PI) / 180
+        const a = Math.sin(dLat / 2) ** 2 + Math.cos((userLat * Math.PI) / 180) * Math.cos((plat * Math.PI) / 180) * Math.sin(dLng / 2) ** 2
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+        const distanceKm = R * c
+        if (distanceKm < 10) score += 40
+        else if (distanceKm < 25) score += 25
+        else if (distanceKm < 50) score += 12
+      }
+      return score
+    }
+
+    const scored = recent
+      .map((p) => ({ p, s: scorePost(p) }))
+      .sort((a, b) => b.s - a.s)
+      .map((x) => x.p)
+
+    const start = (page - 1) * limit
+    const data = scored.slice(start, start + limit)
+    const hasMore = start + limit < scored.length
+
+    res.json({ success: true, page, limit, hasMore, posts: data })
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message })
+  }
+}
+
 module.exports = {
   createPost,
   getAllPosts,
@@ -675,4 +745,5 @@ module.exports = {
   editReply,
   savePost,
   getSavedPosts,
+  getExplorePosts,
 };

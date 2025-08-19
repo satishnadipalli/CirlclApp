@@ -3,6 +3,7 @@ import socketService from "@/services/socket.service";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Stack } from "expo-router";
 import React, { useEffect } from "react";
+import * as Location from "expo-location";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 export default function RootLayout() {
@@ -21,6 +22,18 @@ export default function RootLayout() {
   }
 
   initSocket();
+
+  async function captureLocation() {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") return;
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const coords = { lat: loc.coords.latitude, lng: loc.coords.longitude };
+      await AsyncStorage.setItem("user_coords", JSON.stringify(coords));
+    } catch {}
+  }
+
+  captureLocation();
 
   return () => {
     socketService.disconnect();
