@@ -837,7 +837,11 @@ export default function ChatScreen() {
       >
         <TouchableOpacity
           style={styles.topBar}
-          onPress={() => params.chatType === "group" && setShowGroupInfo(true)}
+          onPress={() => {
+            if (params.chatType === "group") {
+              router.push({ pathname: `/groups/${params.chatId}` })
+            }
+          }}
           disabled={params.chatType === "direct"}
         >
           <Avatar.Image size={40} source={{ uri: headerInfo.avatar }} />
@@ -845,7 +849,7 @@ export default function ChatScreen() {
             <Text style={styles.nameText}>{headerInfo.name}</Text>
             <Text style={styles.statusText}>{headerInfo.status}</Text>
           </View>
-          {params.chatType === "group" && <Icon name="info" size={24} color="#666" />}
+          {params.chatType === "group" && <Icon name="chevron-right" size={24} color="#666" />}
           <View style={[styles.connectionStatus, { backgroundColor: isConnected ? "#4CAF50" : "#F44336" }]} />
         </TouchableOpacity>
 
