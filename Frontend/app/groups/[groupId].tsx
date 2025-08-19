@@ -127,6 +127,11 @@ export default function GroupDetailsScreen() {
         <Image source={{ uri: group.groupPic || "https://i.pravatar.cc/150?img=14" }} style={styles.heroAvatar} />
         <Text style={styles.heroName}>{group.name}</Text>
         {group.description ? <Text style={styles.heroDesc}>{group.description}</Text> : null}
+        {meIsAdmin && (
+          <TouchableOpacity onPress={onAddMembers} style={styles.addFab}>
+            <Text style={styles.addFabText}>＋</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       <View style={styles.actionsBar}>
@@ -258,5 +263,7 @@ const styles = StyleSheet.create({
   sep: { height: 1, backgroundColor: "#eee", marginLeft: 68 },
   followBtn: { color: "#fff", backgroundColor: "#0095f6", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, overflow: "hidden", fontSize: 12, fontWeight: "700" },
   followingBtn: { color: "#0095f6", borderColor: "#0095f6", borderWidth: 1, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, overflow: "hidden", fontSize: 12, fontWeight: "700" },
+  addFab: { position: "absolute", right: 16, top: 8, backgroundColor: "#0095f6", borderRadius: 16, paddingHorizontal: 10, paddingVertical: 4 },
+  addFabText: { color: "#fff", fontSize: 16, fontWeight: "800" },
 })
 

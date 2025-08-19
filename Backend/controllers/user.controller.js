@@ -1,6 +1,7 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../models/user.models");
+const Group = require("../models/group.model");
 
 // Register
 const register = async (req, res) => {
@@ -159,7 +160,7 @@ const unfollowUser = async (req, res) => {
 
 const searchuser = async (req, res) => {
   try {
-    const { q } = req.query;
+    const { q, groupId, exclude } = req.query;
     let page = Number.parseInt(req.query.page) || 1
     let limit = Number.parseInt(req.query.limit) || 10
     if (limit > 50) limit = 50
@@ -173,8 +174,31 @@ const searchuser = async (req, res) => {
 
     const regex = new RegExp(q, "i"); // case-insensitive regex
 
-    const users = await User.find({ name: regex })
+    // Build exclusion list: current user, optional group members, optional explicit exclude ids
+    const excludeIds = new Set()
+    if (req.user?.id) excludeIds.add(req.user.id.toString())
+    if (exclude) {
+      String(exclude)
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .forEach((id) => excludeIds.add(id))
+    }
+    if (groupId) {
+      try {
+        const grp = await Group.findById(groupId).select("members")
+        grp?.members?.forEach((m) => excludeIds.add(m.toString()))
+      } catch {}
+    }
+
+    const query = { name: regex }
+    if (excludeIds.size > 0) {
+      query._id = { $nin: Array.from(excludeIds) }
+    }
+
+    const users = await User.find(query)
       .select("_id name username profilePic")
+      .sort({ name: 1 })
       .skip((page - 1) * limit)
       .limit(limit);
 
