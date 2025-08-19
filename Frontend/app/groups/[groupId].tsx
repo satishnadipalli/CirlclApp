@@ -59,14 +59,13 @@ export default function GroupDetailsScreen() {
 
   const onAddMembers = async () => {
     try {
-      // Simple prompt-like selection using search API for demo
       const token = await AsyncStorage.getItem("token")
       if (!token) return
-      const resp = await fetch(`http://192.168.53.127:5000/api/users/search?q=${encodeURIComponent(search || "a")}`, { headers: { Authorization: `Bearer ${token}` } })
+      const resp = await fetch(`http://192.168.53.127:5000/api/users/search?q=${encodeURIComponent(search || "a")}&page=1&limit=20`, { headers: { Authorization: `Bearer ${token}` } })
       const data = await resp.json()
       const pool: Member[] = Array.isArray(data?.users) ? data.users : []
       const existing = new Set((group?.members || []).map((m) => m._id))
-      const candidates = pool.filter((u) => !existing.has(u._id)).slice(0, 5)
+      const candidates = pool.filter((u) => !existing.has(u._id))
       if (candidates.length === 0) return Alert.alert("No users to add")
       const res = await apiService.addGroupMembers(groupId, candidates.map((c) => c._id))
       if (res?.success) {
