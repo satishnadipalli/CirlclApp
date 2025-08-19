@@ -26,7 +26,15 @@ export default function ChatsScreen() {
     if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
       UIManager.setLayoutAnimationEnabledExperimental(true)
     }
+    console.log("working: ChatsScreen mounted")
   }, [])
+
+  // Fetch once userId is available (covers first navigation into tab)
+  useEffect(() => {
+    if (!userId) return
+    console.log("working: userId available, fetching chats for", userId)
+    fetchChats()
+  }, [userId])
 
   const loadUser = async () => {
     try {
@@ -60,11 +68,14 @@ export default function ChatsScreen() {
 
   const fetchChats = async () => {
     try {
-      if (!userId) return
+      console.log("working: fetchChats() called")
       const res = await apiService.getChats()
-      console.log("res res res",res)
-      const list = normalize(Array.isArray(res?.chats) ? res.chats : [])
-      setChats((prev) => sortChats(list))
+      if (res && (res as any).success !== false) {
+        const list = normalize(Array.isArray(res?.chats) ? res.chats : [])
+        setChats(sortChats(list))
+      } else {
+        setChats([])
+      }
     } catch (e) {
       console.error("fetch chats error", e)
     } finally {
@@ -200,9 +211,9 @@ export default function ChatsScreen() {
   useFocusEffect(
     useCallback(() => {
       fetchChats()
-      const id = setInterval(fetchChats, 5000) // fallback polling
+      const id = setInterval(fetchChats, 5000) // fallback polling in case socket missed
       return () => clearInterval(id)
-    }, []),
+    }, [userId]),
   )
 
   const filtered = chats.filter((c) => {
