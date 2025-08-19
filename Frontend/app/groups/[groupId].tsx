@@ -61,18 +61,12 @@ export default function GroupDetailsScreen() {
 
   const onAddMembers = async () => {
     try {
-      const token = await AsyncStorage.getItem("token")
-
-      if (!token) return
-
-      const resp = await fetch(`http://192.168.104.127:5000/api/users/search?q=${encodeURIComponent(search || "a")}&page=1&limit=20`, { headers: { Authorization: `Bearer ${token}` } })
-      const data = await resp.json()
-
-            console.log("data data",data)
-      const pool: Member[] = Array.isArray(data?.users) ? data.users : []
+      if (!search.trim()) return Alert.alert("Type a name to search")
+      const data = await apiService.searchUsers(search.trim(), 1, 20, String(groupId))
+      const pool: Member[] = Array.isArray((data as any)?.users) ? (data as any).users : []
       const existing = new Set((group?.members || []).map((m) => m._id))
       const candidates = pool.filter((u) => !existing.has(u._id))
-      if (candidates.length === 0) return Alert.alert("No users to add")
+      if (candidates.length === 0) return Alert.alert("No matching users to add")
       const res = await apiService.addGroupMembers(groupId, candidates.map((c) => c._id))
       if (res?.success) {
         await loadGroup()
@@ -147,10 +141,10 @@ export default function GroupDetailsScreen() {
 
       <View style={styles.actionsBar}>
         <TextInput
-          placeholder="Search members"
+          placeholder="Type a name to find people to add"
           value={search}
           onChangeText={setSearch}
-          style={styles.search}
+          style={[styles.search, { height: 44 }]}
           ref={searchInputRef}
         />
         {meIsAdmin && (
