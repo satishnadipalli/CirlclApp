@@ -12,6 +12,8 @@ router.post("/", protect, upload.single("file"), uploadToCloudinary, postControl
 
 // Feed (with pagination: ?page=1&limit=10)
 router.get("/", protect, postController.getAllPosts);
+// Explore
+router.get("/explore", protect, postController.getExplorePosts);
 
 // My posts (also paginated)
 router.get("/me", protect, postController.getMyPosts);

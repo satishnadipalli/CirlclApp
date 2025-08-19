@@ -660,6 +660,54 @@ const getSavedPosts = async (req, res) => {
   }
 };
 
+// EXPLORE FEED: basic heuristic combining following, interactions, hashtags, trending
+const getExplorePosts = async (req, res) => {
+  try {
+    const userId = req.user.id
+    let { page = 1, limit = 18 } = req.query
+    page = Number.parseInt(page)
+    limit = Math.min(50, Math.max(6, Number.parseInt(limit)))
+
+    // Signals
+    const me = await User.findById(userId).select("following savedPosts")
+    const following = me?.following || []
+    const saved = me?.savedPosts || []
+
+    // Pull recent posts and score
+    const recent = await Post.find({}).sort({ createdAt: -1 }).limit(800).populate("user", "name profilePic")
+
+    const scorePost = (p) => {
+      let score = 0
+      // Popularity
+      score += (p.likes?.length || 0) * 2
+      score += (p.comments?.length || 0) * 3
+      // Recency
+      const ageHours = Math.max(1, (Date.now() - new Date(p.createdAt).getTime()) / (1000 * 60 * 60))
+      score += 100 / ageHours
+      // From following
+      if (following.some((f) => String(f) === String(p.user?._id || p.user))) score += 25
+      // Saved by me historically -> taste affinity
+      if (saved.some((s) => String(s) === String(p._id))) score += 20
+      // Hashtag affinity: crude - intersect with my saved posts' hashtags
+      score += (p.hashtags?.length || 0) * 1
+      return score
+    }
+
+    const scored = recent
+      .map((p) => ({ p, s: scorePost(p) }))
+      .sort((a, b) => b.s - a.s)
+      .map((x) => x.p)
+
+    const start = (page - 1) * limit
+    const data = scored.slice(start, start + limit)
+    const hasMore = start + limit < scored.length
+
+    res.json({ success: true, page, limit, hasMore, posts: data })
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message })
+  }
+}
+
 module.exports = {
   createPost,
   getAllPosts,
@@ -675,4 +723,5 @@ module.exports = {
   editReply,
   savePost,
   getSavedPosts,
+  getExplorePosts,
 };

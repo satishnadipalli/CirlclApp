@@ -1,72 +1,47 @@
-"use client"
-
-import { Ionicons } from "@expo/vector-icons"
-import AsyncStorage from "@react-native-async-storage/async-storage"
 import { useRouter } from "expo-router"
-import { useEffect, useState } from "react"
-import {
-    ActivityIndicator,
-    Dimensions,
-    FlatList,
-    Image,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
-} from "react-native"
+import { useEffect, useState, useRef } from "react"
+import { View, Text, FlatList, ActivityIndicator, Image } from "react-native"
+import { Ionicons } from "@expo/vector-icons"
+import { styles } from "@/styles/search"
+import { apiService } from "@/services/api.service"
 
-const { width } = Dimensions.get("window")
-
-const posts = [
-  {
-    id: "1",
-    uri: "https://res.cloudinary.com/dlehbizfp/image/upload/f_jpg/v1755065855/circle_uploads/jqn1ydnekml88cf4k2f0.jpg",
-    type: "image",
-  },
-  {
-    id: "2",
-    uri: "https://res.cloudinary.com/dlehbizfp/image/upload/f_jpg/v1755065855/circle_uploads/jqn1ydnekml88cf4k2f0.jpg",
-    type: "video",
-  },
-  {
-    id: "3",
-    uri: "https://res.cloudinary.com/dlehbizfp/image/upload/f_jpg/v1755065855/circle_uploads/jqn1ydnekml88cf4k2f0.jpg",
-    type: "image",
-  },
-  {
-    id: "4",
-    uri: "https://res.cloudinary.com/dlehbizfp/image/upload/f_jpg/v1755065855/circle_uploads/jqn1ydnekml88cf4k2f0.jpg",
-    type: "video",
-  },
-  {
-    id: "5",
-    uri: "https://res.cloudinary.com/dlehbizfp/image/upload/f_jpg/v1755065855/circle_uploads/jqn1ydnekml88cf4k2f0.jpg",
-    type: "image",
-  },
-  {
-    id: "6",
-    uri: "https://res.cloudinary.com/dlehbizfp/image/upload/f_jpg/v1755065855/circle_uploads/jqn1ydnekml88cf4k2f0.jpg",
-    type: "image",
-  },
-  {
-    id: "7",
-    uri: "https://res.cloudinary.com/dlehbizfp/image/upload/f_jpg/v1755065855/circle_uploads/jqn1ydnekml88cf4k2f0.jpg",
-    type: "video",
-  },
-  {
-    id: "8",
-    uri: "https://res.cloudinary.com/dlehbizfp/image/upload/f_jpg/v1755065855/circle_uploads/jqn1ydnekml88cf4k2f0.jpg",
-    type: "image",
-  },
-]
-
-export default function SearchScreen() {
+const SearchTab = () => {
   const [search, setSearch] = useState("")
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(false)
   const [isSearching, setIsSearching] = useState(false)
+  const [explore, setExplore] = useState([])
+  const [page, setPage] = useState(1)
+  const [hasMore, setHasMore] = useState(true)
+  const loadingMoreRef = useRef(false)
   const router = useRouter()
+
+  useEffect(() => {
+    // Initial explore load
+    loadExplore(1, true)
+  }, [])
+
+  const loadExplore = async (p = 1, replace = false) => {
+    if (loadingMoreRef.current) return
+    loadingMoreRef.current = true
+    try {
+      const res = await apiService.getExplore(p, 18)
+      const items = (res && (res as any).posts) || []
+      setExplore((prev) => (replace ? items : p === 1 ? items : [...prev, ...items]))
+      setHasMore((res as any)?.hasMore ?? items.length > 0)
+      setPage(p)
+    } catch (e) {
+      // ignore
+    } finally {
+      loadingMoreRef.current = false
+    }
+  }
+
+  const onEndReached = () => {
+    if (!isSearching && hasMore && !loadingMoreRef.current) {
+      loadExplore(page + 1)
+    }
+  }
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -81,87 +56,42 @@ export default function SearchScreen() {
     return () => clearTimeout(timeoutId)
   }, [search])
 
-  const searchUsers = async (query) => {
-    const token = await AsyncStorage.getItem('token');
-    if (!token) {
-      console.log('No token found');
-      return;
-    }
-
+  const searchUsers = async (query: string) => {
     setLoading(true)
     setIsSearching(true)
-
     try {
-      // Replace with your actual API endpoint and token
-      const response = await fetch(`http://192.168.53.127:5000/api/users/search?q=${encodeURIComponent(query)}`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        setUsers(data.users || [])
-      } else {
-        console.error("Search failed:", response.status)
-        setUsers([])
-      }
-    } catch (error) {
-      console.error("Search error:", error)
-      setUsers([])
+      const res = await apiService.searchUsers(query)
+      setUsers(res)
+    } catch (e) {
+      // ignore
     } finally {
       setLoading(false)
     }
   }
 
-  const renderUserItem = ({ item }) => (
-    <TouchableOpacity style={styles.userItem}
-      onPress={() =>
-        router.push({
-          pathname: "/otherProfile",
-          params: { userId: item._id, name: item.name }
-        })
-      }
-
-    >
-      <Image
-        source={{
-          uri: item.profilePic || "https://via.placeholder.com/50x50/cccccc/666666?text=User",
-        }}
-        style={styles.userAvatar}
-      />
-      <View style={styles.userInfo}>
-        <Text style={styles.userName}>{item.name}</Text>
-        <Text style={styles.userHandle}>@{item.username || item.email}</Text>
-      </View>
-    </TouchableOpacity>
+  const renderUserItem = ({ item }: { item: any }) => (
+    <View style={styles.userItem}>
+      <Image source={{ uri: item.profilePicture || "https://i.pravatar.cc/500?img=21" }} style={styles.userImage} />
+      <Text style={styles.userName}>{item.username}</Text>
+    </View>
   )
-
-  const clearSearch = () => {
-    setSearch("")
-    setUsers([])
-    setIsSearching(false)
-  }
 
   return (
     <View style={styles.container}>
-      {/* Search Bar */}
       <View style={styles.searchBar}>
-        <Ionicons name="search" size={20} color="#888" style={{ marginRight: 6 }} />
+        <Ionicons name="search" size={24} color="#888" />
         <TextInput
-          style={styles.input}
-          placeholder="Search"
-          placeholderTextColor="#888"
+          style={styles.searchInput}
+          placeholder="Search users..."
           value={search}
           onChangeText={setSearch}
+          onFocus={() => setIsSearching(true)}
+          onBlur={() => {
+            if (search.trim().length === 0) {
+              setIsSearching(false)
+            }
+          }}
         />
-        {search.length > 0 && (
-          <TouchableOpacity onPress={clearSearch}>
-            <Ionicons name="close-circle" size={20} color="#888" />
-          </TouchableOpacity>
-        )}
       </View>
 
       {isSearching ? (
@@ -188,12 +118,16 @@ export default function SearchScreen() {
           )}
         </View>
       ) : (
-        /* Posts Grid */
+        /* Explore Grid */
         <FlatList
-          data={posts}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => <Image source={{ uri: item.uri }} style={styles.image} />}
+          data={explore}
+          keyExtractor={(item, idx) => item._id || String(idx)}
+          renderItem={({ item }) => (
+            <Image source={{ uri: item.mediaUrl || "https://i.pravatar.cc/500?img=21" }} style={styles.image} />
+          )}
           numColumns={3}
+          onEndReached={onEndReached}
+          onEndReachedThreshold={0.4}
           showsVerticalScrollIndicator={false}
         />
       )}
@@ -201,88 +135,4 @@ export default function SearchScreen() {
   )
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#fff",
-  },
-  searchBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#f0f0f0",
-    margin: 10,
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 2,
-    marginTop: 50,
-  },
-  input: {
-    flex: 1,
-    fontSize: 16,
-  },
-  image: {
-    width: width / 3,
-    height: width / 3,
-  },
-  searchResults: {
-    flex: 1,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingTop: 50,
-  },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 16,
-    color: "#666",
-  },
-  usersList: {
-    flex: 1,
-  },
-  userItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 15,
-    paddingVertical: 12,
-    borderBottomWidth: 0.5,
-    borderBottomColor: "#e0e0e0",
-  },
-  userAvatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    marginRight: 12,
-  },
-  userInfo: {
-    flex: 1,
-  },
-  userName: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#000",
-    marginBottom: 2,
-  },
-  userHandle: {
-    fontSize: 14,
-    color: "#666",
-  },
-  noResultsContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingTop: 100,
-  },
-  noResultsText: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#666",
-    marginTop: 15,
-  },
-  noResultsSubtext: {
-    fontSize: 14,
-    color: "#999",
-    marginTop: 5,
-  },
-})
+export default SearchTab

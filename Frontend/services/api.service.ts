@@ -80,6 +80,11 @@ class ApiService {
     return this.request("/messages/chats")
   }
 
+  // Explore
+  async getExplore(page = 1, limit = 18) {
+    return this.request(`/posts/explore?page=${page}&limit=${limit}`)
+  }
+
   async getDirectMessages(withUserId) {
     return this.request(`/messages/direct/${withUserId}`)
   }
