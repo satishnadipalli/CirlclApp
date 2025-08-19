@@ -4,7 +4,8 @@ import { apiService } from "@/services/api.service"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import { useRouter } from "expo-router"
 import React, { useEffect, useState } from "react"
-import { Alert, FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View, ActivityIndicator, Image } from "react-native"
+import { Alert, FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View, ActivityIndicator, Image, ScrollView } from "react-native"
+import Icon from "react-native-vector-icons/MaterialIcons"
 
 interface UserLite { _id: string; name: string; profilePic?: string; username?: string }
 
@@ -17,6 +18,8 @@ export default function CreateGroupScreen() {
   const [hasMoreFollowers, setHasMoreFollowers] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [search, setSearch] = useState("")
+  const [searchResults, setSearchResults] = useState<UserLite[]>([])
+  const [searchLoading, setSearchLoading] = useState(false)
   const [loading, setLoading] = useState(false)
   const router = useRouter()
   const meIdRef = React.useRef<string>("")
@@ -48,18 +51,22 @@ export default function CreateGroupScreen() {
     try {
       const token = await AsyncStorage.getItem("token")
       if (!token) return
-      if (!q.trim()) return
-      const response = await fetch(`http://192.168.53.127:5000/api/users/search?q=${encodeURIComponent(q)}`, {
-        headers: { Authorization: `Bearer ${token}` },
+      const query = q.trim()
+      if (!query) return
+      setSearchLoading(true)
+      const res = await apiService.searchUsers(query, 1, 20)
+      const users: UserLite[] = Array.isArray((res as any)?.users) ? (res as any).users : []
+      // Exclude self and de-dup with current list
+      const unique = new Map<string, UserLite>()
+      users.forEach((u) => {
+        if (u && u._id !== meIdRef.current) unique.set(u._id, u)
       })
-      const data = await response.json()
-      const users: UserLite[] = Array.isArray(data?.users) ? data.users : []
-      // merge with existing without duplicates
-      const map = new Map<string, UserLite>()
-      ;[...friends, ...users].forEach((u) => u && u._id !== meIdRef.current && map.set(u._id, u))
-      setFriends(Array.from(map.values()))
+      setSearchResults(Array.from(unique.values()))
     } catch (e) {
       console.log("search error", e)
+      setSearchResults([])
+    } finally {
+      setSearchLoading(false)
     }
   }
 
@@ -100,35 +107,71 @@ export default function CreateGroupScreen() {
     }
   }
 
+  const dataToRender = search.trim().length >= 2 ? searchResults : friends
+  const selectedUsers: UserLite[] = (() => {
+    const byId = new Map<string, UserLite>()
+    ;[...friends, ...searchResults].forEach((u) => {
+      if (u && selected[u._id]) byId.set(u._id, u)
+    })
+    return Array.from(byId.values())
+  })()
+
+  const canCreate = name.trim().length > 0
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>New Group</Text>
-        <TouchableOpacity onPress={onCreate} disabled={loading}>
-          <Text style={[styles.createBtn, loading && { opacity: 0.6 }]}>Create</Text>
+        <TouchableOpacity onPress={onCreate} disabled={loading || !canCreate}>
+          <Text style={[styles.createBtn, (loading || !canCreate) && { opacity: 0.5 }]}>
+            Create{selectedUsers.length > 0 ? ` (${selectedUsers.length})` : ""}
+          </Text>
         </TouchableOpacity>
       </View>
-      <TextInput placeholder="Group name" style={styles.input} value={name} onChangeText={setName} />
-      <TextInput placeholder="Description (optional)" style={[styles.input, { height: 80 }]} value={description} onChangeText={setDescription} multiline />
-      <View style={styles.searchRow}>
-        <TextInput
-          placeholder="Search people..."
-          placeholderTextColor="#666"
-          style={[styles.input, { flex: 1, marginHorizontal: 0, height: 48, paddingVertical: 12 }]}
-          value={search}
-          onChangeText={(t) => {
-            setSearch(t)
-            if (debounceId) clearTimeout(debounceId)
-            const id = setTimeout(() => {
-              if (t.trim().length >= 2) doSearch(t)
-            }, 300)
-            setDebounceId(id)
-          }}
-        />
+      <View style={styles.card}>
+        <TextInput placeholder="Group name" style={styles.input} value={name} onChangeText={setName} />
+        <TextInput placeholder="Description (optional)" style={[styles.input, { height: 80 }]} value={description} onChangeText={setDescription} multiline />
+        <View style={styles.searchContainer}>
+          <Icon name="search" size={20} color="#666" style={styles.searchIcon} />
+          <TextInput
+            placeholder="Search people by name or username"
+            placeholderTextColor="#888"
+            style={styles.searchInput}
+            value={search}
+            onChangeText={(t) => {
+              setSearch(t)
+              if (debounceId) clearTimeout(debounceId)
+              const id = setTimeout(() => {
+                if (t.trim().length >= 2) doSearch(t)
+                else setSearchResults([])
+              }, 300)
+              setDebounceId(id)
+            }}
+          />
+          {search.length > 0 && (
+            <TouchableOpacity onPress={() => { setSearch(""); setSearchResults([]) }} style={styles.clearBtn}>
+              <Icon name="close" size={18} color="#999" />
+            </TouchableOpacity>
+          )}
+        </View>
+        {selectedUsers.length > 0 && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.selectedChips}>
+            {selectedUsers.map((u) => (
+              <View key={u._id} style={styles.chip}>
+                <Image source={{ uri: u.profilePic || "https://i.pravatar.cc/100?img=12" }} style={styles.chipAvatar} />
+                <Text style={styles.chipText} numberOfLines={1}>{u.name}</Text>
+                <TouchableOpacity onPress={() => toggle(u._id)} style={styles.chipRemove}>
+                  <Icon name="close" size={14} color="#666" />
+                </TouchableOpacity>
+              </View>
+            ))}
+          </ScrollView>
+        )}
       </View>
-      <Text style={styles.section}>Followers & Results</Text>
+
+      <Text style={styles.section}>{search.trim().length >= 2 ? "Search Results" : "Suggested (Followers)"}</Text>
       <FlatList
-        data={friends}
+        data={dataToRender}
         keyExtractor={(u) => u._id}
         renderItem={({ item }) => (
           <TouchableOpacity style={styles.row} onPress={() => toggle(item._id)}>
@@ -142,12 +185,18 @@ export default function CreateGroupScreen() {
             </View>
           </TouchableOpacity>
         )}
+        ListEmptyComponent={() => (
+          <View style={{ paddingVertical: 30, alignItems: "center" }}>
+            {searchLoading ? <ActivityIndicator /> : <Text style={{ color: "#666" }}>No users found</Text>}
+          </View>
+        )}
         ItemSeparatorComponent={() => <View style={styles.sep} />}
-        onEndReached={loadMoreFollowers}
+        onEndReached={search.trim().length >= 2 ? undefined : loadMoreFollowers}
         onEndReachedThreshold={0.2}
-        ListFooterComponent={loadingMore ? (
-          <View style={{ paddingVertical: 12 }}><ActivityIndicator /></View>
-        ) : null}
+        ListFooterComponent={(() => {
+          if (search.trim().length >= 2) return searchLoading ? <View style={{ paddingVertical: 12 }}><ActivityIndicator /></View> : null
+          return loadingMore ? <View style={{ paddingVertical: 12 }}><ActivityIndicator /></View> : null
+        })()}
       />
     </View>
   )
@@ -158,8 +207,17 @@ const styles = StyleSheet.create({
   header: { paddingHorizontal: 16, paddingVertical: 12, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   title: { fontSize: 24, fontWeight: "700" },
   createBtn: { color: "#0095f6", fontSize: 16, fontWeight: "600" },
-  input: { marginHorizontal: 16, marginTop: 10, backgroundColor: "#f2f2f2", borderRadius: 10, paddingHorizontal: 12, height: 44 },
-  searchRow: { marginHorizontal: 16, marginTop: 10 },
+  card: { backgroundColor: "#fff", marginHorizontal: 12, marginTop: 12, borderWidth: 1, borderColor: "#eee", borderRadius: 14, paddingVertical: 10, paddingHorizontal: 10 },
+  input: { marginHorizontal: 6, marginTop: 8, backgroundColor: "#f7f7f7", borderRadius: 10, paddingHorizontal: 12, height: 44, borderWidth: 1, borderColor: "#eee" },
+  searchContainer: { flexDirection: "row", alignItems: "center", marginHorizontal: 6, marginTop: 10, backgroundColor: "#f7f7f7", borderRadius: 10, borderWidth: 1, borderColor: "#eee" },
+  searchIcon: { marginLeft: 10 },
+  searchInput: { flex: 1, height: 44, paddingHorizontal: 10, color: "#000" },
+  clearBtn: { paddingHorizontal: 10, height: 44, justifyContent: "center", alignItems: "center" },
+  selectedChips: { paddingHorizontal: 6, paddingTop: 8, paddingBottom: 2, gap: 6 },
+  chip: { flexDirection: "row", alignItems: "center", backgroundColor: "#eef6ff", borderRadius: 16, paddingHorizontal: 8, paddingVertical: 6, borderWidth: 1, borderColor: "#d9ebff", marginRight: 6 },
+  chipAvatar: { width: 20, height: 20, borderRadius: 10, marginRight: 6, backgroundColor: "#ddd" },
+  chipText: { maxWidth: 120, color: "#0b5ed7", fontWeight: "600", fontSize: 12 },
+  chipRemove: { marginLeft: 6 },
   section: { marginTop: 16, marginHorizontal: 16, fontSize: 14, color: "#666" },
   row: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 12 },
   avatar: { width: 40, height: 40, borderRadius: 20, marginRight: 12, backgroundColor: "#eee" },
