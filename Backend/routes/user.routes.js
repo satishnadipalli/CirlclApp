@@ -13,9 +13,10 @@ router.get("/me", auth, getProfile);
 router.post("/:id/follow", auth, followUser);
 router.post("/:id/unfollow", auth, unfollowUser);
 router.get("/search", auth, searchuser);
-router.get("/:id",auth,getUserById)
+// Place more specific routes before the generic /:id route
 router.get("/:id/followers", auth, getFollowers)
 router.get("/:id/following", auth, getFollowing)
+router.get("/:id", auth, getUserById)
 
 
 
