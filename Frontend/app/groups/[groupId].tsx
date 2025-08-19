@@ -149,6 +149,7 @@ export default function GroupDetailsScreen() {
         keyExtractor={(m) => m._id}
         renderItem={({ item }) => {
           const isItemAdmin = isAdmin(item._id)
+          const meId = currentUserIdRef.current
           return (
             <View style={styles.row}>
               <Image source={{ uri: item.profilePic || "https://i.pravatar.cc/100?img=12" }} style={styles.rowAvatar} />
@@ -156,20 +157,27 @@ export default function GroupDetailsScreen() {
                 <Text style={styles.rowName}>{item.name}</Text>
                 {isItemAdmin && <Text style={styles.rowRole}>Admin</Text>}
               </View>
-              {meIsAdmin && currentUserIdRef.current !== item._id && (
+              {meId !== item._id && (
                 <View style={styles.rowActions}>
-                  {isItemAdmin ? (
-                    <TouchableOpacity onPress={() => onDemote(item._id)}>
-                      <Text style={styles.actionDanger}>Remove admin</Text>
-                    </TouchableOpacity>
-                  ) : (
-                    <TouchableOpacity onPress={() => onPromote(item._id)}>
-                      <Text style={styles.actionPrimary}>Make admin</Text>
-                    </TouchableOpacity>
+                  {/* Follow/Unfollow button */}
+                  <FollowButton memberId={item._id} />
+                  {/* Admin actions (only if I am admin) */}
+                  {meIsAdmin && (
+                    <>
+                      {isItemAdmin ? (
+                        <TouchableOpacity onPress={() => onDemote(item._id)}>
+                          <Text style={styles.actionDanger}>Remove admin</Text>
+                        </TouchableOpacity>
+                      ) : (
+                        <TouchableOpacity onPress={() => onPromote(item._id)}>
+                          <Text style={styles.actionPrimary}>Make admin</Text>
+                        </TouchableOpacity>
+                      )}
+                      <TouchableOpacity onPress={() => onRemoveMember(item._id)}>
+                        <Text style={styles.actionDanger}>Remove</Text>
+                      </TouchableOpacity>
+                    </>
                   )}
-                  <TouchableOpacity onPress={() => onRemoveMember(item._id)}>
-                    <Text style={styles.actionDanger}>Remove</Text>
-                  </TouchableOpacity>
                 </View>
               )}
             </View>
@@ -178,6 +186,54 @@ export default function GroupDetailsScreen() {
         ItemSeparatorComponent={() => <View style={styles.sep} />}
       />
     </View>
+  )
+}
+
+const FollowButton: React.FC<{ memberId: string }> = ({ memberId }) => {
+  const [isFollowing, setIsFollowing] = useState<boolean | null>(null)
+  const [busy, setBusy] = useState(false)
+  const myIdRef = React.useRef<string>("")
+
+  useEffect(() => {
+    ;(async () => {
+      const userData = await AsyncStorage.getItem("user")
+      const me = userData ? JSON.parse(userData) : null
+      myIdRef.current = me?.id || ""
+      try {
+        const meResp = await apiService.getMe()
+        const meDoc = (meResp as any) || {}
+        const following: string[] = meDoc?.following || meDoc?.data?.following || meDoc?.user?.following || []
+        setIsFollowing(following.some((id) => id === memberId))
+      } catch {}
+    })()
+  }, [memberId])
+
+  const toggle = async () => {
+    if (busy || isFollowing == null) return
+    setBusy(true)
+    try {
+      if (isFollowing) {
+        await apiService.unfollowUser(memberId)
+        setIsFollowing(false)
+      } else {
+        await apiService.followUser(memberId)
+        setIsFollowing(true)
+      }
+    } catch (e) {
+      Alert.alert("Error", (e as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (isFollowing == null) return null
+
+  return (
+    <TouchableOpacity onPress={toggle} disabled={busy}>
+      <Text style={[isFollowing ? styles.followingBtn : styles.followBtn]}>
+        {isFollowing ? "Following" : busy ? "..." : "Follow"}
+      </Text>
+    </TouchableOpacity>
   )
 }
 
@@ -201,5 +257,7 @@ const styles = StyleSheet.create({
   actionPrimary: { color: "#0095f6", fontSize: 12, fontWeight: "600" },
   actionDanger: { color: "#f33", fontSize: 12, fontWeight: "600" },
   sep: { height: 1, backgroundColor: "#eee", marginLeft: 68 },
+  followBtn: { color: "#fff", backgroundColor: "#0095f6", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, overflow: "hidden", fontSize: 12, fontWeight: "700" },
+  followingBtn: { color: "#0095f6", borderColor: "#0095f6", borderWidth: 1, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, overflow: "hidden", fontSize: 12, fontWeight: "700" },
 })
 
