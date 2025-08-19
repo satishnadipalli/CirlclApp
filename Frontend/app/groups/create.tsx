@@ -30,16 +30,13 @@ export default function CreateGroupScreen() {
         if (!token) return
         const me = await apiService.getMe()
         const meData = me as any
-        const followerIds: string[] = meData?.followers || meData?.data?.followers || meData?.user?.followers || []
-        meIdRef.current = meData?._id || meData?.user?._id || ""
-        const start = 0
-        const end = 20
-        const pageSlice = followerIds.slice(start, end)
-        const results = await Promise.all(pageSlice.map(async (id) => ((await apiService.getUserProfile(id)) as any)?.user || null))
-        const initial = (results.filter(Boolean) as any).filter((u: any) => u?._id !== meIdRef.current)
-        setFriends(initial)
+        const myId = meData?._id || meData?.user?._id || ""
+        meIdRef.current = myId
+        const resp = await apiService.getFollowers(myId, 1, 20)
+        const users = (resp as any)?.users || []
+        setFriends(users)
         setFollowersPage(2)
-        setHasMoreFollowers(followerIds.length > end)
+        setHasMoreFollowers(((resp as any)?.page || 1) < ((resp as any)?.pages || 1))
       } catch (e) {
         console.log("load followers error", e)
       }
@@ -70,16 +67,12 @@ export default function CreateGroupScreen() {
     if (loadingMore || !hasMoreFollowers) return
     setLoadingMore(true)
     try {
-      const me = (await apiService.getMe()) as any
-      const followerIds: string[] = me?.followers || me?.data?.followers || me?.user?.followers || []
-      const start = (followersPage - 1) * 20
-      const end = followersPage * 20
-      const pageSlice = followerIds.slice(start, end)
-      const results = await Promise.all(pageSlice.map(async (id) => ((await apiService.getUserProfile(id)) as any)?.user || null))
-      const next = (results.filter(Boolean) as any).filter((u: any) => u?._id !== meIdRef.current)
+      const myId = meIdRef.current
+      const resp = await apiService.getFollowers(myId, followersPage, 20)
+      const next = (resp as any)?.users || []
       setFriends((prev) => [...prev, ...next])
       setFollowersPage((p) => p + 1)
-      setHasMoreFollowers(followerIds.length > end)
+      setHasMoreFollowers(((resp as any)?.page || 1) < ((resp as any)?.pages || 1))
     } catch (e) {
       console.log("pagination error", e)
     } finally {
