@@ -82,7 +82,19 @@ class ApiService {
 
   // Explore
   async getExplore(page = 1, limit = 18) {
-    return this.request(`/posts/explore?page=${page}&limit=${limit}`)
+    try {
+      const coordsRaw = await AsyncStorage.getItem("user_coords")
+      let qp = `page=${page}&limit=${limit}`
+      if (coordsRaw) {
+        try {
+          const c = JSON.parse(coordsRaw)
+          if (c?.lat != null && c?.lng != null) qp += `&lat=${c.lat}&lng=${c.lng}`
+        } catch {}
+      }
+      return this.request(`/posts/explore?${qp}`)
+    } catch {
+      return this.request(`/posts/explore?page=${page}&limit=${limit}`)
+    }
   }
 
   async getDirectMessages(withUserId) {
