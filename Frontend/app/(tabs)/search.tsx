@@ -12,6 +12,8 @@ import {
   Dimensions,
   Modal,
 } from "react-native"
+import * as ImagePicker from "expo-image-picker"
+import * as Camera from "expo-camera"
 import { useLocalSearchParams, useRouter } from "expo-router"
 import { apiService } from "@/services/api.service"
 import { Ionicons } from "@expo/vector-icons"
@@ -28,6 +30,8 @@ const Search = () => {
   const [showComposer, setShowComposer] = useState(false)
   const [composingText, setComposingText] = useState("")
   const [posting, setPosting] = useState(false)
+  const [pickedUri, setPickedUri] = useState<string | null>(null)
+  const [isVideo, setIsVideo] = useState(false)
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(true)
   const loadingMoreRef = useRef(false)
@@ -64,14 +68,38 @@ const Search = () => {
     if (posting) return
     setPosting(true)
     try {
-      const r = await apiService.postDailyEntry({ text: composingText })
+      const r = await apiService.postDailyEntry({ text: composingText, fileUri: pickedUri || undefined })
       if (r?.success) {
         setShowComposer(false)
         setComposingText("")
+        setPickedUri(null)
+        setIsVideo(false)
         await loadDaily()
       }
     } finally {
       setPosting(false)
+    }
+  }
+
+  const pickFromGallery = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
+    if (status !== 'granted') return
+    const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.All, quality: 0.8, videoMaxDuration: 30 })
+    if (!res.canceled && res.assets?.length) {
+      const a = res.assets[0]
+      setPickedUri(a.uri)
+      setIsVideo(!!a.duration && a.duration > 0)
+    }
+  }
+
+  const recordFromCamera = async () => {
+    const { status } = await Camera.requestCameraPermissionsAsync()
+    if (status !== 'granted') return
+    const res = await ImagePicker.launchCameraAsync({ mediaTypes: ImagePicker.MediaTypeOptions.All, quality: 0.8, videoMaxDuration: 30 })
+    if (!res.canceled && res.assets?.length) {
+      const a = res.assets[0]
+      setPickedUri(a.uri)
+      setIsVideo(!!a.duration && a.duration > 0)
     }
   }
 
@@ -249,9 +277,25 @@ const Search = () => {
           </View>
           <View style={{ padding: 16 }}>
             <Text style={{ marginBottom: 8, color: "#666" }}>Share a small moment (disappears in 24h)</Text>
+            {pickedUri ? (
+              <View style={{ marginBottom: 12, alignItems: 'center' }}>
+                <Image source={{ uri: pickedUri }} style={{ width: '100%', height: 220, borderRadius: 10, backgroundColor: '#eee' }} resizeMode="cover" />
+                <TouchableOpacity onPress={() => { setPickedUri(null); setIsVideo(false) }} style={{ marginTop: 8 }}>
+                  <Text style={{ color: '#f33', fontWeight: '700' }}>Remove</Text>
+                </TouchableOpacity>
+              </View>
+            ) : null}
+            <View style={{ flexDirection: 'row', gap: 10, marginBottom: 12 }}>
+              <TouchableOpacity style={[styles.cta, { backgroundColor: '#eee' }]} onPress={pickFromGallery}>
+                <Text style={[styles.ctaText, { color: '#000' }]}>Gallery</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.cta, { backgroundColor: '#eee' }]} onPress={recordFromCamera}>
+                <Text style={[styles.ctaText, { color: '#000' }]}>Camera</Text>
+              </TouchableOpacity>
+            </View>
             <TextInput
               style={{ minHeight: 100, borderWidth: 1, borderColor: "#eee", borderRadius: 10, padding: 12, color: "#000" }}
-              placeholder="Type something..."
+              placeholder="Say something... (optional)"
               placeholderTextColor="#999"
               value={composingText}
               onChangeText={setComposingText}
