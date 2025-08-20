@@ -70,13 +70,27 @@ const postTodayEntry = async (req, res) => {
       await streak.save()
     }
 
-    // Socket notify followers (best-effort)
+    // Socket notify self + followers (best-effort)
     try {
       const io = req.app.get("io")
       const onlineUsers = req.app.get("onlineUsers")
-      // For simplicity, broadcast to online followers could be implemented via graph lookup; here we emit a generic event to self
-      const sid = onlineUsers.get(String(userId))
-      if (sid) io.to(sid).emit("dailyPosted", { userId, dateKey })
+
+      // Notify self with updated streak
+      const selfSocketId = onlineUsers.get(String(userId))
+      if (selfSocketId) io.to(selfSocketId).emit("dailyPosted", { userId, dateKey, streak: streak?.current || 0 })
+
+      // Notify followers to update rings if online
+      const me = await User.findById(userId).select("name profilePic followers")
+      const ringPayload = {
+        user: { _id: String(userId), name: me?.name || "User", profilePic: me?.profilePic || "" },
+        createdAt: entry.createdAt,
+      }
+      for (const followerId of me?.followers || []) {
+        const followerSocketId = onlineUsers.get(String(followerId))
+        if (followerSocketId) {
+          io.to(followerSocketId).emit("dailyRing", ringPayload)
+        }
+      }
     } catch {}
 
     res.status(201).json({ success: true, entry })

@@ -56,6 +56,23 @@ export default function HomeScreen() {
     initializeSocket()
     loadDaily()
 
+    // Live updates for Daily Circle
+    const onPosted = (data: any) => {
+      // refresh prompt/streak/rings for the current user
+      loadDaily()
+    }
+    const onRing = (ring: any) => {
+      setDaily((prev) => {
+        if (!prev) return prev
+        const rings = Array.isArray(prev.rings) ? prev.rings : []
+        // prepend if not duplicate by user id
+        if (rings.some((r: any) => r?.user?._id === ring?.user?._id)) return prev
+        return { ...prev, rings: [ring, ...rings].slice(0, 30) }
+      })
+    }
+    socketService.onDailyPosted(onPosted)
+    socketService.onDailyRing(onRing)
+
     return () => {}
   }, [])
 
