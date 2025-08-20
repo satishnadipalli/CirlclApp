@@ -97,6 +97,43 @@ class ApiService {
     }
   }
 
+  // Daily Circle
+  async getDailyPrompt() {
+    return this.request(`/daily/prompt`)
+  }
+  async postDailyEntry({ text, fileUri, visibility = "followers" }: { text?: string; fileUri?: string; visibility?: string }) {
+    try {
+      const headers = await this.getHeaders()
+      const formData = new FormData()
+      if (fileUri) {
+        const isVideo = /\.(mp4|mov|avi)$/i.test(fileUri)
+        formData.append("file", {
+          uri: fileUri as any,
+          type: isVideo ? "video/mp4" : "image/jpeg",
+          name: `daily.${isVideo ? "mp4" : "jpg"}`,
+        } as any)
+      }
+      if (text) formData.append("text", text)
+      formData.append("visibility", visibility)
+
+      const response = await fetch(`${this.baseURL}/daily/entry`, {
+        method: "POST",
+        headers: {
+          ...(headers || {}),
+          // Let RN set boundary automatically
+        },
+        body: formData as any,
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.message || "Failed to post daily entry")
+      return { success: true, ...data }
+    } catch (e) {
+      return { success: false, message: e instanceof Error ? e.message : "Failed" }
+    }
+  }
+  async getDailyFeed() { return this.request(`/daily/feed`) }
+  async getDailyStreak() { return this.request(`/daily/streak`) }
+
   async getDirectMessages(withUserId) {
     return this.request(`/messages/direct/${withUserId}`)
   }

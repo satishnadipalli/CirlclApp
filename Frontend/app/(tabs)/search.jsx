@@ -11,7 +11,7 @@ import {
   View,
   Dimensions,
 } from "react-native"
-import { useRouter } from "expo-router"
+import { useLocalSearchParams, useRouter } from "expo-router"
 import { apiService } from "@/services/api.service"
 import { Ionicons } from "@expo/vector-icons"
 
@@ -22,15 +22,35 @@ const Search = () => {
   const [searchLoading, setSearchLoading] = useState(false)
   const debounceRef = useRef(null)
   const [explore, setExplore] = useState([])
+  const [dailyFeed, setDailyFeed] = useState([])
+  const [showDaily, setShowDaily] = useState(false)
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(true)
   const loadingMoreRef = useRef(false)
   const [refreshing, setRefreshing] = useState(false)
   const router = useRouter()
+  const params = useLocalSearchParams()
 
   useEffect(() => {
     loadExplore(1, true)
   }, [])
+
+  useEffect(() => {
+    if (params?.focusDaily === "1") {
+      setShowDaily(true)
+      loadDaily()
+    }
+  }, [params])
+
+  const loadDaily = async () => {
+    try {
+      const res = await apiService.getDailyFeed()
+      const list = Array.isArray((res as any)?.entries) ? (res as any).entries : []
+      setDailyFeed(list)
+    } catch {
+      setDailyFeed([])
+    }
+  }
 
   const loadExplore = async (p = 1, replace = false) => {
     if (loadingMoreRef.current) return
@@ -141,6 +161,33 @@ const Search = () => {
           )}
           contentContainerStyle={{ paddingBottom: 20 }}
         />
+      ) : showDaily ? (
+        <FlatList
+          key="daily-list"
+          data={dailyFeed}
+          keyExtractor={(item, idx) => item._id || String(idx)}
+          renderItem={({ item }) => (
+            <TouchableOpacity style={styles.dailyRow} activeOpacity={0.8}>
+              <Image source={{ uri: item.user?.profilePic || "https://i.pravatar.cc/100?img=16" }} style={styles.userAvatar} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.userName}>{item.user?.name || "User"}</Text>
+                {!!item.text && <Text style={styles.dailyText} numberOfLines={2}>{item.text}</Text>}
+              </View>
+              {item.mediaUrl ? (
+                <Image source={{ uri: item.mediaUrl }} style={styles.dailyThumb} />
+              ) : null}
+            </TouchableOpacity>
+          )}
+          ItemSeparatorComponent={() => <View style={styles.sep} />}
+          onRefresh={loadDaily}
+          refreshing={false}
+          contentContainerStyle={{ paddingBottom: 20 }}
+          ListEmptyComponent={() => (
+            <View style={{ padding: 20, alignItems: "center" }}>
+              <Text style={{ color: "#666" }}>Post today to unlock your Daily Circle</Text>
+            </View>
+          )}
+        />
       ) : (
         <FlatList
           key="grid-3"
@@ -194,6 +241,9 @@ const styles = StyleSheet.create({
   userName: { fontSize: 16, fontWeight: "600", color: "#000" },
   userUsername: { fontSize: 12, color: "#666" },
   sep: { height: 1, backgroundColor: "#eee", marginLeft: 62 },
+  dailyRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 12, paddingVertical: 12 },
+  dailyText: { fontSize: 13, color: "#444" },
+  dailyThumb: { width: 54, height: 54, borderRadius: 8, marginLeft: 10, backgroundColor: "#eee" },
 })
 
 export default Search
