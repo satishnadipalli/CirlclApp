@@ -138,4 +138,50 @@ const getMyStreak = async (req, res) => {
 }
 
 module.exports = { getTodayPrompt, postTodayEntry, getTodayFeed, getMyStreak }
+// New endpoints below
+
+const getRings = async (req, res) => {
+  try {
+    const userId = req.user._id
+    const dateKey = formatDateKey(new Date())
+    const me = await User.findById(userId).select('following')
+    const followingIds = (me?.following || []).map((id) => String(id))
+    if (followingIds.length === 0) return res.json({ success: true, rings: [] })
+
+    const entries = await DailyCircleEntry.find({ dateKey, user: { $in: followingIds }, group: { $exists: false } })
+      .sort({ createdAt: -1 })
+      .populate('user', 'name profilePic')
+
+    const rings = entries.map((e) => ({
+      user: e.user,
+      createdAt: e.createdAt,
+    }))
+    res.json({ success: true, rings })
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message })
+  }
+}
+
+const getEntryByUser = async (req, res) => {
+  try {
+    const requestorId = String(req.user._id)
+    const { userId } = req.params
+    const dateKey = formatDateKey(new Date())
+
+    // Allow if own entry, else require unlock
+    if (requestorId !== String(userId)) {
+      const posted = await DailyCircleEntry.exists({ user: requestorId, dateKey, group: { $exists: false } })
+      if (!posted) return res.status(403).json({ success: false, message: 'Post today to unlock your Daily Circle' })
+    }
+
+    const entry = await DailyCircleEntry.findOne({ user: userId, dateKey, group: { $exists: false } }).populate('user', 'name profilePic')
+    if (!entry) return res.status(404).json({ success: false, message: 'No entry' })
+    res.json({ success: true, entry })
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message })
+  }
+}
+
+module.exports.getRings = getRings
+module.exports.getEntryByUser = getEntryByUser
 
