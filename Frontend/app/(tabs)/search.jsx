@@ -112,6 +112,7 @@ const Search = () => {
 
       {isSearching ? (
         <FlatList
+          key="users-list"
           data={searchResults}
           keyExtractor={(item, idx) => item._id || String(idx)}
           renderItem={({ item }) => (
@@ -132,6 +133,7 @@ const Search = () => {
           ItemSeparatorComponent={() => <View style={styles.sep} />}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
+          numColumns={1}
           ListEmptyComponent={() => (
             <View style={{ padding: 20, alignItems: "center" }}>
               {searchLoading ? <ActivityIndicator /> : <Text style={{ color: "#666" }}>No users found</Text>}
@@ -141,6 +143,7 @@ const Search = () => {
         />
       ) : (
         <FlatList
+          key="grid-3"
           data={explore}
           keyExtractor={(item, idx) => item._id || String(idx)}
           renderItem={({ item }) => (
