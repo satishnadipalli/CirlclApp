@@ -19,6 +19,8 @@ export default function HomeScreen() {
   const [socket, setSocket] = useState(null)
   const [daily, setDaily] = useState<{ prompt?: any; posted?: boolean; streak?: any; rings?: any[] } | null>(null)
   const [countdown, setCountdown] = useState<string>("")
+  const [myDaily, setMyDaily] = useState<any>(null)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const router = useRouter()
 
   const BASE_URL = "http://192.168.53.127:5000"
@@ -53,6 +55,12 @@ export default function HomeScreen() {
   }
 
   useEffect(() => {
+    ;(async () => {
+      try {
+        const u = await AsyncStorage.getItem("user")
+        if (u) setCurrentUserId(JSON.parse(u)?.id || null)
+      } catch {}
+    })()
     fetchUnreadCount()
     initializeSocket()
     loadDaily()
@@ -60,6 +68,7 @@ export default function HomeScreen() {
     // Live updates for Daily Circle
     const onPosted = (data: any) => {
       loadDaily()
+      loadMyDaily()
     }
     const onRing = (ring: any) => {
       setDaily((prev) => {
@@ -83,6 +92,22 @@ export default function HomeScreen() {
       const [p, s, r] = await Promise.all([api.getDailyPrompt(), api.getDailyStreak(), api.getDailyRings()])
       setDaily({ prompt: (p as any)?.prompt, posted: (p as any)?.posted, streak: (s as any)?.streak, rings: (r as any)?.rings || [] })
       updateCountdown((p as any)?.prompt?.dropsAt)
+      if ((p as any)?.posted) {
+        loadMyDaily()
+      }
+    } catch {}
+  }
+
+  const loadMyDaily = async () => {
+    try {
+      let uid = currentUserId
+      if (!uid) {
+        const u = await AsyncStorage.getItem("user")
+        uid = u ? JSON.parse(u)?.id : null
+      }
+      if (!uid) return
+      const res: any = await api.getDailyEntryByUser(uid)
+      if (res?.success) setMyDaily(res.entry)
     } catch {}
   }
 
@@ -168,19 +193,15 @@ export default function HomeScreen() {
                     <View style={{ paddingHorizontal: 16, marginTop: 8 }}>
                       <Text style={{ color: '#666', marginBottom: 6, fontWeight: '600' }}>Your Daily</Text>
                       <View style={{ height: 70 }}>
-                        <FlatList
-                          data={[{ key: 'me' }]}
-                          horizontal
-                          keyExtractor={(i) => i.key}
-                          renderItem={() => (
-                            <View style={{ width: 70, alignItems: 'center', marginRight: 8 }}>
-                              <View style={{ width: 66, height: 66, borderRadius: 8, backgroundColor: '#eee', justifyContent: 'center', alignItems: 'center' }}>
-                                <Text style={{ color: '#999', fontSize: 10 }}>Posted</Text>
-                              </View>
+                        <View style={{ width: 70, alignItems: 'center', marginRight: 8 }}>
+                          {myDaily?.mediaUrl ? (
+                            <Image source={{ uri: myDaily.mediaUrl }} style={{ width: 66, height: 66, borderRadius: 8, backgroundColor: '#eee' }} />
+                          ) : (
+                            <View style={{ width: 66, height: 66, borderRadius: 8, backgroundColor: '#eee', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 6 }}>
+                              <Text numberOfLines={3} style={{ color: '#444', fontSize: 10, textAlign: 'center' }}>{myDaily?.text || 'Posted'}</Text>
                             </View>
                           )}
-                          showsHorizontalScrollIndicator={false}
-                        />
+                        </View>
                       </View>
                     </View>
                   )}
