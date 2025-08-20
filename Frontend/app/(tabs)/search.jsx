@@ -45,9 +45,10 @@ const Search = () => {
   const loadDaily = async () => {
     try {
       const res = await apiService.getDailyFeed()
-      const list = Array.isArray((res as any)?.entries) ? (res as any).entries : []
+      const entries = res && res.entries ? res.entries : []
+      const list = Array.isArray(entries) ? entries : []
       setDailyFeed(list)
-    } catch {
+    } catch (e) {
       setDailyFeed([])
     }
   }
