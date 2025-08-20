@@ -147,6 +147,8 @@ class ApiService {
     }
   }
   async getDailyStreak() { return this.request(`/daily/streak`) }
+  async getDailyRings() { return this.request(`/daily/rings`) }
+  async getDailyEntryByUser(userId: string) { return this.request(`/daily/entry/${userId}`) }
 
   async getDirectMessages(withUserId) {
     return this.request(`/messages/direct/${withUserId}`)

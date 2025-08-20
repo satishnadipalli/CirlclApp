@@ -17,7 +17,7 @@ export default function HomeScreen() {
   const [modalVisible, setModalVisible] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
   const [socket, setSocket] = useState(null)
-  const [daily, setDaily] = useState<{ prompt?: any; posted?: boolean; streak?: any } | null>(null)
+  const [daily, setDaily] = useState<{ prompt?: any; posted?: boolean; streak?: any; rings?: any[] } | null>(null)
   const router = useRouter()
 
   const BASE_URL = "http://192.168.53.127:5000"
@@ -61,8 +61,8 @@ export default function HomeScreen() {
 
   const loadDaily = async () => {
     try {
-      const [p, s] = await Promise.all([api.getDailyPrompt(), api.getDailyStreak()])
-      setDaily({ prompt: (p as any)?.prompt, posted: (p as any)?.posted, streak: (s as any)?.streak })
+      const [p, s, r] = await Promise.all([api.getDailyPrompt(), api.getDailyStreak(), api.getDailyRings()])
+      setDaily({ prompt: (p as any)?.prompt, posted: (p as any)?.posted, streak: (s as any)?.streak, rings: (r as any)?.rings || [] })
     } catch {}
   }
 
@@ -123,17 +123,17 @@ export default function HomeScreen() {
                   <Text style={{ marginTop: 6, color: "#333", paddingHorizontal: 16 }}>{daily.prompt?.text}</Text>
                   <View style={{ height: 120, marginTop: 8 }}>
                     <FlatList
-                      data={[1,2,3,4,5,6]}
+                      data={daily?.rings || []}
                       horizontal
                       showsHorizontalScrollIndicator={false}
-                      keyExtractor={(i) => String(i)}
+                      keyExtractor={(_, idx) => String(idx)}
                       contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: 10 }}
                       renderItem={({ item }) => (
                         <View style={{ width: 70, alignItems: "center", marginHorizontal: 6 }}>
-                          <View style={{ width: 66, height: 66, borderRadius: 33, backgroundColor: "#f0f0f0", justifyContent: "center", alignItems: "center", borderWidth: 2, borderColor: "#e6e6e6" }}>
-                            {/* Placeholder ring; can show friends avatars who posted */}
-                          </View>
-                          <Text style={{ fontSize: 12, color: "#666", marginTop: 6 }}>Friend</Text>
+                          <TouchableOpacity onPress={() => router.push({ pathname: "/daily/viewer", params: { userId: item?.user?._id } })}>
+                            <Image source={{ uri: item?.user?.profilePic || "https://i.pravatar.cc/100?img=11" }} style={{ width: 66, height: 66, borderRadius: 33, borderWidth: 2, borderColor: "#ff8a00" }} />
+                          </TouchableOpacity>
+                          <Text style={{ fontSize: 12, color: "#666", marginTop: 6 }} numberOfLines={1}>{item?.user?.name || "Friend"}</Text>
                         </View>
                       )}
                     />

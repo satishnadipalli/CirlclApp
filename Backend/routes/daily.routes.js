@@ -2,7 +2,7 @@ const express = require("express")
 const router = express.Router()
 const auth = require("../middlewares/auth.middleware")
 const upload = require("../middlewares/upload.middleware")
-const { getTodayPrompt, postTodayEntry, getTodayFeed, getMyStreak } = require("../controllers/daily.controllers")
+const { getTodayPrompt, postTodayEntry, getTodayFeed, getMyStreak, getRings, getEntryByUser } = require("../controllers/daily.controllers")
 
 // Get today prompt and whether user has posted
 router.get("/prompt", auth, getTodayPrompt)
@@ -15,6 +15,12 @@ router.get("/feed", auth, getTodayFeed)
 
 // Get my streak
 router.get("/streak", auth, getMyStreak)
+
+// Rings (followers who posted today)
+router.get("/rings", auth, getRings)
+
+// Fetch a specific user's entry (requires unlock unless own)
+router.get("/entry/:userId", auth, getEntryByUser)
 
 module.exports = router
 
