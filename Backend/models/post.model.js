@@ -1,3 +1,4 @@
+
 const mongoose = require("mongoose");
 
 const replySchema = new mongoose.Schema(
@@ -6,6 +7,7 @@ const replySchema = new mongoose.Schema(
     text: { type: String, required: true },
     hashtags: [String],
     mentions: [String],
+
     likes: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   },
   { timestamps: true }
@@ -29,7 +31,7 @@ const postSchema = new mongoose.Schema(
   {
     user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     title: { type: String, required: true, trim: true },
-    description: { type: String, default: "" },
+    description: { type: String, default: "" }, // ✅ was missing
     mediaUrl: { type: String },
     hashtags: [String],
     mentions: [String],
@@ -41,7 +43,7 @@ const postSchema = new mongoose.Schema(
       coordinates: { type: [Number] }, // [lng, lat]
     },
   },
-  { timestamps: true }
+  { timestamps: true } // ✅ createdAt/updatedAt
 );
 
 postSchema.index({ geo: "2dsphere" });
