@@ -49,6 +49,9 @@ const Search = () => {
       setShowDaily(true)
       loadDaily()
     }
+    if (params?.openComposer === "1") {
+      setShowComposer(true)
+    }
   }, [params])
 
   const loadDaily = async () => {
