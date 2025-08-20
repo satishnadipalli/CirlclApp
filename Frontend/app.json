@@ -21,7 +21,12 @@
       },
       "edgeToEdgeEnabled": true,
       "networkSecurityConfig": "./network_security_config.xml",
-      "package": "com.satishnadipalli.Frontend"
+      "package": "com.satishnadipalli.Frontend",
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ]
     },
     "web": {
       "bundler": "metro",
