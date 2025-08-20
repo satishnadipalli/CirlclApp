@@ -1,6 +1,7 @@
 "use client"
 
 import CommentModal from "@/components/CommentModal"
+import api from "@/services/api.service"
 import { Ionicons } from "@expo/vector-icons"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import { LinearGradient } from "expo-linear-gradient"
@@ -16,6 +17,7 @@ export default function HomeScreen() {
   const [modalVisible, setModalVisible] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
   const [socket, setSocket] = useState(null)
+  const [daily, setDaily] = useState<{ prompt?: any; posted?: boolean; streak?: any } | null>(null)
   const router = useRouter()
 
   const BASE_URL = "http://192.168.53.127:5000"
@@ -52,9 +54,17 @@ export default function HomeScreen() {
   useEffect(() => {
     fetchUnreadCount()
     initializeSocket()
+    loadDaily()
 
     return () => {}
   }, [])
+
+  const loadDaily = async () => {
+    try {
+      const [p, s] = await Promise.all([api.getDailyPrompt(), api.getDailyStreak()])
+      setDaily({ prompt: (p as any)?.prompt, posted: (p as any)?.posted, streak: (s as any)?.streak })
+    } catch {}
+  }
 
   const openComments = (post) => {
     setSelectedPost(post)
@@ -88,6 +98,28 @@ export default function HomeScreen() {
             </View>
 
             <View style={styles.storiesContainer}>
+              {/* Daily Circle banner */}
+              {daily?.prompt && (
+                <TouchableOpacity
+                  style={{
+                    backgroundColor: "#fff",
+                    borderWidth: 1,
+                    borderColor: "#e8e8e8",
+                    borderRadius: 12,
+                    padding: 12,
+                    marginBottom: 12,
+                  }}
+                  onPress={() => router.push({ pathname: "/(tabs)/search", params: { focusDaily: "1" } })}
+                >
+                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                    <Text style={{ fontWeight: "700", fontSize: 16 }}>Daily Circle</Text>
+                    <Text style={{ color: daily.posted ? "#4CAF50" : "#f33", fontWeight: "600" }}>
+                      {daily.posted ? `Streak ${daily.streak?.current || 0}` : "Post to unlock"}
+                    </Text>
+                  </View>
+                  <Text style={{ marginTop: 6, color: "#333" }}>{daily.prompt?.text}</Text>
+                </TouchableOpacity>
+              )}
               <FlatList
                 horizontal
                 showsHorizontalScrollIndicator={false}

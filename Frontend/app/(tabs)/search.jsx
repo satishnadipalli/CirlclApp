@@ -11,7 +11,7 @@ import {
   View,
   Dimensions,
 } from "react-native"
-import { useRouter } from "expo-router"
+import { useLocalSearchParams, useRouter } from "expo-router"
 import { apiService } from "@/services/api.service"
 import { Ionicons } from "@expo/vector-icons"
 
@@ -27,10 +27,17 @@ const Search = () => {
   const loadingMoreRef = useRef(false)
   const [refreshing, setRefreshing] = useState(false)
   const router = useRouter()
+  const params = useLocalSearchParams()
 
   useEffect(() => {
     loadExplore(1, true)
   }, [])
+
+  useEffect(() => {
+    if (params?.focusDaily === "1") {
+      // Optionally future: open a Daily composer modal
+    }
+  }, [params])
 
   const loadExplore = async (p = 1, replace = false) => {
     if (loadingMoreRef.current) return
