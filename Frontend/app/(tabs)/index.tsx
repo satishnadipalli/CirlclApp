@@ -103,21 +103,41 @@ export default function HomeScreen() {
                 <TouchableOpacity
                   style={{
                     backgroundColor: "#fff",
-                    borderWidth: 1,
-                    borderColor: "#e8e8e8",
-                    borderRadius: 12,
-                    padding: 12,
+                    borderWidth: 0,
+                    borderRadius: 14,
+                    padding: 0,
                     marginBottom: 12,
                   }}
                   onPress={() => router.push({ pathname: "/(tabs)/search", params: { focusDaily: "1" } })}
                 >
-                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                    <Text style={{ fontWeight: "700", fontSize: 16 }}>Daily Circle</Text>
-                    <Text style={{ color: daily.posted ? "#4CAF50" : "#f33", fontWeight: "600" }}>
-                      {daily.posted ? `Streak ${daily.streak?.current || 0}` : "Post to unlock"}
-                    </Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingTop: 8 }}>
+                    <Text style={{ fontWeight: "800", fontSize: 18 }}>Daily Circle</Text>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                      <View style={{ backgroundColor: daily.posted ? "#e8f5e9" : "#fdecea", borderRadius: 20, paddingHorizontal: 10, paddingVertical: 6 }}>
+                        <Text style={{ color: daily.posted ? "#2e7d32" : "#c62828", fontWeight: "700" }}>
+                          {daily.posted ? `Streak ${daily.streak?.current || 0}` : "Post to unlock"}
+                        </Text>
+                      </View>
+                    </View>
                   </View>
-                  <Text style={{ marginTop: 6, color: "#333" }}>{daily.prompt?.text}</Text>
+                  <Text style={{ marginTop: 6, color: "#333", paddingHorizontal: 16 }}>{daily.prompt?.text}</Text>
+                  <View style={{ height: 120, marginTop: 8 }}>
+                    <FlatList
+                      data={[1,2,3,4,5,6]}
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      keyExtractor={(i) => String(i)}
+                      contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: 10 }}
+                      renderItem={({ item }) => (
+                        <View style={{ width: 70, alignItems: "center", marginHorizontal: 6 }}>
+                          <View style={{ width: 66, height: 66, borderRadius: 33, backgroundColor: "#f0f0f0", justifyContent: "center", alignItems: "center", borderWidth: 2, borderColor: "#e6e6e6" }}>
+                            {/* Placeholder ring; can show friends avatars who posted */}
+                          </View>
+                          <Text style={{ fontSize: 12, color: "#666", marginTop: 6 }}>Friend</Text>
+                        </View>
+                      )}
+                    />
+                  </View>
                 </TouchableOpacity>
               )}
               <FlatList
