@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   View,
   Dimensions,
+  Modal,
 } from "react-native"
 import { useLocalSearchParams, useRouter } from "expo-router"
 import { apiService } from "@/services/api.service"
@@ -24,6 +25,9 @@ const Search = () => {
   const [explore, setExplore] = useState([])
   const [dailyFeed, setDailyFeed] = useState([])
   const [showDaily, setShowDaily] = useState(false)
+  const [showComposer, setShowComposer] = useState(false)
+  const [composingText, setComposingText] = useState("")
+  const [posting, setPosting] = useState(false)
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(true)
   const loadingMoreRef = useRef(false)
@@ -53,6 +57,21 @@ const Search = () => {
       setDailyFeed(Array.isArray(entries) ? entries : [])
     } catch (e) {
       setDailyFeed([])
+    }
+  }
+
+  const submitDaily = async () => {
+    if (posting) return
+    setPosting(true)
+    try {
+      const r = await apiService.postDailyEntry({ text: composingText })
+      if (r?.success) {
+        setShowComposer(false)
+        setComposingText("")
+        await loadDaily()
+      }
+    } finally {
+      setPosting(false)
     }
   }
 
@@ -188,7 +207,10 @@ const Search = () => {
           contentContainerStyle={{ paddingBottom: 20 }}
           ListEmptyComponent={() => (
             <View style={{ padding: 20, alignItems: "center" }}>
-              <Text style={{ color: "#666" }}>Post today to unlock your Daily Circle</Text>
+              <Text style={{ color: "#666", marginBottom: 12 }}>Post today to unlock your Daily Circle</Text>
+              <TouchableOpacity style={styles.cta} onPress={() => setShowComposer(true)}>
+                <Text style={styles.ctaText}>Post now</Text>
+              </TouchableOpacity>
             </View>
           )}
         />
@@ -218,6 +240,30 @@ const Search = () => {
           contentContainerStyle={{ paddingBottom: 20 }}
         />
       )}
+
+      <Modal visible={showComposer} animationType="slide" onRequestClose={() => setShowComposer(false)}>
+        <View style={{ flex: 1, backgroundColor: "#fff" }}>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 12, paddingTop: 50, borderBottomWidth: 1, borderBottomColor: "#eee" }}>
+            <Text style={{ fontWeight: "800", fontSize: 18 }}>Post Daily</Text>
+            <TouchableOpacity onPress={() => setShowComposer(false)}><Ionicons name="close" size={22} color="#333" /></TouchableOpacity>
+          </View>
+          <View style={{ padding: 16 }}>
+            <Text style={{ marginBottom: 8, color: "#666" }}>Share a small moment (disappears in 24h)</Text>
+            <TextInput
+              style={{ minHeight: 100, borderWidth: 1, borderColor: "#eee", borderRadius: 10, padding: 12, color: "#000" }}
+              placeholder="Type something..."
+              placeholderTextColor="#999"
+              value={composingText}
+              onChangeText={setComposingText}
+              multiline
+              maxLength={300}
+            />
+            <TouchableOpacity style={[styles.cta, { marginTop: 16, opacity: posting ? 0.6 : 1 }]} onPress={submitDaily} disabled={posting}>
+              <Text style={styles.ctaText}>{posting ? "Posting..." : "Post"}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   )
 }
@@ -248,6 +294,8 @@ const styles = StyleSheet.create({
   dailyRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 12, paddingVertical: 12 },
   dailyText: { fontSize: 13, color: "#444" },
   dailyThumb: { width: 54, height: 54, borderRadius: 8, marginLeft: 10, backgroundColor: "#eee" },
+  cta: { backgroundColor: "#0095f6", paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10 },
+  ctaText: { color: "#fff", fontWeight: "700" },
 })
 
 export default Search
