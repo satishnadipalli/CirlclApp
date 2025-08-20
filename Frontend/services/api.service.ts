@@ -61,7 +61,6 @@ class ApiService {
         throw new Error(data.message || "Request failed")
       }
 
-      console.log("+++++++++++++++++",data)
       return {
         success: true,
         ...data,
@@ -131,7 +130,22 @@ class ApiService {
       return { success: false, message: e instanceof Error ? e.message : "Failed" }
     }
   }
-  async getDailyFeed() { return this.request(`/daily/feed`) }
+  async getDailyFeed() {
+    try {
+      const headers = await this.getHeaders()
+      const res = await fetch(`${this.baseURL}/daily/feed`, { headers })
+      const data = await res.json()
+      if (res.status === 403) {
+        return { success: false, locked: true, message: data?.message || "Locked" }
+      }
+      if (!res.ok) {
+        return { success: false, message: data?.message || "Failed" }
+      }
+      return { success: true, ...data }
+    } catch (e) {
+      return { success: false, message: e instanceof Error ? e.message : "Failed" }
+    }
+  }
   async getDailyStreak() { return this.request(`/daily/streak`) }
 
   async getDirectMessages(withUserId) {
