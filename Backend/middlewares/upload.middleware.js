@@ -6,7 +6,8 @@ const storage = new CloudinaryStorage({
   cloudinary,
   params: {
     folder: "circle_uploads", // folder name in Cloudinary
-    allowed_formats: ["jpg", "png", "jpeg", "gif", "mp4"], // allow images/videos
+    allowed_formats: ["jpg", "png", "jpeg", "gif", "mp4", "mov", "webm"], // allow images/videos
+    resource_type: "auto",
   },
 });
 

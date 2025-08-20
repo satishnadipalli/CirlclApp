@@ -37,7 +37,8 @@ const getTodayPrompt = async (req, res) => {
 const postTodayEntry = async (req, res) => {
   try {
     const userId = req.user._id
-    const { text = "", visibility = "followers" } = req.body
+    let { text = "", visibility = "followers" } = req.body
+    if (!["followers", "everyone", "group"].includes(String(visibility))) visibility = "followers"
     // Multer + Cloudinary sets req.file.path to the uploaded asset URL
     const mediaUrl = (req.file && req.file.path) || req.fileUrl || req.body.mediaUrl || ""
     const dateKey = formatDateKey(new Date())
