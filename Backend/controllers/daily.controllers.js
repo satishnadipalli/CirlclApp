@@ -1,6 +1,7 @@
 const DailyPrompt = require("../models/dailyPrompt.model")
 const DailyCircleEntry = require("../models/dailyCircleEntry.model")
 const DailyStreak = require("../models/dailyStreak.model")
+const User = require("../models/user.models")
 
 const formatDateKey = (d = new Date()) => new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()))
   .toISOString()
@@ -91,12 +92,36 @@ const getTodayFeed = async (req, res) => {
     const posted = await DailyCircleEntry.exists({ user: userId, dateKey, group: { $exists: false } })
     if (!posted) return res.status(403).json({ success: false, message: "Post today to unlock your Daily Circle" })
 
-    // For MVP: everyone’s entries visible; later restrict by followers
-    const entries = await DailyCircleEntry.find({ dateKey, group: { $exists: false } })
+    let { page = 1, limit = 30 } = req.query
+    page = parseInt(page)
+    limit = Math.min(60, Math.max(6, parseInt(limit)))
+
+    // Followers-only visibility support: entries visible if
+    //   - visibility === 'everyone'
+    //   - visibility === 'followers' AND entry.user in my following OR entry.user == me
+    const me = await User.findById(userId).select("following")
+    const followingIds = (me?.following || []).map((id) => String(id))
+
+    const filter = {
+      dateKey,
+      $or: [
+        { visibility: "everyone" },
+        { visibility: "followers", user: { $in: [...followingIds, String(userId)] } },
+      ],
+      $orIgnoreGroup: {},
+    }
+
+    // Because Mongo cannot have unused keys, we ensure no group field in filter using $exists
+    const finalFilter = { dateKey, group: { $exists: false }, $or: filter.$or }
+
+    const total = await DailyCircleEntry.countDocuments(finalFilter)
+    const entries = await DailyCircleEntry.find(finalFilter)
       .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
       .populate("user", "name profilePic")
 
-    res.json({ success: true, entries })
+    res.json({ success: true, page, total, pages: Math.ceil(total / limit), entries })
   } catch (e) {
     res.status(500).json({ success: false, message: e.message })
   }
