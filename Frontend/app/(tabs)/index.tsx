@@ -164,6 +164,26 @@ export default function HomeScreen() {
                     </View>
                   </View>
                   <Text style={{ marginTop: 6, color: "#333", paddingHorizontal: 16 }}>{daily.prompt?.text}</Text>
+                  {!!daily?.posted && (
+                    <View style={{ paddingHorizontal: 16, marginTop: 8 }}>
+                      <Text style={{ color: '#666', marginBottom: 6, fontWeight: '600' }}>Your Daily</Text>
+                      <View style={{ height: 70 }}>
+                        <FlatList
+                          data={[{ key: 'me' }]}
+                          horizontal
+                          keyExtractor={(i) => i.key}
+                          renderItem={() => (
+                            <View style={{ width: 70, alignItems: 'center', marginRight: 8 }}>
+                              <View style={{ width: 66, height: 66, borderRadius: 8, backgroundColor: '#eee', justifyContent: 'center', alignItems: 'center' }}>
+                                <Text style={{ color: '#999', fontSize: 10 }}>Posted</Text>
+                              </View>
+                            </View>
+                          )}
+                          showsHorizontalScrollIndicator={false}
+                        />
+                      </View>
+                    </View>
+                  )}
                   <View style={{ height: 120, marginTop: 8 }}>
                     <FlatList
                       data={daily?.rings || []}

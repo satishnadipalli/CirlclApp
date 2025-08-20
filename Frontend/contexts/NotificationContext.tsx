@@ -1,6 +1,7 @@
 "use client"
 
 import { Ionicons } from "@expo/vector-icons"
+import * as Haptics from "expo-haptics"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import type React from "react"
 import { createContext, useContext, useEffect, useRef, useState } from "react"
@@ -243,6 +244,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       const cb = (data: any) => {
         const streak = data?.streak
         const msg = typeof streak === 'number' && streak > 0 ? `Nice! Streak ${streak}` : 'Daily posted!'
+        try { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success) } catch {}
         showNotification({ type: "save", text: msg })
       }
       dailyPostedCbRef.current = cb
