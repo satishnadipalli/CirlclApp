@@ -23,7 +23,7 @@ import {
 
 const { height, width } = Dimensions.get("window")
 
-const API_BASE_URL = "http://192.168.164.127:5000/api"
+const API_BASE_URL = "http://192.168.98.127:5000/api"
 
 export default function ComposePostScreen() {
   const router = useRouter()

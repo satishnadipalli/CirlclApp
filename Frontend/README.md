@@ -163,3 +163,203 @@ Frontend: cd Frontend && npm i && npm run start (Expo). Ensure API/socket base U
 If you want, I can unify base URLs, fix the follow/unfollow endpoint in otherProfile, and align ApiService auth routes. Just say the word.
 
 Fixed and validated the full architecture map above. -->
+
+
+
+<!-- 
+
+Feature overview 
+Feature Documentation: Daily Circle
+Feature Name
+
+Daily Circle – A once-a-day, post-to-unlock, streaked prompt.
+
+Objective
+
+Introduce a habit-forming, daily social interaction within the app to increase engagement, retention, and social interaction without cloning existing Stories or Spotlight features.
+
+Core Principles
+
+Scarcity – Only one prompt per day, delivered at a fixed time.
+
+Social Pressure – Users can only see friends’ posts after posting their own (BeReal-style).
+
+Streaks – Personal and group streaks encourage continued engagement with gentle loss aversion.
+
+Low Friction – Simple, fast post (photo/video/text) with no perfection pressure.
+
+User Flow
+
+Daily Prompt Drop
+
+Appears at the top of Home and in Groups.
+
+Countdown timer shows time remaining to post.
+
+Compose & Submit
+
+Users have 2–3 minutes to post once.
+
+Media can be photo, video, or text.
+
+Optional “Late Pass” once per week for streak forgiveness.
+
+Feed Unlock
+
+Feed is locked until the user posts.
+
+After posting, friends’ posts appear in chronological or grid view.
+
+Streak Tracking
+
+Personal streak (consecutive daily posts).
+
+Group streak (participation of group members).
+
+Displayed via streak counters and small badges.
+
+Notifications
+
+Real-time updates via sockets:
+
+dailyPromptDrop → prompt notification
+
+friendPostedDaily → unlock notification
+
+Group variants if in a Circle
+
+Backend Architecture
+
+Collections
+
+DailyPrompt: { date, text, dropsAt }
+
+DailyCircleEntry: { userId, groupId?, mediaUrl, createdAt }
+
+DailyStreak: { userId, currentStreak, longestStreak, updatedAt }
+
+API Endpoints
+
+GET /dailyPrompt → Fetch today’s prompt
+
+POST /dailyCircleEntry → Submit user entry (checks for duplicates)
+
+GET /dailyCircleFeed → Fetch friends’ posts (locked until user posts)
+
+GET/PUT /dailyStreak → Fetch/update streaks
+
+Optional cron job to generate future prompts
+
+Sockets
+
+dailyPromptDrop, friendPostedDaily, group variants
+
+Push notifications on first posts or milestone streaks
+
+Storage
+
+Cloudinary (or equivalent) for media uploads
+
+TTL 24–48h for temporary data cleanup
+
+Frontend Implementation
+
+Top Banner
+
+Countdown to daily prompt
+
+Streak indicator (personal/group)
+
+Composer
+
+Quick post (photo/video/text)
+
+2-minute soft timer
+
+Single retry allowed
+
+Feed
+
+Locked state until user posts
+
+Friends’ posts in chronological grid
+
+Group view: participation rings + streak counters
+
+Privacy Controls
+
+Everyone, Followers, Group-only
+
+Moderation
+
+Media review queue
+
+Report/remove functionality
+
+UX Considerations
+
+Time-limited posts reduce perfectionism and friction
+
+Social lock creates peer motivation without heavy FOMO
+
+Visual streak indicators encourage habitual engagement
+
+Optional “late pass” makes streaks humane
+
+Rollout Plan
+
+Phase 1 – Friends-only Circles
+
+Phase 2 – Small groups or communities
+
+Phase 3 – City or interest-based Circles
+
+Success Metrics
+
+Prompt open rate
+
+Daily post rate
+
+Average streak length
+
+D1/D7 retention lifts
+
+Group participation %
+
+Average time-to-post
+
+Notifications click-through rate (CTR)
+
+Technical Notes
+
+Node.js backend with MongoDB collections for prompts, entries, and streaks
+
+Socket.io (or similar) for real-time updates
+
+Cloud storage (e.g., Cloudinary) for media
+
+TTL cleanup for ephemeral data
+
+Optional cron job for scheduled prompt generation
+
+Visual Diagram (Recommended for Devs/Designers)
+DailyPrompt Drop
+      │
+      ▼
+   User sees prompt
+      │
+      ▼
+Compose post → Submit
+      │
+      ▼
+   Unlock feed
+      │
+      ▼
+Update streaks + badges
+      │
+      ▼
+Notify friends/groups via sockets
+
+Summary
+
+Daily Circle introduces a daily ritual, balancing scarcity, social pressure, and streak mechanics to drive habit-forming engagement. It’s lightweight, quick, and encourages regular return visits without cloning existing social features like Stories. -->

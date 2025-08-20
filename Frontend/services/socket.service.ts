@@ -29,7 +29,7 @@ class SocketService {
     const token = await AsyncStorage.getItem("token");
 
     if (!this.socket) {
-      this.socket = io("http://192.168.164.127:5000", {
+      this.socket = io("http://192.168.98.127:5000", {
         auth: { token },
         transports: ["websocket"],
         timeout: 20000,

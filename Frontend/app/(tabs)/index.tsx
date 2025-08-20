@@ -20,7 +20,7 @@ export default function HomeScreen() {
   const [daily, setDaily] = useState<{ prompt?: any; posted?: boolean; streak?: any } | null>(null)
   const router = useRouter()
 
-  const BASE_URL = "http://192.168.164.127:5000"
+  const BASE_URL = "http://192.168.98.127:5000"
 
   const fetchUnreadCount = async () => {
     try {
