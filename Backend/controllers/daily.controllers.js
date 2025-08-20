@@ -38,7 +38,8 @@ const postTodayEntry = async (req, res) => {
   try {
     const userId = req.user._id
     const { text = "", visibility = "followers" } = req.body
-    const mediaUrl = req.fileUrl || req.body.mediaUrl || ""
+    // Multer + Cloudinary sets req.file.path to the uploaded asset URL
+    const mediaUrl = (req.file && req.file.path) || req.fileUrl || req.body.mediaUrl || ""
     const dateKey = formatDateKey(new Date())
 
     // Enforce single entry per day (global)
