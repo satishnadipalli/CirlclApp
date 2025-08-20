@@ -29,6 +29,7 @@ const Search = () => {
   const [showDaily, setShowDaily] = useState(false)
   const [showComposer, setShowComposer] = useState(false)
   const [composingText, setComposingText] = useState("")
+  const [visibility, setVisibility] = useState<'followers' | 'everyone'>('followers')
   const [posting, setPosting] = useState(false)
   const [pickedUri, setPickedUri] = useState<string | null>(null)
   const [isVideo, setIsVideo] = useState(false)
@@ -47,6 +48,9 @@ const Search = () => {
     if (params?.focusDaily === "1") {
       setShowDaily(true)
       loadDaily()
+    }
+    if (params?.openComposer === "1") {
+      setShowComposer(true)
     }
   }, [params])
 
@@ -68,12 +72,13 @@ const Search = () => {
     if (posting) return
     setPosting(true)
     try {
-      const r = await apiService.postDailyEntry({ text: composingText, fileUri: pickedUri || undefined })
+      const r = await apiService.postDailyEntry({ text: composingText, fileUri: pickedUri || undefined, visibility })
       if (r?.success) {
         setShowComposer(false)
         setComposingText("")
         setPickedUri(null)
         setIsVideo(false)
+        setVisibility('followers')
         await loadDaily()
       }
     } finally {
@@ -302,6 +307,15 @@ const Search = () => {
               multiline
               maxLength={300}
             />
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 12, alignItems: 'center' }}>
+              <Text style={{ color: '#666' }}>Visibility:</Text>
+              <TouchableOpacity onPress={() => setVisibility('followers')} style={[styles.cta, { backgroundColor: visibility === 'followers' ? '#0095f6' : '#eee' }]}>
+                <Text style={[styles.ctaText, { color: visibility === 'followers' ? '#fff' : '#000' }]}>Followers</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setVisibility('everyone')} style={[styles.cta, { backgroundColor: visibility === 'everyone' ? '#0095f6' : '#eee' }]}>
+                <Text style={[styles.ctaText, { color: visibility === 'everyone' ? '#fff' : '#000' }]}>Everyone</Text>
+              </TouchableOpacity>
+            </View>
             <TouchableOpacity style={[styles.cta, { marginTop: 16, opacity: posting ? 0.6 : 1 }]} onPress={submitDaily} disabled={posting}>
               <Text style={styles.ctaText}>{posting ? "Posting..." : "Post"}</Text>
             </TouchableOpacity>

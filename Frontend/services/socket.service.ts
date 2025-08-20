@@ -17,6 +17,8 @@ class SocketService {
     this.userStatusListeners = [];
     this.notificationListeners = [];
     this.followEventListeners = [];
+    this.dailyPostedListeners = [];
+    this.dailyRingListeners = [];
     this.currentUserId = null;
   }
 
@@ -130,6 +132,14 @@ class SocketService {
     // Notification events
     this.socket.on("newNotification", (notification) => {
       this.notificationListeners.forEach((listener) => listener(notification));
+    });
+
+    // Daily Circle events
+    this.socket.on("dailyPosted", (data) => {
+      this.dailyPostedListeners.forEach((listener) => listener(data));
+    });
+    this.socket.on("dailyRing", (data) => {
+      this.dailyRingListeners.forEach((listener) => listener(data));
     });
 
     // Follow/unfollow events
@@ -261,6 +271,14 @@ class SocketService {
     this.notificationListeners.push(callback);
   }
 
+  // Daily listeners
+  onDailyPosted(callback) {
+    this.dailyPostedListeners.push(callback);
+  }
+  onDailyRing(callback) {
+    this.dailyRingListeners.push(callback);
+  }
+
   onFollowEvent(callback) {
     this.followEventListeners.push(callback);
   }
@@ -321,6 +339,15 @@ class SocketService {
     if (index > -1) this.notificationListeners.splice(index, 1);
   }
 
+  removeDailyPostedListener(callback) {
+    const index = this.dailyPostedListeners.indexOf(callback);
+    if (index > -1) this.dailyPostedListeners.splice(index, 1);
+  }
+  removeDailyRingListener(callback) {
+    const index = this.dailyRingListeners.indexOf(callback);
+    if (index > -1) this.dailyRingListeners.splice(index, 1);
+  }
+
   removeFollowEventListener(callback) {
     const index = this.followEventListeners.indexOf(callback);
     if (index > -1) this.followEventListeners.splice(index, 1);
@@ -336,6 +363,8 @@ class SocketService {
     this.userStatusListeners = [];
     this.notificationListeners = [];
     this.followEventListeners = [];
+    this.dailyPostedListeners = [];
+    this.dailyRingListeners = [];
   }
 }
 

@@ -102,7 +102,10 @@ class ApiService {
   }
   async postDailyEntry({ text, fileUri, visibility = "followers" }: { text?: string; fileUri?: string; visibility?: string }) {
     try {
-      const headers = await this.getHeaders()
+      // Only set Authorization for multipart; do NOT set Content-Type
+      let authHeader: any = {}
+      const token = this.token || (await AsyncStorage.getItem("token"))
+      if (token) authHeader = { Authorization: `Bearer ${token}` }
       const formData = new FormData()
       if (fileUri) {
         const isVideo = /\.(mp4|mov|avi)$/i.test(fileUri)
@@ -117,10 +120,7 @@ class ApiService {
 
       const response = await fetch(`${this.baseURL}/daily/entry`, {
         method: "POST",
-        headers: {
-          ...(headers || {}),
-          // Let RN set boundary automatically
-        },
+        headers: authHeader,
         body: formData as any,
       })
       const data = await response.json()

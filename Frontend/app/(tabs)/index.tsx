@@ -18,6 +18,9 @@ export default function HomeScreen() {
   const [unreadCount, setUnreadCount] = useState(0)
   const [socket, setSocket] = useState(null)
   const [daily, setDaily] = useState<{ prompt?: any; posted?: boolean; streak?: any; rings?: any[] } | null>(null)
+  const [countdown, setCountdown] = useState<string>("")
+  const [myDaily, setMyDaily] = useState<any>(null)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const router = useRouter()
 
   const BASE_URL = "http://192.168.98.127:5000"
@@ -52,19 +55,79 @@ export default function HomeScreen() {
   }
 
   useEffect(() => {
+    ;(async () => {
+      try {
+        const u = await AsyncStorage.getItem("user")
+        if (u) setCurrentUserId(JSON.parse(u)?.id || null)
+      } catch {}
+    })()
     fetchUnreadCount()
     initializeSocket()
     loadDaily()
 
-    return () => {}
+    // Live updates for Daily Circle
+    const onPosted = (data: any) => {
+      loadDaily()
+      loadMyDaily()
+    }
+    const onRing = (ring: any) => {
+      setDaily((prev) => {
+        if (!prev) return prev
+        const rings = Array.isArray(prev.rings) ? prev.rings : []
+        if (rings.some((r: any) => r?.user?._id === ring?.user?._id)) return prev
+        return { ...prev, rings: [ring, ...rings].slice(0, 30) }
+      })
+    }
+    socketService.onDailyPosted(onPosted)
+    socketService.onDailyRing(onRing)
+
+    return () => {
+      socketService.removeDailyPostedListener(onPosted)
+      socketService.removeDailyRingListener(onRing)
+    }
   }, [])
 
   const loadDaily = async () => {
     try {
       const [p, s, r] = await Promise.all([api.getDailyPrompt(), api.getDailyStreak(), api.getDailyRings()])
       setDaily({ prompt: (p as any)?.prompt, posted: (p as any)?.posted, streak: (s as any)?.streak, rings: (r as any)?.rings || [] })
+      updateCountdown((p as any)?.prompt?.dropsAt)
+      if ((p as any)?.posted) {
+        loadMyDaily()
+      }
     } catch {}
   }
+
+  const loadMyDaily = async () => {
+    try {
+      let uid = currentUserId
+      if (!uid) {
+        const u = await AsyncStorage.getItem("user")
+        uid = u ? JSON.parse(u)?.id : null
+      }
+      if (!uid) return
+      const res: any = await api.getDailyEntryByUser(uid)
+      if (res?.success) setMyDaily(res.entry)
+    } catch {}
+  }
+
+  const updateCountdown = (dropsAt?: string) => {
+    if (!dropsAt) { setCountdown(""); return }
+    try {
+      const end = new Date(dropsAt).getTime()
+      const now = Date.now()
+      let diff = Math.max(0, Math.floor((end - now) / 1000))
+      const h = Math.floor(diff / 3600); diff -= h * 3600
+      const m = Math.floor(diff / 60); diff -= m * 60
+      const s = diff
+      setCountdown(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`)
+    } catch { setCountdown("") }
+  }
+
+  useEffect(() => {
+    const id = setInterval(() => updateCountdown(daily?.prompt?.dropsAt), 1000)
+    return () => clearInterval(id)
+  }, [daily?.prompt?.dropsAt])
 
   const openComments = (post) => {
     setSelectedPost(post)
@@ -108,7 +171,7 @@ export default function HomeScreen() {
                     padding: 0,
                     marginBottom: 12,
                   }}
-                  onPress={() => router.push({ pathname: "/(tabs)/search", params: { focusDaily: "1" } })}
+                  onPress={() => router.push({ pathname: "/(tabs)/search", params: { focusDaily: "1", openComposer: daily?.posted ? "0" : "1" } })}
                 >
                   <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingTop: 8 }}>
                     <Text style={{ fontWeight: "800", fontSize: 18 }}>Daily Circle</Text>
@@ -118,9 +181,30 @@ export default function HomeScreen() {
                           {daily.posted ? `Streak ${daily.streak?.current || 0}` : "Post to unlock"}
                         </Text>
                       </View>
+                      {!!countdown && (
+                        <View style={{ backgroundColor: "#eef2ff", borderRadius: 20, paddingHorizontal: 10, paddingVertical: 6 }}>
+                          <Text style={{ color: "#3f51b5", fontWeight: "700" }}>Drops in {countdown}</Text>
+                        </View>
+                      )}
                     </View>
                   </View>
                   <Text style={{ marginTop: 6, color: "#333", paddingHorizontal: 16 }}>{daily.prompt?.text}</Text>
+                  {!!daily?.posted && (
+                    <View style={{ paddingHorizontal: 16, marginTop: 8 }}>
+                      <Text style={{ color: '#666', marginBottom: 6, fontWeight: '600' }}>Your Daily</Text>
+                      <View style={{ height: 70 }}>
+                        <View style={{ width: 70, alignItems: 'center', marginRight: 8 }}>
+                          {myDaily?.mediaUrl ? (
+                            <Image source={{ uri: myDaily.mediaUrl }} style={{ width: 66, height: 66, borderRadius: 8, backgroundColor: '#eee' }} />
+                          ) : (
+                            <View style={{ width: 66, height: 66, borderRadius: 8, backgroundColor: '#eee', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 6 }}>
+                              <Text numberOfLines={3} style={{ color: '#444', fontSize: 10, textAlign: 'center' }}>{myDaily?.text || 'Posted'}</Text>
+                            </View>
+                          )}
+                        </View>
+                      </View>
+                    </View>
+                  )}
                   <View style={{ height: 120, marginTop: 8 }}>
                     <FlatList
                       data={daily?.rings || []}
