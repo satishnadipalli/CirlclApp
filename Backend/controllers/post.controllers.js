@@ -26,7 +26,7 @@ const createPost = async (req, res) => {
     const lat = req.body?.lat != null ? Number(req.body.lat) : null
     const locationName = req.body?.locationName || ""
 
-    const newPost = await Post.create({
+    const doc = {
       title,
       description,
       mediaUrl: req.fileUrl, // Save the Cloudinary URL from uploadToCloudinary middleware
@@ -34,8 +34,12 @@ const createPost = async (req, res) => {
       hashtags,
       mentions,
       locationName,
-      geo: lat != null && lng != null ? { type: "Point", coordinates: [lng, lat] } : undefined,
-    })
+    }
+    if (lat != null && lng != null && !Number.isNaN(lat) && !Number.isNaN(lng)) {
+      doc.geo = { type: "Point", coordinates: [lng, lat] }
+    }
+
+    const newPost = await Post.create(doc)
 
     if (mentions.length > 0) {
       console.log("mentions", mentions)

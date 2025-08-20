@@ -4,7 +4,8 @@ import { Ionicons } from "@expo/vector-icons"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import { Video } from "expo-av"
 import { useLocalSearchParams, useRouter } from "expo-router"
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import * as Location from "expo-location"
 import {
     Alert,
     Dimensions,
@@ -31,7 +32,7 @@ export default function ComposePostScreen() {
   const [caption, setCaption] = useState("")
   const [selectedMusic, setSelectedMusic] = useState(null)
   const [taggedPeople, setTaggedPeople] = useState([])
-  const [location, setLocation] = useState(null)
+  const [location, setLocation] = useState<{ name?: string; lat?: number; lng?: number } | null>(null)
   const [aiLabelEnabled, setAiLabelEnabled] = useState(false)
   const [audience, setAudience] = useState("Everyone")
   const [shareOnPlatforms, setShareOnPlatforms] = useState([])
@@ -125,9 +126,26 @@ export default function ComposePostScreen() {
     Alert.alert("Tag People", "People tagging feature coming soon!")
   }
 
-  const handleAddLocation = () => {
-    // Navigate to location selection screen
-    Alert.alert("Add Location", "Location selection feature coming soon!")
+  useEffect(() => {
+    (async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync()
+        if (status !== "granted") return
+        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
+        setLocation({ lat: loc.coords.latitude, lng: loc.coords.longitude })
+      } catch {}
+    })()
+  }, [])
+
+  const handleAddLocation = async () => {
+    try {
+      const place = await Location.reverseGeocodeAsync({ latitude: location?.lat || 0, longitude: location?.lng || 0 })
+      const name = place?.[0]?.city || place?.[0]?.name || ""
+      setLocation((prev) => ({ ...(prev || {}), name }))
+      Alert.alert("Location", name ? `Using ${name}` : "Location set")
+    } catch {
+      Alert.alert("Location", "Unable to resolve location name")
+    }
   }
 
   const handleAudiencePress = () => {
@@ -182,6 +200,11 @@ export default function ComposePostScreen() {
 
       // Add hashtags as JSON string array
       formData.append("hashtags", JSON.stringify(hashtags))
+
+      // Add location if available
+      if (location?.name) formData.append("locationName", String(location.name))
+      if (location?.lat != null) formData.append("lat", String(location.lat))
+      if (location?.lng != null) formData.append("lng", String(location.lng))
 
       console.log("[v0] Creating post with FormData...")
 
