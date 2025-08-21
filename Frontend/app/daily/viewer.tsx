@@ -1,13 +1,15 @@
 import { useLocalSearchParams, useRouter } from "expo-router"
 import { useEffect, useState } from "react"
-import { ActivityIndicator, Image, StyleSheet, Text, TouchableOpacity, View } from "react-native"
+import { ActivityIndicator, FlatList, Image, StyleSheet, Text, TouchableOpacity, View, Dimensions } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import api from "@/services/api.service"
+
+const { width, height } = Dimensions.get('window')
 
 export default function DailyViewer() {
   const { userId } = useLocalSearchParams<{ userId: string }>()
   const router = useRouter()
-  const [entry, setEntry] = useState<any>(null)
+  const [entries, setEntries] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -15,7 +17,7 @@ export default function DailyViewer() {
     (async () => {
       try {
         const res = await api.getDailyEntryByUser(String(userId))
-        if (res?.success) setEntry((res as any).entry)
+        if ((res as any)?.success && Array.isArray((res as any).entries)) setEntries((res as any).entries)
         else setError((res as any)?.message || "Locked")
       } catch (e) {
         setError("Failed to load")
@@ -29,7 +31,7 @@ export default function DailyViewer() {
     <View style={styles.container}><ActivityIndicator /></View>
   )
 
-  if (!entry) return (
+  if (!entries || entries.length === 0) return (
     <View style={styles.container}>
       <View style={{ paddingHorizontal: 20, alignItems: 'center' }}>
         <Text style={{ color: "#fff", fontSize: 16, fontWeight: '700', textAlign: 'center' }}>{error || "No entry available"}</Text>
@@ -43,35 +45,46 @@ export default function DailyViewer() {
     </View>
   )
 
-  return (
-    <View style={styles.container}>
+  const renderItem = ({ item }: { item: any }) => (
+    <View style={{ width, height, backgroundColor: '#000' }}>
       <View style={styles.topBar}>
         <TouchableOpacity onPress={() => router.back()}>
           <Ionicons name="close" size={28} color="#fff" />
         </TouchableOpacity>
       </View>
       <View style={styles.header}>
-        <Image source={{ uri: entry?.user?.profilePic || "https://i.pravatar.cc/100?img=12" }} style={styles.avatar} />
+        <Image source={{ uri: item?.user?.profilePic || "https://i.pravatar.cc/100?img=12" }} style={styles.avatar} />
         <View style={{ marginLeft: 10 }}>
-          <Text style={styles.name}>{entry?.user?.name || "User"}</Text>
-          <Text style={styles.time}>{new Date(entry?.createdAt).toLocaleTimeString()}</Text>
+          <Text style={styles.name}>{item?.user?.name || "User"}</Text>
+          <Text style={styles.time}>{new Date(item?.createdAt).toLocaleTimeString()}</Text>
         </View>
       </View>
       <View style={styles.body}>
-        {entry?.mediaUrl ? (
-          <Image source={{ uri: entry.mediaUrl }} style={styles.media} resizeMode="contain" />
+        {item?.mediaUrl ? (
+          <Image source={{ uri: item.mediaUrl }} style={styles.media} resizeMode="contain" />
         ) : (
           <View style={{ paddingHorizontal: 20 }}>
-            <Text style={styles.textContent}>{entry?.text || ""}</Text>
+            <Text style={styles.textContent}>{item?.text || ""}</Text>
           </View>
         )}
       </View>
     </View>
   )
+
+  return (
+    <FlatList
+      data={entries}
+      keyExtractor={(it, idx) => it._id || String(idx)}
+      renderItem={renderItem}
+      horizontal
+      pagingEnabled
+      showsHorizontalScrollIndicator={false}
+    />
+  )
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#000" },
+  container: { flex: 1, backgroundColor: "#000", alignItems: 'center', justifyContent: 'center' },
   topBar: { position: "absolute", top: 50, right: 16, zIndex: 10 },
   header: { flexDirection: "row", alignItems: "center", paddingTop: 50, paddingHorizontal: 16 },
   avatar: { width: 38, height: 38, borderRadius: 19 },

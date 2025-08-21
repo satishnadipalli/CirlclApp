@@ -181,12 +181,12 @@ export default function HomeScreen() {
                 >
                   <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingTop: 8 }}>
                     <Text style={{ fontWeight: "800", fontSize: 18 }}>Daily Circle</Text>
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-                       <View style={{ backgroundColor: daily.posted ? "#e8f5e9" : "#fdecea", borderRadius: 20, paddingHorizontal: 10, paddingVertical: 6 }}>
-                         <Text style={{ color: daily.posted ? "#2e7d32" : "#c62828", fontWeight: "700" }}>
-                           {daily.posted && typeof daily.streak?.current === 'number' ? `Streak ${daily.streak.current}` : "Post to unlock"}
-                         </Text>
-                       </View>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1, justifyContent: "flex-end", flexWrap: "wrap" }}>
+                      <View style={{ backgroundColor: daily.posted ? "#e8f5e9" : "#fdecea", borderRadius: 20, paddingHorizontal: 10, paddingVertical: 6 }}>
+                        <Text style={{ color: daily.posted ? "#2e7d32" : "#c62828", fontWeight: "700" }}>
+                          {daily.posted && typeof daily.streak?.current === 'number' ? `Streak ${daily.streak.current}` : "Post to unlock"}
+                        </Text>
+                      </View>
                       {!!countdown && (
                         <View style={{ backgroundColor: "#eef2ff", borderRadius: 20, paddingHorizontal: 10, paddingVertical: 6, marginTop: 6, maxWidth: 180 }}>
                           <Text numberOfLines={1} style={{ color: "#3f51b5", fontWeight: "700" }}>Drops in {countdown}</Text>
@@ -194,13 +194,6 @@ export default function HomeScreen() {
                       )}
                     </View>
                   </View>
-                  {!daily.posted && (
-                    <View style={{ paddingHorizontal: 16, marginTop: 8 }}>
-                      <TouchableOpacity style={{ alignSelf: 'flex-start', backgroundColor: '#0095f6', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10 }} onPress={() => router.push({ pathname: "/(tabs)/search", params: { focusDaily: "1", openComposer: "1" } })}>
-                        <Text style={{ color: '#fff', fontWeight: '800' }}>Post now</Text>
-                      </TouchableOpacity>
-                    </View>
-                  )}
                   <Text numberOfLines={2} ellipsizeMode='tail' style={{ marginTop: 6, color: "#333", paddingHorizontal: 16 }}>{daily.prompt?.text}</Text>
                   {!!daily?.posted && (
                     <View style={{ paddingHorizontal: 16, marginTop: 8 }}>
@@ -221,11 +214,11 @@ export default function HomeScreen() {
                   {daily?.posted && (
                     <View style={{ height: 120, marginTop: 8 }}>
                       <FlatList
-                         data={daily?.rings || []}
-                         horizontal
-                         showsHorizontalScrollIndicator={false}
-                         keyExtractor={(_, idx) => String(idx)}
-                         contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: 10 }}
+                        data={daily?.rings || []}
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        keyExtractor={(_, idx) => String(idx)}
+                        contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: 10 }}
                         renderItem={({ item }) => (
                           <DailyRing
                             imageUrl={item?.user?.profilePic || "https://i.pravatar.cc/100?img=11"}
@@ -238,45 +231,7 @@ export default function HomeScreen() {
                   )}
                 </TouchableOpacity>
               )}
-              <FlatList
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                data={[
-                  {
-                    id: "1",
-                    name: "Your Story",
-                    image:
-                      "https://res.cloudinary.com/dlehbizfp/image/upload/f_jpg/v1755065855/circle_uploads/jqn1ydnekml88cf4k2f0.jpg",
-                  },
-                  {
-                    id: "2",
-                    name: "John",
-                    image:
-                      "https://res.cloudinary.com/dlehbizfp/image/upload/f_jpg/v1755065855/circle_uploads/jqn1ydnekml88cf4k2f0.jpg",
-                  },
-                  {
-                    id: "3",
-                    name: "Emma",
-                    image:
-                      "https://res.cloudinary.com/dlehbizfp/image/upload/f_jpg/v1755065855/circle_uploads/jqn1ydnekml88cf4k2f0.jpg",
-                  },
-                  {
-                    id: "4",
-                    name: "Mike",
-                    image:
-                      "https://res.cloudinary.com/dlehbizfp/image/upload/f_jpg/v1755065855/circle_uploads/jqn1ydnekml88cf4k2f0.jpg",
-                  },
-                ]}
-                keyExtractor={(item) => item.id}
-                renderItem={({ item }) => (
-                  <View style={styles.storyItem}>
-                    <LinearGradient colors={["#DE0046", "#F7A34B"]} style={styles.storyRing}>
-                      <Image source={{ uri: item.image }} style={styles.storyImage} />
-                    </LinearGradient>
-                    <Text style={styles.storyName}>{item.name}</Text>
-                  </View>
-                )}
-              />
+              {/* Removed static stories strip */}
             </View>
           </>
         }
