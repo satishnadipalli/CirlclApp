@@ -174,22 +174,21 @@ export default function HomeScreen() {
                     borderRadius: 14,
                     padding: 0,
                     marginBottom: 12,
+                    overflow: 'hidden',
                   }}
                   onPress={() => router.push({ pathname: "/(tabs)/search", params: { focusDaily: "1", openComposer: daily?.posted ? "0" : "1" } })}
                 >
                   <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingTop: 8 }}>
                     <Text style={{ fontWeight: "800", fontSize: 18 }}>Daily Circle</Text>
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: daily.posted ? "#e8f5e9" : "#fdecea", borderRadius: 20, paddingHorizontal: 10, paddingVertical: 6 }}>
-                        <Ionicons name={daily.posted ? "flame-outline" : "lock-closed-outline"} size={14} color={daily.posted ? "#2e7d32" : "#c62828"} />
-                        <Text style={{ color: daily.posted ? "#2e7d32" : "#c62828", fontWeight: "700" }}>
-                          {daily.posted && typeof daily.streak?.current === 'number' ? `Streak ${daily.streak.current}` : "Post to unlock"}
-                        </Text>
-                      </View>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                       <View style={{ backgroundColor: daily.posted ? "#e8f5e9" : "#fdecea", borderRadius: 20, paddingHorizontal: 10, paddingVertical: 6 }}>
+                         <Text style={{ color: daily.posted ? "#2e7d32" : "#c62828", fontWeight: "700" }}>
+                           {daily.posted && typeof daily.streak?.current === 'number' ? `Streak ${daily.streak.current}` : "Post to unlock"}
+                         </Text>
+                       </View>
                       {!!countdown && (
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: "#eef2ff", borderRadius: 20, paddingHorizontal: 10, paddingVertical: 6 }}>
-                          <Ionicons name="time-outline" size={14} color="#3f51b5" />
-                          <Text style={{ color: "#3f51b5", fontWeight: "700" }}>Drops in {countdown}</Text>
+                        <View style={{ backgroundColor: "#eef2ff", borderRadius: 20, paddingHorizontal: 10, paddingVertical: 6, marginTop: 6, maxWidth: 180 }}>
+                          <Text numberOfLines={1} style={{ color: "#3f51b5", fontWeight: "700" }}>Drops in {countdown}</Text>
                         </View>
                       )}
                     </View>
@@ -201,7 +200,7 @@ export default function HomeScreen() {
                       </TouchableOpacity>
                     </View>
                   )}
-                  <Text style={{ marginTop: 6, color: "#333", paddingHorizontal: 16 }}>{daily.prompt?.text}</Text>
+                  <Text numberOfLines={2} ellipsizeMode='tail' style={{ marginTop: 6, color: "#333", paddingHorizontal: 16 }}>{daily.prompt?.text}</Text>
                   {!!daily?.posted && (
                     <View style={{ paddingHorizontal: 16, marginTop: 8 }}>
                       <Text style={{ color: '#666', marginBottom: 6, fontWeight: '600' }}>Your Daily</Text>
