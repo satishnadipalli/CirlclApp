@@ -160,6 +160,10 @@ const getRings = async (req, res) => {
   try {
     const userId = req.user._id
     const dateKey = formatDateKey(new Date())
+    // Require requester to have posted to see rings (server-side gating)
+    const requesterPosted = await DailyCircleEntry.exists({ user: userId, dateKey, group: { $exists: false } })
+    if (!requesterPosted) return res.json({ success: true, rings: [] })
+
     const me = await User.findById(userId).select('following')
     const followingIds = (me?.following || []).map((id) => String(id))
     if (followingIds.length === 0) return res.json({ success: true, rings: [] })

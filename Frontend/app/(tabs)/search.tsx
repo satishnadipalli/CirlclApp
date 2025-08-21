@@ -27,6 +27,7 @@ const Search = () => {
   const [explore, setExplore] = useState([])
   const [dailyFeed, setDailyFeed] = useState([])
   const [showDaily, setShowDaily] = useState(false)
+  const [tab, setTab] = useState<'explore' | 'daily'>('explore')
   const [showComposer, setShowComposer] = useState(false)
   const [composingText, setComposingText] = useState("")
   const [visibility, setVisibility] = useState<'followers' | 'everyone'>('followers')
@@ -47,6 +48,7 @@ const Search = () => {
   useEffect(() => {
     if (params?.focusDaily === "1") {
       setShowDaily(true)
+      setTab('daily')
       loadDaily()
     }
     if (params?.openComposer === "1") {
@@ -160,6 +162,14 @@ const Search = () => {
 
   return (
     <View style={styles.container}>
+      <View style={{ flexDirection: 'row', marginTop: 12, marginHorizontal: 10, borderRadius: 10, backgroundColor: '#f2f2f2', overflow: 'hidden' }}>
+        <TouchableOpacity style={{ flex: 1, paddingVertical: 10, alignItems: 'center', backgroundColor: tab === 'explore' ? '#fff' : 'transparent' }} onPress={() => setTab('explore')}>
+          <Text style={{ fontWeight: '700', color: tab === 'explore' ? '#000' : '#666' }}>Explore</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={{ flex: 1, paddingVertical: 10, alignItems: 'center', backgroundColor: tab === 'daily' ? '#fff' : 'transparent' }} onPress={() => { setTab('daily'); setShowDaily(true); loadDaily() }}>
+          <Text style={{ fontWeight: '700', color: tab === 'daily' ? '#000' : '#666' }}>Daily</Text>
+        </TouchableOpacity>
+      </View>
       <View style={styles.searchBar}>
         <Ionicons name="search-outline" size={20} color="#666" />
         <TextInput
@@ -217,7 +227,7 @@ const Search = () => {
           )}
           contentContainerStyle={{ paddingBottom: 20 }}
         />
-      ) : showDaily ? (
+      ) : tab === 'daily' ? (
         <FlatList
           key="daily-list"
           data={dailyFeed}
