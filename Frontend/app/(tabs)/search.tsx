@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   View,
   Dimensions,
+  ScrollView,
   Modal,
 } from "react-native"
 import * as ImagePicker from "expo-image-picker"
@@ -286,30 +287,36 @@ const Search = () => {
 
       <Modal visible={showComposer} animationType="slide" onRequestClose={() => setShowComposer(false)}>
         <View style={{ flex: 1, backgroundColor: "#fff" }}>
+          {/* Header */}
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 12, paddingTop: 50, borderBottomWidth: 1, borderBottomColor: "#eee" }}>
             <Text style={{ fontWeight: "800", fontSize: 18 }}>Post Daily</Text>
             <TouchableOpacity onPress={() => setShowComposer(false)}><Ionicons name="close" size={22} color="#333" /></TouchableOpacity>
           </View>
-          <View style={{ padding: 16 }}>
-            <Text style={{ marginBottom: 8, color: "#666" }}>Share a small moment (disappears in 24h)</Text>
+
+          {/* Content */}
+          <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 120 }}>
+            <Text style={{ marginBottom: 12, color: "#666" }}>Share a small moment (disappears in 24h)</Text>
+
             {pickedUri ? (
-              <View style={{ marginBottom: 12, alignItems: 'center' }}>
-                <Image source={{ uri: pickedUri }} style={{ width: '100%', height: 220, borderRadius: 10, backgroundColor: '#eee' }} resizeMode="cover" />
-                <TouchableOpacity onPress={() => { setPickedUri(null); setIsVideo(false) }} style={{ marginTop: 8 }}>
-                  <Text style={{ color: '#f33', fontWeight: '700' }}>Remove</Text>
+              <View style={{ marginBottom: 12 }}>
+                <Image source={{ uri: pickedUri }} style={{ width: '100%', height: 260, borderRadius: 14, backgroundColor: '#eee' }} resizeMode="cover" />
+                <TouchableOpacity onPress={() => { setPickedUri(null); setIsVideo(false) }} style={{ position: 'absolute', right: 10, top: 10, backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 14 }}>
+                  <Text style={{ color: '#fff', fontWeight: '700' }}>Remove</Text>
                 </TouchableOpacity>
               </View>
-            ) : null}
-            <View style={{ flexDirection: 'row', gap: 10, marginBottom: 12 }}>
-              <TouchableOpacity style={[styles.cta, { backgroundColor: '#eee' }]} onPress={pickFromGallery}>
-                <Text style={[styles.ctaText, { color: '#000' }]}>Gallery</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.cta, { backgroundColor: '#eee' }]} onPress={recordFromCamera}>
-                <Text style={[styles.ctaText, { color: '#000' }]}>Camera</Text>
-              </TouchableOpacity>
-            </View>
+            ) : (
+              <View style={{ flexDirection: 'row', gap: 10, marginBottom: 12 }}>
+                <TouchableOpacity style={[styles.cta, { backgroundColor: '#eee', flex: 1 }]} onPress={pickFromGallery}>
+                  <Text style={[styles.ctaText, { color: '#000' }]}>Pick from Gallery</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.cta, { backgroundColor: '#eee', flex: 1 }]} onPress={recordFromCamera}>
+                  <Text style={[styles.ctaText, { color: '#000' }]}>Open Camera</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
             <TextInput
-              style={{ minHeight: 100, borderWidth: 1, borderColor: "#eee", borderRadius: 10, padding: 12, color: "#000" }}
+              style={{ minHeight: 120, borderWidth: 1, borderColor: "#eee", borderRadius: 12, padding: 12, color: "#000" }}
               placeholder="Say something... (optional)"
               placeholderTextColor="#999"
               value={composingText}
@@ -317,17 +324,31 @@ const Search = () => {
               multiline
               maxLength={300}
             />
-            <View style={{ flexDirection: 'row', gap: 10, marginTop: 12, alignItems: 'center' }}>
-              <Text style={{ color: '#666' }}>Visibility:</Text>
-              <TouchableOpacity onPress={() => setVisibility('followers')} style={[styles.cta, { backgroundColor: visibility === 'followers' ? '#0095f6' : '#eee' }]}>
-                <Text style={[styles.ctaText, { color: visibility === 'followers' ? '#fff' : '#000' }]}>Followers</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => setVisibility('everyone')} style={[styles.cta, { backgroundColor: visibility === 'everyone' ? '#0095f6' : '#eee' }]}>
-                <Text style={[styles.ctaText, { color: visibility === 'everyone' ? '#fff' : '#000' }]}>Everyone</Text>
-              </TouchableOpacity>
+            <View style={{ alignItems: 'flex-end', marginTop: 6 }}>
+              <Text style={{ color: '#999', fontSize: 12 }}>{composingText.length}/300</Text>
             </View>
-            <TouchableOpacity style={[styles.cta, { marginTop: 16, opacity: posting ? 0.6 : 1 }]} onPress={submitDaily} disabled={posting}>
-              <Text style={styles.ctaText}>{posting ? "Posting..." : "Post"}</Text>
+
+            <View style={{ marginTop: 12 }}>
+              <Text style={{ color: '#666', marginBottom: 8 }}>Visibility</Text>
+              <View style={{ flexDirection: 'row', backgroundColor: '#f2f2f2', borderRadius: 10, padding: 4 }}>
+                <TouchableOpacity onPress={() => setVisibility('followers')} style={{ flex: 1, backgroundColor: visibility === 'followers' ? '#fff' : 'transparent', borderRadius: 8, alignItems: 'center', paddingVertical: 10 }}>
+                  <Text style={{ fontWeight: '700', color: visibility === 'followers' ? '#000' : '#666' }}>Followers</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setVisibility('everyone')} style={{ flex: 1, backgroundColor: visibility === 'everyone' ? '#fff' : 'transparent', borderRadius: 8, alignItems: 'center', paddingVertical: 10 }}>
+                  <Text style={{ fontWeight: '700', color: visibility === 'everyone' ? '#000' : '#666' }}>Everyone</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </ScrollView>
+
+          {/* Footer */}
+          <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 16, paddingTop: 10, paddingBottom: 16, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#eee' }}>
+            <TouchableOpacity
+              style={styles.primaryBtn}
+              onPress={submitDaily}
+              disabled={posting || (!pickedUri && composingText.trim().length === 0)}
+            >
+              <Text style={{ color: '#fff', fontWeight: '800', fontSize: 16 }}>{posting ? 'Posting…' : 'Post Daily'}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -364,6 +385,7 @@ const styles = StyleSheet.create({
   dailyThumb: { width: 54, height: 54, borderRadius: 8, marginLeft: 10, backgroundColor: "#eee" },
   cta: { backgroundColor: "#0095f6", paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10 },
   ctaText: { color: "#fff", fontWeight: "700" },
+  primaryBtn: { backgroundColor: '#0095f6', alignItems: 'center', justifyContent: 'center', height: 48, borderRadius: 12 },
 })
 
 export default Search
