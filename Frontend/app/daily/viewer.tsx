@@ -31,16 +31,25 @@ export default function DailyViewer() {
 
   if (!entry) return (
     <View style={styles.container}>
-      <Text style={{ color: "#fff" }}>{error || "No entry"}</Text>
-      <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 12 }}><Text style={{ color: "#fff" }}>Close</Text></TouchableOpacity>
+      <View style={{ paddingHorizontal: 20, alignItems: 'center' }}>
+        <Text style={{ color: "#fff", fontSize: 16, fontWeight: '700', textAlign: 'center' }}>{error || "No entry available"}</Text>
+        {error?.includes('unlock') && (
+          <Text style={{ color: '#ccc', marginTop: 8, textAlign: 'center' }}>Post your Daily to unlock your friends’ entries.</Text>
+        )}
+        <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 16, backgroundColor: '#fff', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10 }}>
+          <Text style={{ color: "#000", fontWeight: '700' }}>Close</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   )
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity style={styles.topBar} onPress={() => router.back()}>
-        <Ionicons name="close" size={24} color="#fff" />
-      </TouchableOpacity>
+      <View style={styles.topBar}>
+        <TouchableOpacity onPress={() => router.back()}>
+          <Ionicons name="close" size={28} color="#fff" />
+        </TouchableOpacity>
+      </View>
       <View style={styles.header}>
         <Image source={{ uri: entry?.user?.profilePic || "https://i.pravatar.cc/100?img=12" }} style={styles.avatar} />
         <View style={{ marginLeft: 10 }}>
@@ -52,7 +61,9 @@ export default function DailyViewer() {
         {entry?.mediaUrl ? (
           <Image source={{ uri: entry.mediaUrl }} style={styles.media} resizeMode="contain" />
         ) : (
-          <Text style={styles.textContent}>{entry?.text || ""}</Text>
+          <View style={{ paddingHorizontal: 20 }}>
+            <Text style={styles.textContent}>{entry?.text || ""}</Text>
+          </View>
         )}
       </View>
     </View>

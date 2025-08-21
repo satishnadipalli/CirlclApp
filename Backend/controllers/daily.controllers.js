@@ -184,14 +184,18 @@ const getEntryByUser = async (req, res) => {
     const { userId } = req.params
     const dateKey = formatDateKey(new Date())
 
-    // Allow if own entry, else require unlock
-    if (requestorId !== String(userId)) {
+    // Fetch entry first to make visibility-based decisions
+    const entry = await DailyCircleEntry.findOne({ user: userId, dateKey, group: { $exists: false } }).populate('user', 'name profilePic')
+    if (!entry) return res.status(404).json({ success: false, message: 'No entry' })
+
+    // If viewing someone else's entry and it's not public, require unlock (i.e., requester must have posted today)
+    const isOwn = requestorId === String(userId)
+    const isPublic = String(entry.visibility) === 'everyone'
+    if (!isOwn && !isPublic) {
       const posted = await DailyCircleEntry.exists({ user: requestorId, dateKey, group: { $exists: false } })
       if (!posted) return res.status(403).json({ success: false, message: 'Post today to unlock your Daily Circle' })
     }
 
-    const entry = await DailyCircleEntry.findOne({ user: userId, dateKey, group: { $exists: false } }).populate('user', 'name profilePic')
-    if (!entry) return res.status(404).json({ success: false, message: 'No entry' })
     res.json({ success: true, entry })
   } catch (e) {
     res.status(500).json({ success: false, message: e.message })
