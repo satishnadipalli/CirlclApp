@@ -41,6 +41,7 @@ const Search = () => {
   const [refreshing, setRefreshing] = useState(false)
   const router = useRouter()
   const params = useLocalSearchParams()
+  const openHandledRef = useRef(false)
 
   useEffect(() => {
     loadExplore(1, true)
@@ -52,8 +53,13 @@ const Search = () => {
       setTab('daily')
       loadDaily()
     }
-    if (params?.openComposer === "1") {
+    if (!openHandledRef.current && params?.openComposer === "1") {
+      openHandledRef.current = true
       setShowComposer(true)
+    }
+    if (!openHandledRef.current && params?.openComposer === "0") {
+      openHandledRef.current = true
+      setShowComposer(false)
     }
   }, [params])
 
@@ -83,6 +89,10 @@ const Search = () => {
         setIsVideo(false)
         setVisibility('followers')
         await loadDaily()
+        setTab('daily')
+        setShowDaily(true)
+        // Prevent re-opening composer if param was set
+        try { (router as any)?.setParams?.({ openComposer: '0' }) } catch {}
       }
     } finally {
       setPosting(false)
@@ -290,7 +300,9 @@ const Search = () => {
           {/* Header */}
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 12, paddingTop: 50, borderBottomWidth: 1, borderBottomColor: "#eee" }}>
             <Text style={{ fontWeight: "800", fontSize: 18 }}>Post Daily</Text>
-            <TouchableOpacity onPress={() => setShowComposer(false)}><Ionicons name="close" size={22} color="#333" /></TouchableOpacity>
+            <TouchableOpacity onPress={() => setShowComposer(false)} style={{ backgroundColor: '#f2f2f2', padding: 8, borderRadius: 999 }}>
+              <Ionicons name="close" size={20} color="#333" />
+            </TouchableOpacity>
           </View>
 
           {/* Content */}
@@ -316,7 +328,7 @@ const Search = () => {
             )}
 
             <TextInput
-              style={{ minHeight: 120, borderWidth: 1, borderColor: "#eee", borderRadius: 12, padding: 12, color: "#000" }}
+              style={{ minHeight: 100, borderWidth: 1, borderColor: "#e6e6e6", backgroundColor: '#fafafa', borderRadius: 12, padding: 12, color: "#000" }}
               placeholder="Say something... (optional)"
               placeholderTextColor="#999"
               value={composingText}
@@ -343,13 +355,18 @@ const Search = () => {
 
           {/* Footer */}
           <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 16, paddingTop: 10, paddingBottom: 16, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#eee' }}>
-            <TouchableOpacity
-              style={styles.primaryBtn}
-              onPress={submitDaily}
-              disabled={posting || (!pickedUri && composingText.trim().length === 0)}
-            >
-              <Text style={{ color: '#fff', fontWeight: '800', fontSize: 16 }}>{posting ? 'Posting…' : 'Post Daily'}</Text>
-            </TouchableOpacity>
+            {(() => {
+              const disabled = posting || (!pickedUri && composingText.trim().length === 0)
+              return (
+                <TouchableOpacity
+                  style={[styles.primaryBtn, disabled && { opacity: 0.6 }]}
+                  onPress={submitDaily}
+                  disabled={disabled}
+                >
+                  <Text style={{ color: '#fff', fontWeight: '800', fontSize: 16 }}>{posting ? 'Posting…' : 'Post Daily'}</Text>
+                </TouchableOpacity>
+              )
+            })()}
           </View>
         </View>
       </Modal>
