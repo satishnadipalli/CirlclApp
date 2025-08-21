@@ -58,6 +58,14 @@ class ApiService {
       const data = await response.json()
 
       if (!response.ok) {
+        // Gracefully handle expected 404/403 (e.g., no daily entry or locked)
+        if (response.status === 404 || response.status === 403) {
+          return {
+            success: false,
+            status: response.status,
+            message: (data && (data.message || data.error)) || (response.status === 404 ? "Not found" : "Forbidden"),
+          }
+        }
         throw new Error(data.message || "Request failed")
       }
 
@@ -66,7 +74,10 @@ class ApiService {
         ...data,
       }
     } catch (error) {
-      console.error(`API Error (${endpoint}):`, error)
+      // Avoid noisy logs for handled cases
+      if (!(error instanceof Error && (error.message === "Not found" || error.message === "Forbidden"))) {
+        console.error(`API Error (${endpoint}):`, error)
+      }
       return {
         success: false,
         message: error instanceof Error ? error.message : "Unknown error occurred",
