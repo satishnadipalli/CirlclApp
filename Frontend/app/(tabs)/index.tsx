@@ -180,18 +180,27 @@ export default function HomeScreen() {
                   <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingTop: 8 }}>
                     <Text style={{ fontWeight: "800", fontSize: 18 }}>Daily Circle</Text>
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                      <View style={{ backgroundColor: daily.posted ? "#e8f5e9" : "#fdecea", borderRadius: 20, paddingHorizontal: 10, paddingVertical: 6 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: daily.posted ? "#e8f5e9" : "#fdecea", borderRadius: 20, paddingHorizontal: 10, paddingVertical: 6 }}>
+                        <Ionicons name={daily.posted ? "flame-outline" : "lock-closed-outline"} size={14} color={daily.posted ? "#2e7d32" : "#c62828"} />
                         <Text style={{ color: daily.posted ? "#2e7d32" : "#c62828", fontWeight: "700" }}>
                           {daily.posted && typeof daily.streak?.current === 'number' ? `Streak ${daily.streak.current}` : "Post to unlock"}
                         </Text>
                       </View>
                       {!!countdown && (
-                        <View style={{ backgroundColor: "#eef2ff", borderRadius: 20, paddingHorizontal: 10, paddingVertical: 6 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: "#eef2ff", borderRadius: 20, paddingHorizontal: 10, paddingVertical: 6 }}>
+                          <Ionicons name="time-outline" size={14} color="#3f51b5" />
                           <Text style={{ color: "#3f51b5", fontWeight: "700" }}>Drops in {countdown}</Text>
                         </View>
                       )}
                     </View>
                   </View>
+                  {!daily.posted && (
+                    <View style={{ paddingHorizontal: 16, marginTop: 8 }}>
+                      <TouchableOpacity style={{ alignSelf: 'flex-start', backgroundColor: '#0095f6', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10 }} onPress={() => router.push({ pathname: "/(tabs)/search", params: { focusDaily: "1", openComposer: "1" } })}>
+                        <Text style={{ color: '#fff', fontWeight: '800' }}>Post now</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
                   <Text style={{ marginTop: 6, color: "#333", paddingHorizontal: 16 }}>{daily.prompt?.text}</Text>
                   {!!daily?.posted && (
                     <View style={{ paddingHorizontal: 16, marginTop: 8 }}>
@@ -308,7 +317,9 @@ export default function HomeScreen() {
                 <Ionicons name="ellipsis-horizontal" size={20} color="#262626" />
               </TouchableOpacity>
             </View>
-            <Image source={{ uri: item.postImage }} style={styles.postImage} />
+            <View style={styles.postImageWrapper}>
+              <Image source={{ uri: item.postImage }} style={styles.postImage} />
+            </View>
             <View style={styles.actions}>
               <View style={styles.leftActions}>
                 <TouchableOpacity style={styles.actionButton}>
@@ -373,12 +384,12 @@ const styles = StyleSheet.create({
   },
   notificationBadge: {
     position: "absolute",
-    top: 4,
-    right: 4,
+    top: 0,
+    right: 0,
     backgroundColor: "#FF3040",
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
+    borderRadius: 9,
+    minWidth: 18,
+    height: 18,
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 2,
@@ -386,7 +397,7 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     color: "white",
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: "bold",
     textAlign: "center",
   },
@@ -468,8 +479,14 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   postImage: {
-    width: width,
+    width: width - 2,
     height: width,
+    borderRadius: 12,
+  },
+  postImageWrapper: {
+    paddingHorizontal: 1,
+    paddingTop: 1,
+    backgroundColor: '#fff',
   },
   actions: {
     flexDirection: "row",
