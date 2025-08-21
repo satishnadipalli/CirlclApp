@@ -114,9 +114,13 @@ export default function HomeScreen() {
   const updateCountdown = (dropsAt?: string) => {
     if (!dropsAt) { setCountdown(""); return }
     try {
-      const end = new Date(dropsAt).getTime()
-      const now = Date.now()
-      let diff = Math.max(0, Math.floor((end - now) / 1000))
+      const nowMs = Date.now()
+      let end = new Date(dropsAt).getTime()
+      if (!Number.isFinite(end)) { setCountdown(""); return }
+      // If today's drop time has passed, roll to next day same time
+      if (nowMs >= end) end = end + 24 * 60 * 60 * 1000
+      let diff = Math.floor((end - nowMs) / 1000)
+      if (diff <= 0) { setCountdown(""); return }
       const h = Math.floor(diff / 3600); diff -= h * 3600
       const m = Math.floor(diff / 60); diff -= m * 60
       const s = diff
