@@ -13,7 +13,8 @@ const userSchema = new mongoose.Schema({
   following: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   highlights: [{ type: mongoose.Schema.Types.ObjectId, ref: "DailyCircleEntry" }],
   closeFriends: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
-  expoPushTokens: [{ type: String }]
+  expoPushTokens: [{ type: String }],
+  blockedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }]
 }, { timestamps: true });
 
 module.exports = mongoose.model("User", userSchema);

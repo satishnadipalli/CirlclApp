@@ -403,6 +403,15 @@ export default function DailyViewer() {
           }}>
             <Ionicons name={highlightIds.has(String(item._id)) ? "bookmark" : "bookmark-outline"} size={20} color="#fff" />
           </TouchableOpacity>
+          <TouchableOpacity onPress={async () => {
+            try {
+              const uid = String(item?.user?._id || '')
+              if (!uid) return
+              await api.blockUser(uid)
+            } catch {}
+          }}>
+            <Ionicons name="alert-circle-outline" size={20} color="#fff" />
+          </TouchableOpacity>
         </View>
       </View>
       <View style={styles.body}>

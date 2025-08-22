@@ -350,6 +350,8 @@ class ApiService {
   async registerPushToken(token: string) {
     return this.request(`/users/me/push-token`, { method: 'POST', body: JSON.stringify({ token }) })
   }
+  async blockUser(userId: string) { return this.request(`/users/${userId}/block`, { method: 'POST' }) }
+  async unblockUser(userId: string) { return this.request(`/users/${userId}/unblock`, { method: 'POST' }) }
 
   // Auth Methods
   async login(email, password) {
