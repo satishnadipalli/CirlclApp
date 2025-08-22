@@ -12,8 +12,12 @@ const dailyCircleEntrySchema = new mongoose.Schema(
   { timestamps: true },
 )
 
+// Multiple entries allowed per user/day for non-group (no unique index)
+// Keep uniqueness for group-specific entries
+// Note: if an old unique index exists in your DB on (user,dateKey), drop it manually or via migration
+// dailyCircleEntrySchema.index({ user: 1, dateKey: 1 }, { unique: true, partialFilterExpression: { group: { $exists: false } } })
+
 dailyCircleEntrySchema.index({ user: 1, dateKey: 1, group: 1 }, { unique: true, partialFilterExpression: { group: { $exists: true } } })
-dailyCircleEntrySchema.index({ user: 1, dateKey: 1 }, { unique: true, partialFilterExpression: { group: { $exists: false } } })
 // Auto-expire entries after 24 hours to keep Daily Circle ephemeral
 dailyCircleEntrySchema.index({ createdAt: 1 }, { expireAfterSeconds: 60 * 60 * 24 })
 

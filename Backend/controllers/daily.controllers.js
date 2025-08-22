@@ -24,7 +24,7 @@ const getTodayPrompt = async (req, res) => {
     // Has user posted today?
     let posted = false
     if (req.user?._id) {
-      const existing = await DailyCircleEntry.findOne({ user: req.user._id, dateKey })
+      const existing = await DailyCircleEntry.exists({ user: req.user._id, dateKey })
       posted = !!existing
     }
 
@@ -36,16 +36,12 @@ const getTodayPrompt = async (req, res) => {
 
 const postTodayEntry = async (req, res) => {
   try {
-    const userId = req.user._id
     let { text = "", visibility = "followers" } = req.body
     if (!["followers", "everyone", "group"].includes(String(visibility))) visibility = "followers"
     // Multer + Cloudinary sets req.file.path to the uploaded asset URL
     const mediaUrl = (req.file && req.file.path) || req.fileUrl || req.body.mediaUrl || ""
+    const userId = req.user._id
     const dateKey = formatDateKey(new Date())
-
-    // Enforce single entry per day (global)
-    const exists = await DailyCircleEntry.findOne({ user: userId, dateKey, group: { $exists: false } })
-    if (exists) return res.status(400).json({ success: false, message: "Already posted today" })
 
     const entry = await DailyCircleEntry.create({ user: userId, dateKey, mediaUrl, text, visibility })
 
@@ -62,11 +58,8 @@ const postTodayEntry = async (req, res) => {
       const yesterday = new Date(dateKey)
       yesterday.setUTCDate(yesterday.getUTCDate() - 1)
       const yKey = yesterday.toISOString().slice(0, 10)
-      if (streak.lastPostedDateKey === yKey) {
-        streak.current += 1
-      } else {
-        streak.current = 1
-      }
+      if (streak.lastPostedDateKey === yKey) streak.current += 1
+      else streak.current = 1
       if (streak.current > streak.longest) streak.longest = streak.current
       streak.lastPostedDateKey = dateKey
       await streak.save()
@@ -89,9 +82,7 @@ const postTodayEntry = async (req, res) => {
       }
       for (const followerId of me?.followers || []) {
         const followerSocketId = onlineUsers.get(String(followerId))
-        if (followerSocketId) {
-          io.to(followerSocketId).emit("dailyRing", ringPayload)
-        }
+        if (followerSocketId) io.to(followerSocketId).emit("dailyRing", ringPayload)
       }
     } catch {}
 
@@ -112,10 +103,8 @@ const getTodayFeed = async (req, res) => {
     page = parseInt(page)
     limit = Math.min(60, Math.max(6, parseInt(limit)))
 
-    // Followers-only visibility support: entries visible if
-    //   - visibility === 'everyone'
-    //   - visibility === 'followers' AND entry.user in my following OR entry.user == me
-    const me = await User.findById(userId).select("following")
+    // Followers-only visibility support
+    const me = await User.findById(userId).select('following')
     const followingIds = (me?.following || []).map((id) => String(id))
 
     const filter = {
@@ -124,18 +113,14 @@ const getTodayFeed = async (req, res) => {
         { visibility: "everyone" },
         { visibility: "followers", user: { $in: [...followingIds, String(userId)] } },
       ],
-      $orIgnoreGroup: {},
     }
 
-    // Because Mongo cannot have unused keys, we ensure no group field in filter using $exists
-    const finalFilter = { dateKey, group: { $exists: false }, $or: filter.$or }
-
-    const total = await DailyCircleEntry.countDocuments(finalFilter)
-    const entries = await DailyCircleEntry.find(finalFilter)
+    const total = await DailyCircleEntry.countDocuments(filter)
+    const entries = await DailyCircleEntry.find(filter)
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit)
-      .populate("user", "name profilePic")
+      .populate('user', 'name profilePic')
 
     res.json({ success: true, page, total, pages: Math.ceil(total / limit), entries })
   } catch (e) {
@@ -153,9 +138,6 @@ const getMyStreak = async (req, res) => {
   }
 }
 
-module.exports = { getTodayPrompt, postTodayEntry, getTodayFeed, getMyStreak }
-// New endpoints below
-
 const getRings = async (req, res) => {
   try {
     const userId = req.user._id
@@ -168,11 +150,17 @@ const getRings = async (req, res) => {
     const followingIds = (me?.following || []).map((id) => String(id))
     if (followingIds.length === 0) return res.json({ success: true, rings: [] })
 
-    const entries = await DailyCircleEntry.find({ dateKey, user: { $in: followingIds }, group: { $exists: false } })
-      .sort({ createdAt: -1 })
-      .populate('user', 'name profilePic')
+    // dedupe to latest per user
+    const entries = await DailyCircleEntry.aggregate([
+      { $match: { dateKey, user: { $in: followingIds.map((id) => new (require('mongoose')).Types.ObjectId(id)) }, group: { $exists: false } } },
+      { $sort: { createdAt: -1 } },
+      { $group: { _id: "$user", latest: { $first: "$$ROOT" } } },
+      { $replaceRoot: { newRoot: "$latest" } },
+    ])
 
-    const rings = entries.map((e) => ({
+    const populated = await DailyCircleEntry.populate(entries, { path: 'user', select: 'name profilePic' })
+
+    const rings = populated.map((e) => ({
       user: e.user,
       createdAt: e.createdAt,
     }))
@@ -188,24 +176,28 @@ const getEntryByUser = async (req, res) => {
     const { userId } = req.params
     const dateKey = formatDateKey(new Date())
 
-    // Fetch entry first to make visibility-based decisions
-    const entry = await DailyCircleEntry.findOne({ user: userId, dateKey, group: { $exists: false } }).populate('user', 'name profilePic')
-    if (!entry) return res.status(404).json({ success: false, message: 'No entry' })
+    // Fetch entries for the day (multiple allowed)
+    const entries = await DailyCircleEntry.find({ user: userId, dateKey, group: { $exists: false } })
+      .sort({ createdAt: -1 })
+      .populate('user', 'name profilePic')
 
-    // If viewing someone else's entry and it's not public, require unlock (i.e., requester must have posted today)
+    if (!entries || entries.length === 0) return res.status(404).json({ success: false, message: 'No entry' })
+
+    // If viewing someone else's entries and they're not public, require unlock
     const isOwn = requestorId === String(userId)
-    const isPublic = String(entry.visibility) === 'everyone'
-    if (!isOwn && !isPublic) {
+    const anyPublic = entries.some((e) => String(e.visibility) === 'everyone')
+    if (!isOwn && !anyPublic) {
       const posted = await DailyCircleEntry.exists({ user: requestorId, dateKey, group: { $exists: false } })
       if (!posted) return res.status(403).json({ success: false, message: 'Post today to unlock your Daily Circle' })
     }
 
-    res.json({ success: true, entry })
+    res.json({ success: true, entries })
   } catch (e) {
     res.status(500).json({ success: false, message: e.message })
   }
 }
 
+module.exports = { getTodayPrompt, postTodayEntry, getTodayFeed, getMyStreak }
 module.exports.getRings = getRings
 module.exports.getEntryByUser = getEntryByUser
 
