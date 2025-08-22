@@ -343,6 +343,10 @@ class ApiService {
     })
   }
 
+  async registerPushToken(token: string) {
+    return this.request(`/users/me/push-token`, { method: 'POST', body: JSON.stringify({ token }) })
+  }
+
   // Auth Methods
   async login(email, password) {
     return this.request("/users/login", {

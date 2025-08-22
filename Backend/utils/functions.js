@@ -1,6 +1,7 @@
 // utils/functions.js
 const Notification = require("../models/notification.model");
 const User = require("../models/user.models"); // to fetch sender name
+const { sendExpoPush } = require("./push");
 
 /**
  * Create a notification and emit it to the receiver if online.
@@ -87,6 +88,21 @@ const createNotification = async ({
       createdAt: newNotif.createdAt
     });
   }
+
+  // Best-effort Expo push
+  try {
+    const receiver = await User.findById(receiverId).select('expoPushTokens')
+    const tokens = receiver?.expoPushTokens || []
+    if (tokens?.length) {
+      const title = sender?.name || 'Someone'
+      const body = type === 'mention' && text ? `mentioned you: "${text}"` :
+        type === 'like' ? 'liked your post' :
+        type === 'comment' ? 'commented on your post' :
+        type === 'reply' ? 'replied to your comment' :
+        type === 'save' ? 'saved your post' : 'interacted with you'
+      await sendExpoPush({ tokens, title, body, data: { type, postId, commentId, replyId, actionLink } })
+    }
+  } catch {}
 
   return newNotif;
 };

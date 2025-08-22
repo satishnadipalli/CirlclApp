@@ -302,6 +302,18 @@ const removeCloseFriend = async (req, res) => {
   }
 }
 
+// Register Expo push token
+const registerPushToken = async (req, res) => {
+  try {
+    const { token } = req.body
+    if (!token) return res.status(400).json({ success: false, message: 'token required' })
+    await User.findByIdAndUpdate(req.user.id, { $addToSet: { expoPushTokens: token } })
+    res.json({ success: true })
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message })
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -315,4 +327,5 @@ module.exports = {
   listCloseFriends,
   addCloseFriend,
   removeCloseFriend,
+  registerPushToken,
 };
