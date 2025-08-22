@@ -7,7 +7,7 @@ import api from "@/services/api.service"
 const { width, height } = Dimensions.get('window')
 
 export default function DailyViewer() {
-  const { userId } = useLocalSearchParams<{ userId: string }>()
+  const { userId, groupId } = useLocalSearchParams<{ userId?: string; groupId?: string }>()
   const router = useRouter()
   const [entries, setEntries] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -16,16 +16,22 @@ export default function DailyViewer() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await api.getDailyEntryByUser(String(userId))
-        if ((res as any)?.success && Array.isArray((res as any).entries)) setEntries((res as any).entries)
-        else setError((res as any)?.message || "Locked")
+        if (groupId) {
+          const res = await api.getGroupDailyFeed(String(groupId))
+          if ((res as any)?.success && Array.isArray((res as any).entries)) setEntries((res as any).entries)
+          else setError((res as any)?.message || "No entries")
+        } else {
+          const res = await api.getDailyEntryByUser(String(userId))
+          if ((res as any)?.success && Array.isArray((res as any).entries)) setEntries((res as any).entries)
+          else setError((res as any)?.message || "Locked")
+        }
       } catch (e) {
         setError("Failed to load")
       } finally {
         setLoading(false)
       }
     })()
-  }, [userId])
+  }, [userId, groupId])
 
   if (loading) return (
     <View style={styles.container}><ActivityIndicator /></View>

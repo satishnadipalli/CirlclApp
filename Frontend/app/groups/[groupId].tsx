@@ -4,7 +4,7 @@ import { apiService } from "@/services/api.service"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import { useLocalSearchParams, useRouter } from "expo-router"
 import React, { useEffect, useMemo, useRef, useState } from "react"
-import { Alert, FlatList, Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native"
+import { Alert, FlatList, Image, StyleSheet, Text, TextInput, TouchableOpacity, View, Modal, ActivityIndicator } from "react-native"
 import Icon from "react-native-vector-icons/MaterialIcons"
 import * as ImagePicker from 'expo-image-picker'
 
@@ -29,6 +29,11 @@ export default function GroupDetailsScreen() {
   const router = useRouter()
   const searchInputRef = useRef<TextInput>(null)
   const debounceRef = useRef<any>(null)
+
+  const [captionOpen, setCaptionOpen] = useState(false)
+  const [captionText, setCaptionText] = useState("")
+  const [pendingFileUri, setPendingFileUri] = useState<string | undefined>(undefined)
+  const [postingDaily, setPostingDaily] = useState(false)
 
   const isAdmin = (userId: string) => {
     const admins = (group?.admins || []) as any[]
@@ -221,8 +226,7 @@ export default function GroupDetailsScreen() {
               if (entries.length === 0) {
                 Alert.alert('Group Daily', 'No entries yet today')
               } else {
-                const first = entries[0]
-                router.push({ pathname: '/daily/viewer', params: { userId: first?.user?._id } })
+                router.push({ pathname: '/daily/viewer', params: { groupId: String(groupId) } })
               }
             } catch (e) {
               Alert.alert('Error', (e as Error).message)
@@ -237,14 +241,8 @@ export default function GroupDetailsScreen() {
               const pick = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.All, quality: 0.8, videoMaxDuration: 30 })
               let fileUri: string | undefined
               if (!pick.canceled && pick.assets?.length) fileUri = pick.assets[0].uri
-              Alert.prompt?.('Caption', undefined, async (text) => {
-                const r = await apiService.postGroupDailyEntry(String(groupId), { text: text || '', fileUri })
-                if ((r as any)?.success) Alert.alert('Posted', 'Your group Daily is live')
-              })
-              if (!Alert.prompt) {
-                const r = await apiService.postGroupDailyEntry(String(groupId), { text: '', fileUri })
-                if ((r as any)?.success) Alert.alert('Posted', 'Your group Daily is live')
-              }
+              setPendingFileUri(fileUri)
+              setCaptionOpen(true)
             } catch (e) {
               Alert.alert('Error', (e as Error).message)
             }
@@ -253,6 +251,40 @@ export default function GroupDetailsScreen() {
           </TouchableOpacity>
         </View>
       </View>
+
+      <Modal visible={captionOpen} transparent animationType="fade" onRequestClose={() => setCaptionOpen(false)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+          <View style={{ backgroundColor: '#fff', borderRadius: 14, padding: 16, width: '100%' }}>
+            <Text style={{ fontWeight: '800', fontSize: 16, marginBottom: 8 }}>Add a caption (optional)</Text>
+            <TextInput value={captionText} onChangeText={setCaptionText} placeholder="Say something" placeholderTextColor="#999" style={{ borderWidth: 1, borderColor: '#eee', borderRadius: 10, paddingHorizontal: 10, height: 44, color: '#000' }} />
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 12 }}>
+              <TouchableOpacity onPress={() => { setCaptionOpen(false); setCaptionText(""); setPendingFileUri(undefined) }}>
+                <Text style={{ color: '#666', fontWeight: '700' }}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity disabled={postingDaily} onPress={async () => {
+                try {
+                  setPostingDaily(true)
+                  const r = await apiService.postGroupDailyEntry(String(groupId), { text: captionText, fileUri: pendingFileUri })
+                  if ((r as any)?.success) {
+                    setCaptionOpen(false)
+                    setCaptionText("")
+                    setPendingFileUri(undefined)
+                    Alert.alert('Posted', 'Your group Daily is live')
+                  } else {
+                    Alert.alert('Failed', (r as any)?.message || 'Could not post')
+                  }
+                } catch (e) {
+                  Alert.alert('Error', (e as Error).message)
+                } finally {
+                  setPostingDaily(false)
+                }
+              }}>
+                <Text style={{ color: postingDaily ? '#aaa' : '#0095f6', fontWeight: '800' }}>{postingDaily ? 'Posting…' : 'Post'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       <FlatList
         data={members}
