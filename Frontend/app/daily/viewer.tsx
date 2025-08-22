@@ -1,13 +1,14 @@
 import { useLocalSearchParams, useRouter } from "expo-router"
 import { useEffect, useMemo, useRef, useState } from "react"
-import { ActivityIndicator, Image, StyleSheet, Text, TouchableOpacity, View, Dimensions, PanResponder } from "react-native"
+import { ActivityIndicator, Image, StyleSheet, Text, TouchableOpacity, View, Dimensions, PanResponder, TextInput } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
+import { Video } from "expo-av"
 import api from "@/services/api.service"
 
 const { width, height } = Dimensions.get('window')
 
 export default function DailyViewer() {
-  const { userId, groupId, userIds, start } = useLocalSearchParams<{ userId?: string; groupId?: string; userIds?: string; start?: string }>()
+  const { userId, groupId, userIds, start, dur } = useLocalSearchParams<{ userId?: string; groupId?: string; userIds?: string; start?: string; dur?: string }>()
   const router = useRouter()
 
   const sequence: string[] = useMemo(() => {
@@ -27,25 +28,30 @@ export default function DailyViewer() {
   const [progress, setProgress] = useState<number[]>([])
   const timerRef = useRef<any>(null)
 
-  const DUR_MS = 5000
+  const defaultSegMs = Math.max(1000, Math.min(45000, Number.parseInt(String(dur || "")) || 5000))
+  const segMsRef = useRef<number>(defaultSegMs)
+  const videoRef = useRef<Video | null>(null)
+
+  const isVideoUrl = (u?: string) => !!u && /\.(mp4|mov|m4v|webm)$/i.test(u)
 
   // Group mode: simple list of today's entries
   useEffect(() => {
     if (!groupId) return
-    (async () => {
+    ;(async () => {
       setLoading(true)
       try {
         const res = await api.getGroupDailyFeed(String(groupId))
         const list = Array.isArray((res as any)?.entries) ? (res as any).entries : []
         setEntries(list)
         setEntryIndex(0)
-        setProgress(Array.from({ length: list.length }, (_, i) => (i < 0 ? 1 : 0)))
+        setProgress(Array.from({ length: list.length }, () => 0))
+        segMsRef.current = defaultSegMs
       } catch {
         setEntries([])
         setError("Failed to load")
       } finally { setLoading(false) }
     })()
-  }, [groupId])
+  }, [groupId, defaultSegMs])
 
   // Sequence mode: load entries for the active user
   useEffect(() => {
@@ -66,6 +72,7 @@ export default function DailyViewer() {
             setEntries(list)
             setEntryIndex(0)
             setProgress(Array.from({ length: list.length }, () => 0))
+            segMsRef.current = defaultSegMs
           }
         }
       } catch {
@@ -73,7 +80,7 @@ export default function DailyViewer() {
       } finally { if (!cancelled) setLoading(false) }
     })()
     return () => { cancelled = true }
-  }, [sequence, currentUserIndex, groupId])
+  }, [sequence, currentUserIndex, groupId, defaultSegMs])
 
   // Prefetch next media
   useEffect(() => {
@@ -81,15 +88,21 @@ export default function DailyViewer() {
     if (next?.mediaUrl) Image.prefetch(next.mediaUrl)
   }, [entryIndex, entries])
 
+  // Reset segment duration when entry changes
+  useEffect(() => {
+    segMsRef.current = defaultSegMs
+  }, [entryIndex, defaultSegMs])
+
   // Progress timer
   const clearTimer = () => { if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null } }
   const startTimer = () => {
     clearTimer()
     if (paused || loading || entries.length === 0) return
     const startedAt = Date.now()
+    const duration = Math.max(500, segMsRef.current || defaultSegMs)
     timerRef.current = setInterval(() => {
       const elapsed = Date.now() - startedAt
-      const frac = Math.min(1, elapsed / DUR_MS)
+      const frac = Math.min(1, elapsed / duration)
       setProgress((prev) => {
         const next = prev.slice()
         next[entryIndex] = frac
@@ -97,7 +110,7 @@ export default function DailyViewer() {
         for (let i = entryIndex + 1; i < next.length; i++) next[i] = Math.min(next[i] || 0, 0)
         return next
       })
-      if (elapsed >= DUR_MS) {
+      if (elapsed >= duration) {
         clearTimer()
         goNext()
       }
@@ -108,6 +121,16 @@ export default function DailyViewer() {
     startTimer()
     return clearTimer
   }, [entryIndex, entries, paused, loading])
+
+  // Pause/resume video when paused state or entry changes
+  useEffect(() => {
+    const v = videoRef.current
+    if (!v) return
+    try {
+      if (paused) v.pauseAsync()
+      else v.playAsync()
+    } catch {}
+  }, [paused, entryIndex])
 
   const goNext = () => {
     if (entryIndex < entries.length - 1) {
@@ -133,13 +156,25 @@ export default function DailyViewer() {
   const panResponder = useMemo(() => PanResponder.create({
     onStartShouldSetPanResponder: () => false,
     onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dy) > 12,
-    onPanResponderMove: (_, g) => {
-      // optional: could translate view
-    },
-    onPanResponderRelease: (_, g) => {
-      if (g.vy > 0.8 && g.dy > 80) router.back()
-    },
+    onPanResponderMove: () => {},
+    onPanResponderRelease: (_, g) => { if (g.vy > 0.8 && g.dy > 80) router.back() },
   }), [router])
+
+  // Reply box
+  const [replyText, setReplyText] = useState("")
+  const [sending, setSending] = useState(false)
+  const onSend = async () => {
+    const txt = replyText.trim()
+    if (!txt) return
+    setSending(true)
+    try {
+      if (groupId) await api.sendGroupMessage(String(groupId), txt)
+      else if (entries[entryIndex]?.user?._id) await api.sendDirectMessage(String(entries[entryIndex].user._id), txt)
+      setReplyText("")
+    } catch (e) {
+      // ignore for now
+    } finally { setSending(false) }
+  }
 
   if (loading) return (
     <View style={styles.container}><ActivityIndicator /></View>
@@ -183,7 +218,25 @@ export default function DailyViewer() {
         </View>
       </View>
       <View style={styles.body}>
-        {item?.mediaUrl ? (
+        {isVideoUrl(item?.mediaUrl) ? (
+          <Video
+            ref={(r) => (videoRef.current = r)}
+            source={{ uri: item.mediaUrl }}
+            style={styles.media}
+            resizeMode="contain"
+            shouldPlay={!paused}
+            isLooping={false}
+            onLoad={(status: any) => {
+              const ms = Math.max(1000, Math.min(45000, (status?.durationMillis as number) || defaultSegMs))
+              segMsRef.current = ms
+              // restart timer to sync with video duration
+              if (!paused) { clearTimer(); startTimer() }
+            }}
+            onPlaybackStatusUpdate={(s: any) => {
+              if (s?.didJustFinish) { clearTimer(); goNext() }
+            }}
+          />
+        ) : item?.mediaUrl ? (
           <Image source={{ uri: item.mediaUrl }} style={styles.media} resizeMode="contain" />
         ) : (
           <View style={{ paddingHorizontal: 20 }}>
@@ -194,6 +247,26 @@ export default function DailyViewer() {
       {/* Tap/press zones: pause on press-in, resume on press-out */}
       <TouchableOpacity style={styles.leftZone} onPress={goPrev} onPressIn={() => setPaused(true)} onPressOut={() => setPaused(false)} activeOpacity={0.2} />
       <TouchableOpacity style={styles.rightZone} onPress={goNext} onPressIn={() => setPaused(true)} onPressOut={() => setPaused(false)} activeOpacity={0.2} />
+
+      {/* Reply box */}
+      <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: 12, paddingBottom: 20 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 16, paddingHorizontal: 12, paddingVertical: 8 }}>
+          <TextInput
+            style={{ flex: 1, color: '#fff', height: 40 }}
+            placeholder={groupId ? 'Reply to group…' : 'Reply…'}
+            placeholderTextColor="#ccc"
+            value={replyText}
+            onChangeText={setReplyText}
+            onFocus={() => setPaused(true)}
+            onBlur={() => setPaused(false)}
+            returnKeyType="send"
+            onSubmitEditing={onSend}
+          />
+          <TouchableOpacity onPress={onSend} disabled={sending || !replyText.trim()}>
+            <Text style={{ color: sending || !replyText.trim() ? '#aaa' : '#fff', fontWeight: '800' }}>Send</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
     </View>
   )
 }
