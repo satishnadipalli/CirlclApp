@@ -218,8 +218,7 @@ export default function GroupDetailsScreen() {
               if (entries.length === 0) {
                 Alert.alert('Group Daily', 'No entries yet today')
               } else {
-                const first = entries[0]
-                router.push({ pathname: '/daily/viewer', params: { userId: first?.user?._id } })
+                router.push({ pathname: '/daily/viewer', params: { groupId: String(groupId) } })
               }
             } catch (e) {
               Alert.alert('Error', (e as Error).message)
