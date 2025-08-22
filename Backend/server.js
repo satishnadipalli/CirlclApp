@@ -34,6 +34,7 @@ app.use("/api/notifications", require("./routes/notification.routes"));
 app.use("/api/messages", require("./routes/message.routes")); // new chat route
 app.use("/api/groups", require("./routes/group.routes")); // Added group routes for group chat functionality
 app.use("/api/daily", require("./routes/daily.routes")); // Daily Circle feature
+app.use("/api/safety", require("./routes/safety.routes"));
 
 // Test Route
 app.get("/", (req, res) => res.send("API is running..."));
