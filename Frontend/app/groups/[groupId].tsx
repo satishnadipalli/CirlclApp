@@ -6,6 +6,7 @@ import { useLocalSearchParams, useRouter } from "expo-router"
 import React, { useEffect, useMemo, useRef, useState } from "react"
 import { Alert, FlatList, Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native"
 import Icon from "react-native-vector-icons/MaterialIcons"
+import * as ImagePicker from 'expo-image-picker'
 
 interface Member { _id: string; name: string; profilePic?: string }
 interface Group {
@@ -208,6 +209,50 @@ export default function GroupDetailsScreen() {
           }
         </View>
       )}
+
+      {/* Group Daily section */}
+      <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
+        <Text style={{ fontWeight: '700', marginBottom: 8 }}>Group Daily</Text>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <TouchableOpacity onPress={async () => {
+            try {
+              const res = await apiService.getGroupDailyFeed(String(groupId))
+              const entries = (res as any)?.entries || []
+              if (entries.length === 0) {
+                Alert.alert('Group Daily', 'No entries yet today')
+              } else {
+                const first = entries[0]
+                router.push({ pathname: '/daily/viewer', params: { userId: first?.user?._id } })
+              }
+            } catch (e) {
+              Alert.alert('Error', (e as Error).message)
+            }
+          }} style={{ backgroundColor: '#eee', flex: 1, borderRadius: 10, alignItems: 'center', paddingVertical: 10 }}>
+            <Text style={{ fontWeight: '700' }}>View Today</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={async () => {
+            try {
+              const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
+              if (status !== 'granted') return
+              const pick = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.All, quality: 0.8, videoMaxDuration: 30 })
+              let fileUri: string | undefined
+              if (!pick.canceled && pick.assets?.length) fileUri = pick.assets[0].uri
+              Alert.prompt?.('Caption', undefined, async (text) => {
+                const r = await apiService.postGroupDailyEntry(String(groupId), { text: text || '', fileUri })
+                if ((r as any)?.success) Alert.alert('Posted', 'Your group Daily is live')
+              })
+              if (!Alert.prompt) {
+                const r = await apiService.postGroupDailyEntry(String(groupId), { text: '', fileUri })
+                if ((r as any)?.success) Alert.alert('Posted', 'Your group Daily is live')
+              }
+            } catch (e) {
+              Alert.alert('Error', (e as Error).message)
+            }
+          }} style={{ backgroundColor: '#0095f6', borderRadius: 10, paddingHorizontal: 12, justifyContent: 'center' }}>
+            <Text style={{ color: '#fff', fontWeight: '800' }}>Post</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
 
       <FlatList
         data={members}

@@ -26,7 +26,7 @@ const Search = () => {
   const [searchLoading, setSearchLoading] = useState(false)
   const debounceRef = useRef(null)
   const [explore, setExplore] = useState([])
-  const [dailyFeed, setDailyFeed] = useState([])
+  const [dailyFeed, setDailyFeed] = useState<any[]>([])
   const [showDaily, setShowDaily] = useState(false)
   const [tab, setTab] = useState<'explore' | 'daily'>('explore')
   const [showComposer, setShowComposer] = useState(false)
@@ -39,6 +39,8 @@ const Search = () => {
   const [hasMore, setHasMore] = useState(true)
   const loadingMoreRef = useRef(false)
   const [refreshing, setRefreshing] = useState(false)
+  const [dailyPage, setDailyPage] = useState(1)
+  const [dailyHasMore, setDailyHasMore] = useState(true)
   const router = useRouter()
   const params = useLocalSearchParams()
   const openHandledRef = useRef(false)
@@ -51,7 +53,7 @@ const Search = () => {
     if (params?.focusDaily === "1") {
       setShowDaily(true)
       setTab('daily')
-      loadDaily()
+      loadDaily(true)
     }
     if (!openHandledRef.current && params?.openComposer === "1") {
       openHandledRef.current = true
@@ -63,18 +65,33 @@ const Search = () => {
     }
   }, [params])
 
-  const loadDaily = async () => {
+  const loadDaily = async (reset = false) => {
     try {
+      if (loadingMoreRef.current) return
+      loadingMoreRef.current = true
+      const nextPage = reset ? 1 : dailyPage
       const res = await apiService.getDailyFeed()
       if (!res?.success && (res as any)?.locked) {
         setDailyFeed([])
+        setDailyHasMore(false)
+        setDailyPage(1)
         return
       }
       const entries = (res as any)?.entries || []
-      setDailyFeed(Array.isArray(entries) ? entries : [])
+      setDailyFeed((prev) => (reset ? entries : [...prev, ...entries]))
+      // Server currently returns all for the day; simple hasMore=false
+      setDailyHasMore(false)
+      setDailyPage(nextPage + 1)
     } catch (e) {
-      setDailyFeed([])
+      if (reset) setDailyFeed([])
+    } finally {
+      loadingMoreRef.current = false
     }
+  }
+
+  const onDailyEndReached = () => {
+    if (tab !== 'daily' || !dailyHasMore || loadingMoreRef.current) return
+    loadDaily()
   }
 
   const submitDaily = async () => {
@@ -88,10 +105,9 @@ const Search = () => {
         setPickedUri(null)
         setIsVideo(false)
         setVisibility('followers')
-        await loadDaily()
+        await loadDaily(true)
         setTab('daily')
         setShowDaily(true)
-        // Prevent re-opening composer if param was set
         try { (router as any)?.setParams?.({ openComposer: '0' }) } catch {}
       }
     } finally {
@@ -177,7 +193,7 @@ const Search = () => {
         <TouchableOpacity style={{ flex: 1, paddingVertical: 10, alignItems: 'center', backgroundColor: tab === 'explore' ? '#fff' : 'transparent' }} onPress={() => setTab('explore')}>
           <Text style={{ fontWeight: '700', color: tab === 'explore' ? '#000' : '#666' }}>Explore</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={{ flex: 1, paddingVertical: 10, alignItems: 'center', backgroundColor: tab === 'daily' ? '#fff' : 'transparent' }} onPress={() => { setTab('daily'); setShowDaily(true); loadDaily() }}>
+        <TouchableOpacity style={{ flex: 1, paddingVertical: 10, alignItems: 'center', backgroundColor: tab === 'daily' ? '#fff' : 'transparent' }} onPress={() => { setTab('daily'); setShowDaily(true); loadDaily(true) }}>
           <Text style={{ fontWeight: '700', color: tab === 'daily' ? '#000' : '#666' }}>Daily</Text>
         </TouchableOpacity>
       </View>
@@ -244,7 +260,7 @@ const Search = () => {
           data={dailyFeed}
           keyExtractor={(item, idx) => item._id || String(idx)}
           renderItem={({ item }) => (
-            <TouchableOpacity style={styles.dailyRow} activeOpacity={0.8}>
+            <TouchableOpacity style={styles.dailyRow} activeOpacity={0.8} onPress={() => router.push({ pathname: "/daily/viewer", params: { userId: item?.user?._id } })}>
               <Image source={{ uri: item.user?.profilePic || "https://i.pravatar.cc/100?img=16" }} style={styles.userAvatar} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.userName}>{item.user?.name || "User"}</Text>
@@ -256,8 +272,10 @@ const Search = () => {
             </TouchableOpacity>
           )}
           ItemSeparatorComponent={() => <View style={styles.sep} />}
-          onRefresh={loadDaily}
+          onRefresh={() => loadDaily(true)}
           refreshing={false}
+          onEndReached={onDailyEndReached}
+          onEndReachedThreshold={0.4}
           contentContainerStyle={{ paddingBottom: 20 }}
           ListEmptyComponent={() => (
             <View style={{ padding: 20, alignItems: "center" }}>
