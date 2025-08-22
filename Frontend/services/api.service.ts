@@ -194,8 +194,18 @@ class ApiService {
   async getDailyRings() { return this.request(`/daily/rings`) }
   async getDailyEntryByUser(userId: string) { return this.request(`/daily/entry/${userId}`) }
   async dailyView(entryId: string) { return this.request(`/daily/view`, { method: 'POST', body: JSON.stringify({ entryId }) }) }
-  async dailyReact(entryId: string, type: string) { return this.request(`/daily/react`, { method: 'POST', body: JSON.stringify({ entryId, type }) }) }
+  async dailyReact(entryId: string, type?: string | null) { return this.request(`/daily/react`, { method: 'POST', body: JSON.stringify({ entryId, type: type ?? null }) }) }
   async dailyHighlight(entryId: string, on: boolean) { return this.request(`/daily/highlight`, { method: 'POST', body: JSON.stringify({ entryId, on }) }) }
+  async getDailyHighlights() { return this.request(`/daily/highlights`) }
+  async getDailyReactions(entryId: string) { return this.request(`/daily/${entryId}/reactions`) }
+  async getDailyReactors(entryId: string, type?: string, page = 1, limit = 30) {
+    const t = type ? `&type=${encodeURIComponent(type)}` : ""
+    return this.request(`/daily/${entryId}/reactors?page=${page}&limit=${limit}${t}`)
+  }
+  async getDailyCaptions(entryId: string) { return this.request(`/daily/${entryId}/captions`) }
+  async putDailyCaptions(entryId: string, captions: Array<{ start: number; end: number; text: string }>) {
+    return this.request(`/daily/${entryId}/captions`, { method: 'PUT', body: JSON.stringify({ captions }) })
+  }
 
   async getDirectMessages(withUserId) {
     return this.request(`/messages/direct/${withUserId}`)
@@ -335,6 +345,10 @@ class ApiService {
       method: "PUT",
       body: JSON.stringify(profileData),
     })
+  }
+
+  async registerPushToken(token: string) {
+    return this.request(`/users/me/push-token`, { method: 'POST', body: JSON.stringify({ token }) })
   }
 
   // Auth Methods

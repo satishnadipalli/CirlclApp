@@ -29,7 +29,20 @@ const getTodayPrompt = async (req, res) => {
       posted = !!existing
     }
 
-    res.json({ success: true, prompt, posted })
+    // Generate up to three suggestion options
+    const base = prompt.text || "Share something about your day."
+    const pool = [
+      base,
+      "Capture a moment that made you smile today.",
+      "What’s one tiny win you had today?",
+      "Share something you learned today.",
+      "A sound, sight, or smell that stood out today.",
+    ]
+    const dedup = []
+    for (const p of pool) { if (!dedup.includes(p)) dedup.push(p) }
+    const options = dedup.slice(0, 3).map((t) => ({ text: t }))
+
+    res.json({ success: true, prompt, posted, options })
   } catch (e) {
     res.status(500).json({ success: false, message: e.message })
   }
@@ -38,7 +51,7 @@ const getTodayPrompt = async (req, res) => {
 const postTodayEntry = async (req, res) => {
   try {
     let { text = "", visibility = "followers" } = req.body
-    if (!["followers", "everyone", "group"].includes(String(visibility))) visibility = "followers"
+    if (!["followers", "everyone", "group", "closeFriends"].includes(String(visibility))) visibility = "followers"
     // Multer + Cloudinary sets req.file.path to the uploaded asset URL
     const mediaUrl = (req.file && req.file.path) || req.fileUrl || req.body.mediaUrl || ""
     const userId = req.user._id
@@ -113,15 +126,17 @@ const getTodayFeed = async (req, res) => {
     page = parseInt(page)
     limit = Math.min(60, Math.max(6, parseInt(limit)))
 
-    // Followers-only visibility support
-    const me = await User.findById(userId).select('following')
+    // Followers-only and close-friends visibility support
+    const me = await User.findById(userId).select('following closeFriends')
     const followingIds = (me?.following || []).map((id) => String(id))
+    const cfIds = new Set((me?.closeFriends || []).map((id) => String(id)))
 
     const filter = {
       dateKey,
       $or: [
         { visibility: "everyone" },
         { visibility: "followers", user: { $in: [...followingIds, String(userId)] } },
+        { visibility: "closeFriends", user: { $in: [...followingIds, String(userId)] } },
       ],
     }
 
@@ -193,12 +208,23 @@ const getEntryByUser = async (req, res) => {
 
     if (!entries || entries.length === 0) return res.status(404).json({ success: false, message: 'No entry' })
 
-    // If viewing someone else's entries and they're not public, require unlock
+    // If viewing someone else's entries and they're not public, require unlock OR close-friends membership
     const isOwn = requestorId === String(userId)
     const anyPublic = entries.some((e) => String(e.visibility) === 'everyone')
     if (!isOwn && !anyPublic) {
       const posted = await DailyCircleEntry.exists({ user: requestorId, dateKey, group: { $exists: false } })
       if (!posted) return res.status(403).json({ success: false, message: 'Post today to unlock your Daily Circle' })
+    }
+
+    // Filter out closeFriends entries if requestor is not in owner's closeFriends
+    if (!isOwn) {
+      const owner = await User.findById(userId).select('closeFriends')
+      const isCF = (owner?.closeFriends || []).some((id) => String(id) === requestorId)
+      if (!isCF) {
+        // Return only non-closeFriends entries
+        const filtered = entries.filter((e) => String(e.visibility) !== 'closeFriends')
+        return res.json({ success: true, entry: filtered[0] || null, entries: filtered })
+      }
     }
 
     res.json({ success: true, entry: entries[0] || null, entries })
@@ -233,12 +259,30 @@ const incrementView = async (req, res) => {
     const { entryId } = req.body
     if (!entryId) return res.status(400).json({ success: false, message: 'entryId required' })
     const userId = String(req.user._id)
-    const upd = await DailyCircleEntry.findByIdAndUpdate(
+    const { Types } = require('mongoose')
+    const userObjId = new Types.ObjectId(userId)
+
+    // Atomic, idempotent per user: only append if not present; then recompute viewsCount from array size
+    const updated = await DailyCircleEntry.findByIdAndUpdate(
       entryId,
-      { $addToSet: { views: userId }, $inc: { viewsCount: 1 } },
+      [
+        {
+          $set: {
+            views: {
+              $cond: [
+                { $or: [ { $in: [userObjId, "$views"] }, { $in: [userId, "$views"] } ] },
+                "$views",
+                { $concatArrays: ["$views", [userObjId]] }
+              ]
+            }
+          }
+        },
+        { $set: { viewsCount: { $size: "$views" } } }
+      ],
       { new: true }
     )
-    res.json({ success: true, viewsCount: upd?.viewsCount || 0 })
+
+    res.json({ success: true, viewsCount: updated?.viewsCount || 0 })
   } catch (e) {
     res.status(500).json({ success: false, message: e.message })
   }
@@ -249,13 +293,42 @@ const reactToEntry = async (req, res) => {
   try {
     const { entryId, type } = req.body
     const userId = String(req.user._id)
-    if (!entryId || !type) return res.status(400).json({ success: false, message: 'entryId and type required' })
-    const upd = await DailyCircleEntry.findByIdAndUpdate(
-      entryId,
-      { $push: { reactions: { user: userId, type, at: new Date() } } },
-      { new: true }
-    )
-    res.json({ success: true, reactions: upd?.reactions || [] })
+    if (!entryId) return res.status(400).json({ success: false, message: 'entryId and type required' })
+
+    const entry = await DailyCircleEntry.findById(entryId).select('reactions')
+    if (!entry) return res.status(404).json({ success: false, message: 'Entry not found' })
+
+    const now = new Date()
+    const idx = (entry.reactions || []).findIndex((r) => String(r.user) === userId)
+
+    let myReaction = null
+    if (!type) {
+      // If no type provided, treat as remove
+      if (idx !== -1) entry.reactions.splice(idx, 1)
+      myReaction = null
+    } else if (idx === -1) {
+      // New reaction
+      entry.reactions.push({ user: req.user._id, type, at: now })
+      myReaction = type
+    } else if (entry.reactions[idx]?.type === type) {
+      // Toggle off same reaction
+      entry.reactions.splice(idx, 1)
+      myReaction = null
+    } else {
+      // Switch reaction type
+      entry.reactions[idx].type = type
+      entry.reactions[idx].at = now
+      myReaction = type
+    }
+
+    await entry.save()
+
+    const counts = (entry.reactions || []).reduce((acc, r) => {
+      acc[r.type] = (acc[r.type] || 0) + 1
+      return acc
+    }, {})
+
+    res.json({ success: true, myReaction, counts })
   } catch (e) {
     res.status(500).json({ success: false, message: e.message })
   }
@@ -281,6 +354,109 @@ const toggleHighlight = async (req, res) => {
   }
 }
 
+const getHighlights = async (req, res) => {
+  try {
+    const userId = String(req.user._id)
+    const UserModel = require('../models/user.models')
+    const me = await UserModel.findById(userId).select('highlights')
+    const ids = (me?.highlights || []).map((id) => String(id))
+
+    if (!ids.length) return res.json({ success: true, entries: [] })
+
+    const entries = await DailyCircleEntry.find({ _id: { $in: ids } })
+      .sort({ createdAt: -1 })
+      .populate('user', 'name profilePic')
+
+    // Clean up stale references to expired/removed entries
+    const foundIds = new Set(entries.map((e) => String(e._id)))
+    if (me && ids.some((id) => !foundIds.has(id))) {
+      me.highlights = (me.highlights || []).filter((id) => foundIds.has(String(id)))
+      await me.save()
+    }
+
+    res.json({ success: true, entries })
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message })
+  }
+}
+
+// Reactions summary for an entry
+const getReactionsSummary = async (req, res) => {
+  try {
+    const { entryId } = req.params
+    if (!entryId) return res.status(400).json({ success: false, message: 'entryId required' })
+    const userId = String(req.user._id)
+    const entry = await DailyCircleEntry.findById(entryId).select('reactions')
+    if (!entry) return res.status(404).json({ success: false, message: 'Entry not found' })
+    const counts = (entry.reactions || []).reduce((acc, r) => {
+      if (!r?.type) return acc
+      acc[r.type] = (acc[r.type] || 0) + 1
+      return acc
+    }, {})
+    const my = (entry.reactions || []).find((r) => String(r.user) === userId)?.type || null
+    res.json({ success: true, counts, myReaction: my })
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message })
+  }
+}
+
+// List reactors for an entry (optionally filter by type)
+const listReactors = async (req, res) => {
+  try {
+    const { entryId } = req.params
+    const { type } = req.query
+    let page = Number.parseInt(req.query.page) || 1
+    let limit = Number.parseInt(req.query.limit) || 30
+    if (limit > 100) limit = 100
+    if (limit < 1) limit = 30
+    if (!entryId) return res.status(400).json({ success: false, message: 'entryId required' })
+    const entry = await DailyCircleEntry.findById(entryId).select('reactions')
+    if (!entry) return res.status(404).json({ success: false, message: 'Entry not found' })
+
+    let list = Array.isArray(entry.reactions) ? entry.reactions : []
+    if (type) list = list.filter((r) => String(r.type) === String(type))
+    const total = list.length
+    const start = (page - 1) * limit
+    const end = start + limit
+    const slice = list.slice(start, end)
+    const userIds = slice.map((r) => r.user)
+    const users = await require('../models/user.models').find({ _id: { $in: userIds } }).select('_id name profilePic')
+    const usersById = new Map(users.map((u) => [String(u._id), u]))
+    const reactors = slice.map((r) => ({ user: usersById.get(String(r.user)) || { _id: r.user }, type: r.type, at: r.at }))
+    res.json({ success: true, page, pages: Math.ceil(total / limit), total, reactors })
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message })
+  }
+}
+
+// Captions
+const getCaptions = async (req, res) => {
+  try {
+    const { entryId } = req.params
+    const entry = await DailyCircleEntry.findById(entryId).select('captions')
+    if (!entry) return res.status(404).json({ success: false, message: 'Entry not found' })
+    res.json({ success: true, captions: entry.captions || [] })
+  } catch (e) { res.status(500).json({ success: false, message: e.message }) }
+}
+
+const putCaptions = async (req, res) => {
+  try {
+    const { entryId } = req.params
+    const { captions } = req.body
+    if (!Array.isArray(captions)) return res.status(400).json({ success: false, message: 'captions array required' })
+    // Only the owner can update (simple check)
+    const entry = await DailyCircleEntry.findById(entryId).select('user')
+    if (!entry) return res.status(404).json({ success: false, message: 'Entry not found' })
+    if (String(entry.user) !== String(req.user._id)) return res.status(403).json({ success: false, message: 'Forbidden' })
+    const norm = captions
+      .map((c) => ({ start: Math.max(0, Number(c.start) || 0), end: Math.max(0, Number(c.end) || 0), text: String(c.text || '') }))
+      .filter((c) => c.text)
+      .sort((a, b) => a.start - b.start)
+    const updated = await DailyCircleEntry.findByIdAndUpdate(entryId, { $set: { captions: norm } }, { new: true }).select('captions')
+    res.json({ success: true, captions: updated?.captions || [] })
+  } catch (e) { res.status(500).json({ success: false, message: e.message }) }
+}
+
 module.exports = { getTodayPrompt, postTodayEntry, getTodayFeed, getMyStreak }
 module.exports.getRings = getRings
 module.exports.getEntryByUser = getEntryByUser
@@ -288,4 +464,9 @@ module.exports.getGroupDailyFeed = getGroupDailyFeed
 module.exports.incrementView = incrementView
 module.exports.reactToEntry = reactToEntry
 module.exports.toggleHighlight = toggleHighlight
+module.exports.getHighlights = getHighlights
+module.exports.getReactionsSummary = getReactionsSummary
+module.exports.listReactors = listReactors
+module.exports.getCaptions = getCaptions
+module.exports.putCaptions = putCaptions
 

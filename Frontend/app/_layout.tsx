@@ -5,6 +5,8 @@ import { Stack } from "expo-router";
 import React, { useEffect } from "react";
 import * as Location from "expo-location";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import * as Notifications from "expo-notifications";
+import api from "@/services/api.service";
 
 export default function RootLayout() {
 
@@ -35,6 +37,22 @@ export default function RootLayout() {
 
   captureLocation();
 
+  async function registerPush() {
+    try {
+      const perms = await Notifications.getPermissionsAsync()
+      let granted = perms?.granted
+      if (!granted) {
+        const req = await Notifications.requestPermissionsAsync()
+        granted = req?.granted
+      }
+      if (!granted) return
+      const token = (await Notifications.getExpoPushTokenAsync()).data
+      if (token) await api.registerPushToken(token)
+    } catch {}
+  }
+
+  registerPush();
+
   return () => {
     socketService.disconnect();
   };
@@ -58,6 +76,7 @@ export default function RootLayout() {
         <Stack.Screen name="chats/[chatId]" />
         <Stack.Screen name="otherProfile.tsx" />
         <Stack.Screen name="notifications" />
+        <Stack.Screen name="highlights" />
 
         {/* Create screens */}
          <Stack.Screen name="create/select-media" />

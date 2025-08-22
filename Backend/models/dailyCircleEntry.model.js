@@ -7,7 +7,7 @@ const dailyCircleEntrySchema = new mongoose.Schema(
     dateKey: { type: String, required: true }, // YYYY-MM-DD UTC
     mediaUrl: { type: String },
     text: { type: String, default: "" },
-    visibility: { type: String, enum: ["followers", "everyone", "group"], default: "followers" },
+    visibility: { type: String, enum: ["followers", "everyone", "group", "closeFriends"], default: "followers" },
     views: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     viewsCount: { type: Number, default: 0 },
     reactions: [
@@ -15,6 +15,13 @@ const dailyCircleEntrySchema = new mongoose.Schema(
         user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
         type: { type: String, default: "" },
         at: { type: Date, default: Date.now },
+      },
+    ],
+    captions: [
+      {
+        start: { type: Number, default: 0 }, // seconds
+        end: { type: Number, default: 0 },   // seconds
+        text: { type: String, default: "" },
       },
     ],
   },

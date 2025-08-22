@@ -4,8 +4,39 @@ import { ActivityIndicator, Image, StyleSheet, Text, TouchableOpacity, View, Dim
 import { Ionicons } from "@expo/vector-icons"
 import { Video } from "expo-av"
 import api from "@/services/api.service"
+import AsyncStorage from "@react-native-async-storage/async-storage"
 
 const { width, height } = Dimensions.get('window')
+
+// Offline queue keys
+const OFFLINE_QUEUE_KEY = 'daily_offline_queue_v1'
+
+async function enqueueOffline(action: any) {
+  try {
+    const raw = await AsyncStorage.getItem(OFFLINE_QUEUE_KEY)
+    const arr = raw ? JSON.parse(raw) : []
+    arr.push({ ...action, at: Date.now() })
+    await AsyncStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(arr))
+  } catch {}
+}
+
+async function flushOffline(api: any) {
+  try {
+    const raw = await AsyncStorage.getItem(OFFLINE_QUEUE_KEY)
+    const arr: any[] = raw ? JSON.parse(raw) : []
+    if (!Array.isArray(arr) || arr.length === 0) return
+    const remain: any[] = []
+    for (const item of arr) {
+      try {
+        if (item.type === 'react') await api.dailyReact(item.entryId, item.value)
+        else if (item.type === 'highlight') await api.dailyHighlight(item.entryId, item.on)
+      } catch {
+        remain.push(item)
+      }
+    }
+    await AsyncStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(remain))
+  } catch {}
+}
 
 export default function DailyViewer() {
   const { userId, groupId, userIds, start, dur } = useLocalSearchParams<{ userId?: string; groupId?: string; userIds?: string; start?: string; dur?: string }>()
@@ -26,6 +57,9 @@ export default function DailyViewer() {
   const [error, setError] = useState<string | null>(null)
   const [paused, setPaused] = useState(false)
   const [progress, setProgress] = useState<number[]>([])
+  const [myId, setMyId] = useState<string | null>(null)
+  const [highlightIds, setHighlightIds] = useState<Set<string>>(new Set())
+  const [reactionState, setReactionState] = useState<Record<string, { counts: Record<string, number>; my: string | null }>>({})
   const timerRef = useRef<any>(null)
 
   const defaultSegMs = Math.max(1000, Math.min(45000, Number.parseInt(String(dur || "")) || 5000))
@@ -33,6 +67,29 @@ export default function DailyViewer() {
   const videoRef = useRef<Video | null>(null)
 
   const isVideoUrl = (u?: string) => !!u && /\.(mp4|mov|m4v|webm)$/i.test(u)
+
+  // Load my user id and highlights
+  useEffect(() => {
+    ;(async () => {
+      try {
+        const raw = await AsyncStorage.getItem("user")
+        if (raw) {
+          const parsed = JSON.parse(raw)
+          setMyId(parsed?.id || null)
+        }
+      } catch {}
+    })()
+  }, [])
+
+  useEffect(() => {
+    ;(async () => {
+      try {
+        const res: any = await api.getDailyHighlights()
+        const ids = new Set<string>((Array.isArray(res?.entries) ? res.entries : []).map((e: any) => String(e._id)))
+        setHighlightIds(ids)
+      } catch {}
+    })()
+  }, [])
 
   // Group mode: simple list of today's entries
   useEffect(() => {
@@ -82,23 +139,57 @@ export default function DailyViewer() {
     return () => { cancelled = true }
   }, [sequence, currentUserIndex, groupId, defaultSegMs])
 
-  // Prefetch next media
+  // Prefetch next media (image) and opportunistically flush offline queue
   useEffect(() => {
     const next = entries[entryIndex + 1]
     if (next?.mediaUrl) Image.prefetch(next.mediaUrl)
+    ;(async () => { try { await flushOffline(api) } catch {} })()
   }, [entryIndex, entries])
 
-  // Track view on entry change
+  // Track view on entry change and update viewsCount
   useEffect(() => {
     const entry = entries[entryIndex]
     if (!entry?._id) return
-    ;(async () => { try { await api.dailyView(String(entry._id)) } catch {} })()
+    ;(async () => {
+      try {
+        const res: any = await api.dailyView(String(entry._id))
+        const newCount = typeof res?.viewsCount === 'number' ? res.viewsCount : undefined
+        if (typeof newCount === 'number') {
+          setEntries((prev) => {
+            const next = prev.slice()
+            const idx = entryIndex
+            if (next[idx] && String(next[idx]._id) === String(entry._id)) {
+              next[idx] = { ...next[idx], viewsCount: newCount }
+            }
+            return next
+          })
+        }
+      } catch {}
+    })()
   }, [entryIndex, entries])
 
-  // Reset segment duration when entry changes
+  // Build reaction state from entries
   useEffect(() => {
-    segMsRef.current = defaultSegMs
-  }, [entryIndex, defaultSegMs])
+    if (!entries || entries.length === 0) { setReactionState({}); return }
+    const next: Record<string, { counts: Record<string, number>; my: string | null }> = {}
+    for (const e of entries) {
+      const counts: Record<string, number> = {}
+      const arr = Array.isArray(e.reactions) ? e.reactions : []
+      for (const r of arr) {
+        if (!r?.type) continue
+        counts[r.type] = (counts[r.type] || 0) + 1
+      }
+      let my: string | null = null
+      if (myId) {
+        for (const r of arr) {
+          const uid = String((r as any)?.user?._id || (r as any)?.user || "")
+          if (uid === String(myId)) { my = (r as any)?.type || null; break }
+        }
+      }
+      next[String(e._id)] = { counts, my }
+    }
+    setReactionState(next)
+  }, [entries, myId])
 
   // Progress timer
   const clearTimer = () => { if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null } }
@@ -183,6 +274,69 @@ export default function DailyViewer() {
     } finally { setSending(false) }
   }
 
+  const onReactPress = async (emoji: string) => {
+    const item = entries[entryIndex]
+    if (!item?._id) return
+    const eid = String(item._id)
+    const current = reactionState[eid]?.my || null
+    const nextType = current === emoji ? null : emoji
+    try {
+      const res: any = await api.dailyReact(eid, nextType)
+      if (res?.success) {
+        setReactionState((prev) => ({ ...prev, [eid]: { counts: (res as any)?.counts || {}, my: (res as any)?.myReaction ?? null } }))
+      }
+    } catch {
+      await enqueueOffline({ type: 'react', entryId: eid, value: nextType })
+    }
+  }
+
+  const [showReactors, setShowReactors] = useState(false)
+  const [reactors, setReactors] = useState<any[]>([])
+  const [reactorFilter, setReactorFilter] = useState<string | undefined>(undefined)
+  const [reactorsLoading, setReactorsLoading] = useState(false)
+  const loadReactors = async (type?: string) => {
+    try {
+      const item = entries[entryIndex]
+      if (!item?._id) return
+      setReactorsLoading(true)
+      const res: any = await api.getDailyReactors(String(item._id), type)
+      const list = Array.isArray(res?.reactors) ? res.reactors : []
+      setReactors(list)
+    } finally { setReactorsLoading(false) }
+  }
+
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const drawerTimeoutRef = useRef<any>(null)
+  const openDrawer = () => {
+    if (drawerTimeoutRef.current) { clearTimeout(drawerTimeoutRef.current); drawerTimeoutRef.current = null }
+    setDrawerOpen(true)
+  }
+  const closeDrawerSoon = () => {
+    if (drawerTimeoutRef.current) clearTimeout(drawerTimeoutRef.current)
+    drawerTimeoutRef.current = setTimeout(() => setDrawerOpen(false), 1800)
+  }
+
+  // Captions
+  const [captions, setCaptions] = useState<Array<{ start: number; end: number; text: string }>>([])
+  const [showCC, setShowCC] = useState(false)
+  const [currentTime, setCurrentTime] = useState(0)
+  useEffect(() => {
+    (async () => {
+      try {
+        const entry = entries[entryIndex]
+        if (!entry?._id) { setCaptions([]); return }
+        const res: any = await api.getDailyCaptions(String(entry._id))
+        const arr = Array.isArray(res?.captions) ? res.captions : []
+        setCaptions(arr)
+      } catch { setCaptions([]) }
+    })()
+  }, [entryIndex, entries])
+
+  const onPlaybackStatusUpdate = (s: any) => {
+    if (typeof s?.positionMillis === 'number') setCurrentTime(s.positionMillis / 1000)
+    if (s?.didJustFinish) { clearTimer(); goNext() }
+  }
+
   if (loading) return (
     <View style={styles.container}><ActivityIndicator /></View>
   )
@@ -226,8 +380,28 @@ export default function DailyViewer() {
         <View style={{ flex: 1 }} />
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <Text style={{ color: '#fff', fontSize: 12 }}>{typeof item?.viewsCount === 'number' ? `${item.viewsCount} views` : ''}</Text>
-          <TouchableOpacity onPress={async () => { try { await api.dailyHighlight(String(item._id), true) } catch {} }}>
-            <Ionicons name="bookmark-outline" size={20} color="#fff" />
+          <TouchableOpacity onPress={async () => {
+            try {
+              const eid = String(item._id)
+              const isOn = highlightIds.has(eid)
+              await api.dailyHighlight(eid, !isOn)
+              setHighlightIds((prev) => {
+                const next = new Set(prev)
+                if (isOn) next.delete(eid); else next.add(eid)
+                return next
+              })
+            } catch {
+              const eid = String(item._id)
+              const isOn = highlightIds.has(eid)
+              await enqueueOffline({ type: 'highlight', entryId: eid, on: !isOn })
+              setHighlightIds((prev) => {
+                const next = new Set(prev)
+                if (isOn) next.delete(eid); else next.add(eid)
+                return next
+              })
+            }
+          }}>
+            <Ionicons name={highlightIds.has(String(item._id)) ? "bookmark" : "bookmark-outline"} size={20} color="#fff" />
           </TouchableOpacity>
         </View>
       </View>
@@ -246,15 +420,26 @@ export default function DailyViewer() {
               // restart timer to sync with video duration
               if (!paused) { clearTimer(); startTimer() }
             }}
-            onPlaybackStatusUpdate={(s: any) => {
-              if (s?.didJustFinish) { clearTimer(); goNext() }
-            }}
+            onPlaybackStatusUpdate={onPlaybackStatusUpdate}
           />
         ) : item?.mediaUrl ? (
           <Image source={{ uri: item.mediaUrl }} style={styles.media} resizeMode="contain" />
         ) : (
           <View style={{ paddingHorizontal: 20 }}>
             <Text style={styles.textContent}>{item?.text || ""}</Text>
+          </View>
+        )}
+        {/* CC overlay */}
+        {showCC && captions.length > 0 && (
+          <View style={{ position: 'absolute', left: 12, right: 12, bottom: 120, alignItems: 'center' }}>
+            <View style={{ backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 }}>
+              <Text style={{ color: '#fff', textAlign: 'center' }}>
+                {(() => {
+                  const seg = captions.find((c) => currentTime >= (c.start || 0) && currentTime <= (c.end || 0))
+                  return seg?.text || ''
+                })()}
+              </Text>
+            </View>
           </View>
         )}
       </View>
@@ -264,13 +449,41 @@ export default function DailyViewer() {
 
       {/* Reactions */}
       <View style={{ position: 'absolute', left: 0, right: 0, bottom: 70, paddingHorizontal: 20 }}>
-        <View style={{ flexDirection: 'row', gap: 12, justifyContent: 'center' }}>
-          {['❤️','😂','🔥','😮','👏'].map((emoji) => (
-            <TouchableOpacity key={emoji} onPress={async () => { try { await api.dailyReact(String(item._id), emoji) } catch {} }}>
-              <Text style={{ fontSize: 24 }}>{emoji}</Text>
-            </TouchableOpacity>
-          ))}
+        <View style={{ flexDirection: 'row', gap: 16, justifyContent: 'center', alignItems: 'center' }}>
+          <TouchableOpacity onPress={() => setShowCC((v) => !v)} style={{ position: 'absolute', left: 0 }}>
+            <Text style={{ color: '#fff', fontWeight: '800' }}>{showCC ? 'CC On' : 'CC Off'}</Text>
+          </TouchableOpacity>
+          {['❤️','😂','🔥','😮','👏'].map((emoji) => {
+            const eid = String(item?._id || "")
+            const state = reactionState[eid] || { counts: {}, my: null }
+            const count = (state.counts && state.counts[emoji]) ? state.counts[emoji] : 0
+            const selected = state.my === emoji
+            return (
+              <TouchableOpacity
+                key={emoji}
+                onPress={() => onReactPress(emoji)}
+                onLongPress={() => { openDrawer() }}
+                style={{ alignItems: 'center' }}>
+                <Text style={{ fontSize: selected ? 28 : 24, opacity: selected ? 1 : 0.85 }}>{emoji}</Text>
+                {count > 0 && <Text style={{ color: '#fff', fontSize: 12, marginTop: 2 }}>{count}</Text>}
+              </TouchableOpacity>
+            )
+          })}
+          <TouchableOpacity onPress={async () => { await loadReactors(); setReactorFilter(undefined); setShowReactors(true) }} style={{ marginLeft: 8 }}>
+            <Ionicons name="people-outline" size={22} color="#fff" />
+          </TouchableOpacity>
         </View>
+        {drawerOpen && (
+          <View style={{ marginTop: 10, alignSelf: 'center', backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8 }}>
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              {['👍','🎉','😍','😢','😡','🙏','✨','🤩'].map((e) => (
+                <TouchableOpacity key={e} onPress={() => { onReactPress(e); closeDrawerSoon() }}>
+                  <Text style={{ fontSize: 20 }}>{e}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
       </View>
 
       {/* Reply box */}
@@ -292,6 +505,46 @@ export default function DailyViewer() {
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Reactors modal */}
+      {showReactors && (
+        <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, top: 0, backgroundColor: 'rgba(0,0,0,0.6)' }}>
+          <TouchableOpacity style={{ flex: 1 }} onPress={() => setShowReactors(false)} />
+          <View style={{ backgroundColor: '#111', padding: 16, borderTopLeftRadius: 16, borderTopRightRadius: 16, maxHeight: height * 0.5 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <Text style={{ color: '#fff', fontWeight: '800' }}>Reactors</Text>
+              <TouchableOpacity onPress={() => setShowReactors(false)}><Ionicons name="close" size={22} color="#fff" /></TouchableOpacity>
+            </View>
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+              {['All','❤️','😂','🔥','😮','👏'].map((label) => (
+                <TouchableOpacity
+                  key={label}
+                  onPress={async () => { const t = label === 'All' ? undefined : label; setReactorFilter(t); await loadReactors(t) }}
+                  style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, backgroundColor: (reactorFilter ?? 'All') === (label === 'All' ? undefined : label) ? '#222' : '#000' }}>
+                  <Text style={{ color: '#fff' }}>{label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            {reactorsLoading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <View>
+                {reactors.length === 0 ? (
+                  <Text style={{ color: '#999' }}>No reactions yet.</Text>
+                ) : (
+                  reactors.map((r, idx) => (
+                    <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 8 }}>
+                      <Image source={{ uri: r?.user?.profilePic || 'https://i.pravatar.cc/100?img=8' }} style={{ width: 32, height: 32, borderRadius: 16, marginRight: 10 }} />
+                      <Text style={{ color: '#fff', flex: 1 }}>{r?.user?.name || 'User'}</Text>
+                      <Text style={{ fontSize: 16 }}>{r?.type || ''}</Text>
+                    </View>
+                  ))
+                )}
+              </View>
+            )}
+          </View>
+        </View>
+      )}
     </View>
   )
 }
