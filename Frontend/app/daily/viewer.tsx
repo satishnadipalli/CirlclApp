@@ -88,6 +88,13 @@ export default function DailyViewer() {
     if (next?.mediaUrl) Image.prefetch(next.mediaUrl)
   }, [entryIndex, entries])
 
+  // Track view on entry change
+  useEffect(() => {
+    const entry = entries[entryIndex]
+    if (!entry?._id) return
+    ;(async () => { try { await api.dailyView(String(entry._id)) } catch {} })()
+  }, [entryIndex, entries])
+
   // Reset segment duration when entry changes
   useEffect(() => {
     segMsRef.current = defaultSegMs
@@ -216,6 +223,13 @@ export default function DailyViewer() {
           <Text style={styles.name}>{item?.user?.name || "User"}</Text>
           <Text style={styles.time}>{new Date(item?.createdAt).toLocaleTimeString()}</Text>
         </View>
+        <View style={{ flex: 1 }} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <Text style={{ color: '#fff', fontSize: 12 }}>{typeof item?.viewsCount === 'number' ? `${item.viewsCount} views` : ''}</Text>
+          <TouchableOpacity onPress={async () => { try { await api.dailyHighlight(String(item._id), true) } catch {} }}>
+            <Ionicons name="bookmark-outline" size={20} color="#fff" />
+          </TouchableOpacity>
+        </View>
       </View>
       <View style={styles.body}>
         {isVideoUrl(item?.mediaUrl) ? (
@@ -247,6 +261,17 @@ export default function DailyViewer() {
       {/* Tap/press zones: pause on press-in, resume on press-out */}
       <TouchableOpacity style={styles.leftZone} onPress={goPrev} onPressIn={() => setPaused(true)} onPressOut={() => setPaused(false)} activeOpacity={0.2} />
       <TouchableOpacity style={styles.rightZone} onPress={goNext} onPressIn={() => setPaused(true)} onPressOut={() => setPaused(false)} activeOpacity={0.2} />
+
+      {/* Reactions */}
+      <View style={{ position: 'absolute', left: 0, right: 0, bottom: 70, paddingHorizontal: 20 }}>
+        <View style={{ flexDirection: 'row', gap: 12, justifyContent: 'center' }}>
+          {['❤️','😂','🔥','😮','👏'].map((emoji) => (
+            <TouchableOpacity key={emoji} onPress={async () => { try { await api.dailyReact(String(item._id), emoji) } catch {} }}>
+              <Text style={{ fontSize: 24 }}>{emoji}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
 
       {/* Reply box */}
       <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: 12, paddingBottom: 20 }}>
