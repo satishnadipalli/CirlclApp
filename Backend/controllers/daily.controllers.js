@@ -191,7 +191,7 @@ const getEntryByUser = async (req, res) => {
       if (!posted) return res.status(403).json({ success: false, message: 'Post today to unlock your Daily Circle' })
     }
 
-    res.json({ success: true, entries })
+    res.json({ success: true, entry: entries[0] || null, entries })
   } catch (e) {
     res.status(500).json({ success: false, message: e.message })
   }

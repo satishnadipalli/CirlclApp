@@ -2,7 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage"
 
 class ApiService {
   constructor() {
-    this.baseURL = "http://192.168.0.167:5000/api"
+    this.baseURL = require("../constants/Config").API_BASE_URL
     this.token = null
     this.initializeToken()
   }
@@ -303,14 +303,14 @@ class ApiService {
 
   // Auth Methods
   async login(email, password) {
-    return this.request("/auth/login", {
+    return this.request("/users/login", {
       method: "POST",
       body: JSON.stringify({ email, password }),
     })
   }
 
   async register(name, email, password) {
-    return this.request("/auth/register", {
+    return this.request("/users/register", {
       method: "POST",
       body: JSON.stringify({ name, email, password }),
     })
