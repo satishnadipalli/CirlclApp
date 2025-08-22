@@ -320,6 +320,16 @@ export default function DailyViewer() {
   const [captions, setCaptions] = useState<Array<{ start: number; end: number; text: string }>>([])
   const [showCC, setShowCC] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
+  const [showReport, setShowReport] = useState(false)
+  const [reportReason, setReportReason] = useState<'spam'|'abuse'|'nudity'|'violence'|'other'>('spam')
+  const submitReport = async () => {
+    try {
+      const entry = entries[entryIndex]
+      if (!entry?._id) return
+      await api.report('entry', String(entry._id), reportReason, '')
+      setShowReport(false)
+    } catch {}
+  }
   useEffect(() => {
     (async () => {
       try {
@@ -411,6 +421,9 @@ export default function DailyViewer() {
             } catch {}
           }}>
             <Ionicons name="alert-circle-outline" size={20} color="#fff" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setShowReport(true)}>
+            <Ionicons name="flag-outline" size={20} color="#fff" />
           </TouchableOpacity>
         </View>
       </View>
@@ -551,6 +564,27 @@ export default function DailyViewer() {
                 )}
               </View>
             )}
+          </View>
+        </View>
+      )}
+
+      {/* Report modal */}
+      {showReport && (
+        <View style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)' }}>
+          <TouchableOpacity style={{ flex: 1 }} onPress={() => setShowReport(false)} />
+          <View style={{ backgroundColor: '#111', padding: 16, borderTopLeftRadius: 16, borderTopRightRadius: 16 }}>
+            <Text style={{ color: '#fff', fontWeight: '800', marginBottom: 10 }}>Report</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+              {(['spam','abuse','nudity','violence','other'] as const).map((r) => (
+                <TouchableOpacity key={r} onPress={() => setReportReason(r)} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, backgroundColor: reportReason === r ? '#222' : '#000' }}>
+                  <Text style={{ color: '#fff' }}>{r}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <View style={{ marginTop: 12, flexDirection: 'row', justifyContent: 'flex-end', gap: 12 }}>
+              <TouchableOpacity onPress={() => setShowReport(false)}><Text style={{ color: '#aaa' }}>Cancel</Text></TouchableOpacity>
+              <TouchableOpacity onPress={submitReport}><Text style={{ color: '#fff', fontWeight: '800' }}>Submit</Text></TouchableOpacity>
+            </View>
           </View>
         </View>
       )}

@@ -352,6 +352,9 @@ class ApiService {
   }
   async blockUser(userId: string) { return this.request(`/users/${userId}/block`, { method: 'POST' }) }
   async unblockUser(userId: string) { return this.request(`/users/${userId}/unblock`, { method: 'POST' }) }
+  async report(targetType: 'entry'|'user'|'message'|'post', targetId: string, reason: 'spam'|'abuse'|'nudity'|'violence'|'other', details?: string, targetUser?: string) {
+    return this.request(`/safety/report`, { method: 'POST', body: JSON.stringify({ targetType, targetId, reason, details, targetUser }) })
+  }
 
   // Auth Methods
   async login(email, password) {
