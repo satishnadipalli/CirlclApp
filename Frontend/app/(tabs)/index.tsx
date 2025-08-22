@@ -23,6 +23,7 @@ export default function HomeScreen() {
   const [countdown, setCountdown] = useState<string>("")
   const [myDaily, setMyDaily] = useState<any>(null)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [showCelebration, setShowCelebration] = useState(false)
   const router = useRouter()
 
   const BASE_URL = require("../../constants/Config").API_ORIGIN
@@ -93,6 +94,10 @@ export default function HomeScreen() {
     try {
       const [p, s, r] = await Promise.all([api.getDailyPrompt(), api.getDailyStreak(), api.getDailyRings()])
       setDaily({ prompt: (p as any)?.prompt, posted: (p as any)?.posted, streak: (s as any)?.streak, rings: (r as any)?.rings || [] })
+      if ((s as any)?.streak?.hitMilestone) {
+        setShowCelebration(true)
+        setTimeout(() => setShowCelebration(false), 2500)
+      }
       updateCountdown((p as any)?.prompt?.dropsAt)
       if ((p as any)?.posted) {
         loadMyDaily()
@@ -168,6 +173,11 @@ export default function HomeScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: "#fafafa" }}>
+      {showCelebration && (
+        <View style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 140, justifyContent: 'center', alignItems: 'center' }} pointerEvents='none'>
+          <Text style={{ fontSize: 24, fontWeight: '900' }}>🎉 Streak {daily?.streak?.current}!</Text>
+        </View>
+      )}
       <FlatList
         ListHeaderComponent={
           <>
@@ -204,7 +214,14 @@ export default function HomeScreen() {
                   <View style={{ flexDirection: "row", alignItems: "center" }}>
                     <Image source={{ uri: myDaily?.mediaUrl || currentUserId ? (myDaily?.mediaUrl || 'https://i.pravatar.cc/100?img=12') : 'https://i.pravatar.cc/100?img=12' }} style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: '#eee' }} />
                     <View style={{ flex: 1, marginLeft: 10 }}>
-                      <Text numberOfLines={1} style={{ fontWeight: "800", fontSize: 16 }}>Daily Circle</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <Text numberOfLines={1} style={{ fontWeight: "800", fontSize: 16 }}>Daily Circle</Text>
+                        {!!daily?.streak?.current && (
+                          <View style={{ backgroundColor: '#fff3e0', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 }}>
+                            <Text style={{ color: '#e65100', fontWeight: '800' }}>🔥 {daily?.streak?.current}</Text>
+                          </View>
+                        )}
+                      </View>
                       <View style={{ flexDirection: 'row', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
                         {!!(daily as any)?.options && Array.isArray((daily as any).options) && ((daily as any).options as any[]).slice(0, 3).map((opt: any, idx: number) => (
                           <TouchableOpacity

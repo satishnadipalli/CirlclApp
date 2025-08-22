@@ -159,7 +159,11 @@ const getMyStreak = async (req, res) => {
   try {
     const userId = req.user._id
     const streak = (await DailyStreak.findOne({ user: userId })) || { current: 0, longest: 0, latePasses: 1 }
-    res.json({ success: true, streak })
+    const current = Number(streak.current || 0)
+    const milestones = [3, 7, 14, 21, 30, 50, 75, 100]
+    const nextMilestone = milestones.find((m) => m > current) || null
+    const hitMilestone = milestones.includes(current)
+    res.json({ success: true, streak: { ...streak.toObject?.() || streak, nextMilestone, hitMilestone } })
   } catch (e) {
     res.status(500).json({ success: false, message: e.message })
   }
