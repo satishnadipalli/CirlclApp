@@ -62,7 +62,7 @@ export default function RootLayout() {
         {/* Create screens */}
          <Stack.Screen name="create/select-media" />
         <Stack.Screen name="create/edit-post" />
-        <Stack.Screen name="create/compose.tsx" />
+        <Stack.Screen name="create/compose-post" />
 
       </Stack>
       </NotificationProvider>
