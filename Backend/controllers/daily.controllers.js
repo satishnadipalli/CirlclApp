@@ -56,7 +56,7 @@ const postTodayEntry = async (req, res) => {
     // Update streak
     const streak = await DailyStreak.findOneAndUpdate(
       { user: userId },
-      {},
+      { $setOnInsert: { user: userId, current: 0, longest: 0, lastPostedDateKey: null, latePasses: 1 } },
       { new: true, upsert: true },
     )
     if (streak.lastPostedDateKey === dateKey) {
@@ -227,8 +227,65 @@ const getGroupDailyFeed = async (req, res) => {
   }
 }
 
+// Increment view for an entry (id in body)
+const incrementView = async (req, res) => {
+  try {
+    const { entryId } = req.body
+    if (!entryId) return res.status(400).json({ success: false, message: 'entryId required' })
+    const userId = String(req.user._id)
+    const upd = await DailyCircleEntry.findByIdAndUpdate(
+      entryId,
+      { $addToSet: { views: userId }, $inc: { viewsCount: 1 } },
+      { new: true }
+    )
+    res.json({ success: true, viewsCount: upd?.viewsCount || 0 })
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message })
+  }
+}
+
+// React to an entry
+const reactToEntry = async (req, res) => {
+  try {
+    const { entryId, type } = req.body
+    const userId = String(req.user._id)
+    if (!entryId || !type) return res.status(400).json({ success: false, message: 'entryId and type required' })
+    const upd = await DailyCircleEntry.findByIdAndUpdate(
+      entryId,
+      { $push: { reactions: { user: userId, type, at: new Date() } } },
+      { new: true }
+    )
+    res.json({ success: true, reactions: upd?.reactions || [] })
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message })
+  }
+}
+
+// Highlights: store user/entry ids in a simple array on the user document (fallback)
+const toggleHighlight = async (req, res) => {
+  try {
+    const { entryId, on } = req.body
+    if (!entryId) return res.status(400).json({ success: false, message: 'entryId required' })
+    const userId = String(req.user._id)
+    // Lightweight: keep highlights on User as array of DailyCircleEntry ids
+    const UserModel = require('../models/user.models')
+    const user = await UserModel.findById(userId).select('highlights')
+    if (!user.highlights) user.highlights = []
+    const idx = user.highlights.findIndex((x) => String(x) === String(entryId))
+    if (on === false && idx !== -1) user.highlights.splice(idx, 1)
+    else if (on !== false && idx === -1) user.highlights.push(entryId)
+    await user.save()
+    res.json({ success: true, highlights: user.highlights })
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message })
+  }
+}
+
 module.exports = { getTodayPrompt, postTodayEntry, getTodayFeed, getMyStreak }
 module.exports.getRings = getRings
 module.exports.getEntryByUser = getEntryByUser
 module.exports.getGroupDailyFeed = getGroupDailyFeed
+module.exports.incrementView = incrementView
+module.exports.reactToEntry = reactToEntry
+module.exports.toggleHighlight = toggleHighlight
 

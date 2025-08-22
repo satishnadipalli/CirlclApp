@@ -213,6 +213,7 @@ export default function HomeScreen() {
                             </View>
                           )}
                         </View>
+                        <TouchableOpacity onPress={() => router.push({ pathname: "/daily/viewer", params: { userId: currentUserId || '' } })} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
                       </View>
                     </View>
                   )}
@@ -224,11 +225,15 @@ export default function HomeScreen() {
                         showsHorizontalScrollIndicator={false}
                         keyExtractor={(_, idx) => String(idx)}
                         contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: 10 }}
-                        renderItem={({ item }) => (
+                        renderItem={({ item, index }) => (
                           <DailyRing
                             imageUrl={item?.user?.profilePic || "https://i.pravatar.cc/100?img=11"}
                             label={item?.user?.name || "Friend"}
-                            onPress={() => router.push({ pathname: "/daily/viewer", params: { userId: item?.user?._id } })}
+                            onPress={() => {
+                              const ids = (daily?.rings || []).map((r: any) => r?.user?._id).filter(Boolean)
+                              const start = index
+                              router.push({ pathname: "/daily/viewer", params: { userIds: ids.join(","), start: String(start) } })
+                            }}
                           />
                         )}
                       />
