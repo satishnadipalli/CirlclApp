@@ -357,7 +357,7 @@ const styles = StyleSheet.create({
   },
   storiesContainer: {
     paddingVertical: 16,
-    paddingLeft: 16,
+    // paddingLeft: 16,
     backgroundColor: "white",
     borderBottomWidth: 0.5,
     borderBottomColor: "#dbdbdb",
