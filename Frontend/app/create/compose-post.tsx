@@ -23,7 +23,7 @@ import {
 
 const { height, width } = Dimensions.get("window")
 
-const API_BASE_URL = "http://192.168.53.127:5000/api"
+const API_BASE_URL = require("../../constants/Config").API_BASE_URL
 
 export default function ComposePostScreen() {
   const router = useRouter()
@@ -216,7 +216,7 @@ export default function ComposePostScreen() {
         {
           text: "OK",
           onPress: () => {
-            router.push("/(tabs)/home")
+            router.push("/(tabs)")
           },
         },
       ])

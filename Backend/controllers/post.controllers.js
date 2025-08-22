@@ -71,31 +71,19 @@ const createPost = async (req, res) => {
 
 // controllers/post.controllers.js
 const getAllPosts = async (req, res) => {
-  console.log("jjj")
-
-  const {userId} = req.query;
-
-  // console.log(userId,req.)
   try {
-    let { page = 1, limit = 10, hashtag, mention } = req.query;
+    let { page = 1, limit = 10, hashtag, mention, userId } = req.query;
     page = parseInt(page);
     limit = parseInt(limit);
 
     const filter = {};
-
-    // If ?hashtag=nature is passed, filter posts with that hashtag
-    if (hashtag) {
-      filter.hashtags = hashtag.toLowerCase();
-    }
-
-    // If ?mention=name is passed, filter posts mentioning that user
-    if (mention) {
-      filter.mentions = mention;
-    }
+    if (userId) filter.user = userId;
+    if (hashtag) filter.hashtags = hashtag.toLowerCase();
+    if (mention) filter.mentions = mention;
 
     const totalPosts = await Post.countDocuments(filter);
 
-    const posts = await Post.find({user:userId})
+    const posts = await Post.find(filter)
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit)
@@ -213,7 +201,6 @@ const getPostsByUserId = async (req, res) => {
     res.status(500).json({ success: false, message: err.message })
   }
 }
-
 
 // Delete post
 const deletePost = async (req, res) => {
