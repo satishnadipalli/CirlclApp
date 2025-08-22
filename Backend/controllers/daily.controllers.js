@@ -56,7 +56,7 @@ const postTodayEntry = async (req, res) => {
     // Update streak
     const streak = await DailyStreak.findOneAndUpdate(
       { user: userId },
-      {},
+      { $setOnInsert: { user: userId, current: 0, longest: 0, lastPostedDateKey: null, latePasses: 1 } },
       { new: true, upsert: true },
     )
     if (streak.lastPostedDateKey === dateKey) {
