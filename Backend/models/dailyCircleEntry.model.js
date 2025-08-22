@@ -17,6 +17,13 @@ const dailyCircleEntrySchema = new mongoose.Schema(
         at: { type: Date, default: Date.now },
       },
     ],
+    captions: [
+      {
+        start: { type: Number, default: 0 }, // seconds
+        end: { type: Number, default: 0 },   // seconds
+        text: { type: String, default: "" },
+      },
+    ],
   },
   { timestamps: true },
 )

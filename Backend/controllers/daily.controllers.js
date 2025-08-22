@@ -429,6 +429,34 @@ const listReactors = async (req, res) => {
   }
 }
 
+// Captions
+const getCaptions = async (req, res) => {
+  try {
+    const { entryId } = req.params
+    const entry = await DailyCircleEntry.findById(entryId).select('captions')
+    if (!entry) return res.status(404).json({ success: false, message: 'Entry not found' })
+    res.json({ success: true, captions: entry.captions || [] })
+  } catch (e) { res.status(500).json({ success: false, message: e.message }) }
+}
+
+const putCaptions = async (req, res) => {
+  try {
+    const { entryId } = req.params
+    const { captions } = req.body
+    if (!Array.isArray(captions)) return res.status(400).json({ success: false, message: 'captions array required' })
+    // Only the owner can update (simple check)
+    const entry = await DailyCircleEntry.findById(entryId).select('user')
+    if (!entry) return res.status(404).json({ success: false, message: 'Entry not found' })
+    if (String(entry.user) !== String(req.user._id)) return res.status(403).json({ success: false, message: 'Forbidden' })
+    const norm = captions
+      .map((c) => ({ start: Math.max(0, Number(c.start) || 0), end: Math.max(0, Number(c.end) || 0), text: String(c.text || '') }))
+      .filter((c) => c.text)
+      .sort((a, b) => a.start - b.start)
+    const updated = await DailyCircleEntry.findByIdAndUpdate(entryId, { $set: { captions: norm } }, { new: true }).select('captions')
+    res.json({ success: true, captions: updated?.captions || [] })
+  } catch (e) { res.status(500).json({ success: false, message: e.message }) }
+}
+
 module.exports = { getTodayPrompt, postTodayEntry, getTodayFeed, getMyStreak }
 module.exports.getRings = getRings
 module.exports.getEntryByUser = getEntryByUser
@@ -439,4 +467,6 @@ module.exports.toggleHighlight = toggleHighlight
 module.exports.getHighlights = getHighlights
 module.exports.getReactionsSummary = getReactionsSummary
 module.exports.listReactors = listReactors
+module.exports.getCaptions = getCaptions
+module.exports.putCaptions = putCaptions
 

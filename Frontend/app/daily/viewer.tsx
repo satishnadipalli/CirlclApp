@@ -316,6 +316,27 @@ export default function DailyViewer() {
     drawerTimeoutRef.current = setTimeout(() => setDrawerOpen(false), 1800)
   }
 
+  // Captions
+  const [captions, setCaptions] = useState<Array<{ start: number; end: number; text: string }>>([])
+  const [showCC, setShowCC] = useState(false)
+  const [currentTime, setCurrentTime] = useState(0)
+  useEffect(() => {
+    (async () => {
+      try {
+        const entry = entries[entryIndex]
+        if (!entry?._id) { setCaptions([]); return }
+        const res: any = await api.getDailyCaptions(String(entry._id))
+        const arr = Array.isArray(res?.captions) ? res.captions : []
+        setCaptions(arr)
+      } catch { setCaptions([]) }
+    })()
+  }, [entryIndex, entries])
+
+  const onPlaybackStatusUpdate = (s: any) => {
+    if (typeof s?.positionMillis === 'number') setCurrentTime(s.positionMillis / 1000)
+    if (s?.didJustFinish) { clearTimer(); goNext() }
+  }
+
   if (loading) return (
     <View style={styles.container}><ActivityIndicator /></View>
   )
@@ -399,15 +420,26 @@ export default function DailyViewer() {
               // restart timer to sync with video duration
               if (!paused) { clearTimer(); startTimer() }
             }}
-            onPlaybackStatusUpdate={(s: any) => {
-              if (s?.didJustFinish) { clearTimer(); goNext() }
-            }}
+            onPlaybackStatusUpdate={onPlaybackStatusUpdate}
           />
         ) : item?.mediaUrl ? (
           <Image source={{ uri: item.mediaUrl }} style={styles.media} resizeMode="contain" />
         ) : (
           <View style={{ paddingHorizontal: 20 }}>
             <Text style={styles.textContent}>{item?.text || ""}</Text>
+          </View>
+        )}
+        {/* CC overlay */}
+        {showCC && captions.length > 0 && (
+          <View style={{ position: 'absolute', left: 12, right: 12, bottom: 120, alignItems: 'center' }}>
+            <View style={{ backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 }}>
+              <Text style={{ color: '#fff', textAlign: 'center' }}>
+                {(() => {
+                  const seg = captions.find((c) => currentTime >= (c.start || 0) && currentTime <= (c.end || 0))
+                  return seg?.text || ''
+                })()}
+              </Text>
+            </View>
           </View>
         )}
       </View>
@@ -418,6 +450,9 @@ export default function DailyViewer() {
       {/* Reactions */}
       <View style={{ position: 'absolute', left: 0, right: 0, bottom: 70, paddingHorizontal: 20 }}>
         <View style={{ flexDirection: 'row', gap: 16, justifyContent: 'center', alignItems: 'center' }}>
+          <TouchableOpacity onPress={() => setShowCC((v) => !v)} style={{ position: 'absolute', left: 0 }}>
+            <Text style={{ color: '#fff', fontWeight: '800' }}>{showCC ? 'CC On' : 'CC Off'}</Text>
+          </TouchableOpacity>
           {['❤️','😂','🔥','😮','👏'].map((emoji) => {
             const eid = String(item?._id || "")
             const state = reactionState[eid] || { counts: {}, my: null }

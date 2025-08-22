@@ -7,6 +7,7 @@ const { getGroupDailyFeed } = require("../controllers/daily.controllers")
 const { incrementView, reactToEntry, toggleHighlight } = require("../controllers/daily.controllers")
 const { getHighlights } = require("../controllers/daily.controllers")
 const { getReactionsSummary, listReactors } = require("../controllers/daily.controllers")
+const { getCaptions, putCaptions } = require("../controllers/daily.controllers")
 
 // Get today prompt and whether user has posted
 router.get("/prompt", auth, getTodayPrompt)
@@ -38,6 +39,9 @@ router.get("/highlights", auth, getHighlights)
 // Reactions summary and reactors list
 router.get("/:entryId/reactions", auth, getReactionsSummary)
 router.get("/:entryId/reactors", auth, listReactors)
+// Captions
+router.get("/:entryId/captions", auth, getCaptions)
+router.put("/:entryId/captions", auth, putCaptions)
 
 module.exports = router
 
