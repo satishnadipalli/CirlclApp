@@ -158,10 +158,13 @@ export default function HomeScreen() {
               <TouchableOpacity style={styles.notificationButton} onPress={handleNotificationPress}>
                 <Ionicons name="heart-outline" size={28} color="#262626" />
                 {unreadCount > 0 && (
-                  <View style={styles.notificationBadge}>
-                    <Text style={styles.badgeText}>{unreadCount > 99 ? "99+" : unreadCount}</Text>
+                  <View style={styles.unreadBadge}>
+                    <Text style={styles.unreadText}>{Math.min(99, unreadCount)}</Text>
                   </View>
                 )}
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.notificationButton, { marginLeft: 6 }]} onPress={() => router.push('/highlights')}>
+                <Ionicons name="bookmark-outline" size={26} color="#262626" />
               </TouchableOpacity>
             </View>
 
@@ -505,5 +508,24 @@ const styles = StyleSheet.create({
   logo: {
     height: 40,
     width: 120,
+  },
+  unreadBadge: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    backgroundColor: "#FF3040",
+    borderRadius: 9,
+    minWidth: 18,
+    height: 18,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "white",
+  },
+  unreadText: {
+    color: "white",
+    fontSize: 10,
+    fontWeight: "bold",
+    textAlign: "center",
   },
 })

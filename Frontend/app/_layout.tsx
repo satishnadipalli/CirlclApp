@@ -58,6 +58,7 @@ export default function RootLayout() {
         <Stack.Screen name="chats/[chatId]" />
         <Stack.Screen name="otherProfile.tsx" />
         <Stack.Screen name="notifications" />
+        <Stack.Screen name="highlights" />
 
         {/* Create screens */}
          <Stack.Screen name="create/select-media" />

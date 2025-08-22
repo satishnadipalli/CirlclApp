@@ -8,6 +8,36 @@ import AsyncStorage from "@react-native-async-storage/async-storage"
 
 const { width, height } = Dimensions.get('window')
 
+// Offline queue keys
+const OFFLINE_QUEUE_KEY = 'daily_offline_queue_v1'
+
+async function enqueueOffline(action: any) {
+  try {
+    const raw = await AsyncStorage.getItem(OFFLINE_QUEUE_KEY)
+    const arr = raw ? JSON.parse(raw) : []
+    arr.push({ ...action, at: Date.now() })
+    await AsyncStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(arr))
+  } catch {}
+}
+
+async function flushOffline(api: any) {
+  try {
+    const raw = await AsyncStorage.getItem(OFFLINE_QUEUE_KEY)
+    const arr: any[] = raw ? JSON.parse(raw) : []
+    if (!Array.isArray(arr) || arr.length === 0) return
+    const remain: any[] = []
+    for (const item of arr) {
+      try {
+        if (item.type === 'react') await api.dailyReact(item.entryId, item.value)
+        else if (item.type === 'highlight') await api.dailyHighlight(item.entryId, item.on)
+      } catch {
+        remain.push(item)
+      }
+    }
+    await AsyncStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(remain))
+  } catch {}
+}
+
 export default function DailyViewer() {
   const { userId, groupId, userIds, start, dur } = useLocalSearchParams<{ userId?: string; groupId?: string; userIds?: string; start?: string; dur?: string }>()
   const router = useRouter()
@@ -109,10 +139,11 @@ export default function DailyViewer() {
     return () => { cancelled = true }
   }, [sequence, currentUserIndex, groupId, defaultSegMs])
 
-  // Prefetch next media
+  // Prefetch next media (image) and opportunistically flush offline queue
   useEffect(() => {
     const next = entries[entryIndex + 1]
     if (next?.mediaUrl) Image.prefetch(next.mediaUrl)
+    ;(async () => { try { await flushOffline(api) } catch {} })()
   }, [entryIndex, entries])
 
   // Track view on entry change and update viewsCount
@@ -254,7 +285,9 @@ export default function DailyViewer() {
       if (res?.success) {
         setReactionState((prev) => ({ ...prev, [eid]: { counts: (res as any)?.counts || {}, my: (res as any)?.myReaction ?? null } }))
       }
-    } catch {}
+    } catch {
+      await enqueueOffline({ type: 'react', entryId: eid, value: nextType })
+    }
   }
 
   const [showReactors, setShowReactors] = useState(false)
@@ -336,7 +369,16 @@ export default function DailyViewer() {
                 if (isOn) next.delete(eid); else next.add(eid)
                 return next
               })
-            } catch {}
+            } catch {
+              const eid = String(item._id)
+              const isOn = highlightIds.has(eid)
+              await enqueueOffline({ type: 'highlight', entryId: eid, on: !isOn })
+              setHighlightIds((prev) => {
+                const next = new Set(prev)
+                if (isOn) next.delete(eid); else next.add(eid)
+                return next
+              })
+            }
           }}>
             <Ionicons name={highlightIds.has(String(item._id)) ? "bookmark" : "bookmark-outline"} size={20} color="#fff" />
           </TouchableOpacity>
