@@ -38,7 +38,7 @@ const getTodayPrompt = async (req, res) => {
 const postTodayEntry = async (req, res) => {
   try {
     let { text = "", visibility = "followers" } = req.body
-    if (!["followers", "everyone", "group"].includes(String(visibility))) visibility = "followers"
+    if (!["followers", "everyone", "group", "closeFriends"].includes(String(visibility))) visibility = "followers"
     // Multer + Cloudinary sets req.file.path to the uploaded asset URL
     const mediaUrl = (req.file && req.file.path) || req.fileUrl || req.body.mediaUrl || ""
     const userId = req.user._id
@@ -113,15 +113,17 @@ const getTodayFeed = async (req, res) => {
     page = parseInt(page)
     limit = Math.min(60, Math.max(6, parseInt(limit)))
 
-    // Followers-only visibility support
-    const me = await User.findById(userId).select('following')
+    // Followers-only and close-friends visibility support
+    const me = await User.findById(userId).select('following closeFriends')
     const followingIds = (me?.following || []).map((id) => String(id))
+    const cfIds = new Set((me?.closeFriends || []).map((id) => String(id)))
 
     const filter = {
       dateKey,
       $or: [
         { visibility: "everyone" },
         { visibility: "followers", user: { $in: [...followingIds, String(userId)] } },
+        { visibility: "closeFriends", user: { $in: [...followingIds, String(userId)] } },
       ],
     }
 
@@ -193,12 +195,23 @@ const getEntryByUser = async (req, res) => {
 
     if (!entries || entries.length === 0) return res.status(404).json({ success: false, message: 'No entry' })
 
-    // If viewing someone else's entries and they're not public, require unlock
+    // If viewing someone else's entries and they're not public, require unlock OR close-friends membership
     const isOwn = requestorId === String(userId)
     const anyPublic = entries.some((e) => String(e.visibility) === 'everyone')
     if (!isOwn && !anyPublic) {
       const posted = await DailyCircleEntry.exists({ user: requestorId, dateKey, group: { $exists: false } })
       if (!posted) return res.status(403).json({ success: false, message: 'Post today to unlock your Daily Circle' })
+    }
+
+    // Filter out closeFriends entries if requestor is not in owner's closeFriends
+    if (!isOwn) {
+      const owner = await User.findById(userId).select('closeFriends')
+      const isCF = (owner?.closeFriends || []).some((id) => String(id) === requestorId)
+      if (!isCF) {
+        // Return only non-closeFriends entries
+        const filtered = entries.filter((e) => String(e.visibility) !== 'closeFriends')
+        return res.json({ success: true, entry: filtered[0] || null, entries: filtered })
+      }
     }
 
     res.json({ success: true, entry: entries[0] || null, entries })

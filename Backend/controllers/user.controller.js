@@ -269,6 +269,39 @@ const getFollowing = async (req, res) => {
   }
 }
 
+// Close Friends management
+const listCloseFriends = async (req, res) => {
+  try {
+    const me = await User.findById(req.user.id).select("closeFriends")
+    const docs = await User.find({ _id: { $in: me?.closeFriends || [] } }).select("_id name username profilePic")
+    res.json({ success: true, users: docs })
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message })
+  }
+}
+
+const addCloseFriend = async (req, res) => {
+  try {
+    const { id } = req.params
+    if (!id) return res.status(400).json({ success: false, message: 'User id required' })
+    await User.findByIdAndUpdate(req.user.id, { $addToSet: { closeFriends: id } })
+    res.json({ success: true })
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message })
+  }
+}
+
+const removeCloseFriend = async (req, res) => {
+  try {
+    const { id } = req.params
+    if (!id) return res.status(400).json({ success: false, message: 'User id required' })
+    await User.findByIdAndUpdate(req.user.id, { $pull: { closeFriends: id } })
+    res.json({ success: true })
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message })
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -279,4 +312,7 @@ module.exports = {
   getUserById,
   getFollowers,
   getFollowing,
+  listCloseFriends,
+  addCloseFriend,
+  removeCloseFriend,
 };

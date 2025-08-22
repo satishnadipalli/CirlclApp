@@ -31,7 +31,7 @@ const Search = () => {
   const [tab, setTab] = useState<'explore' | 'daily'>('explore')
   const [showComposer, setShowComposer] = useState(false)
   const [composingText, setComposingText] = useState("")
-  const [visibility, setVisibility] = useState<'followers' | 'everyone'>('followers')
+  const [visibility, setVisibility] = useState<'followers' | 'everyone' | 'closeFriends'>('followers')
   const [posting, setPosting] = useState(false)
   const [pickedUri, setPickedUri] = useState<string | null>(null)
   const [isVideo, setIsVideo] = useState(false)
@@ -366,6 +366,9 @@ const Search = () => {
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => setVisibility('everyone')} style={{ flex: 1, backgroundColor: visibility === 'everyone' ? '#fff' : 'transparent', borderRadius: 8, alignItems: 'center', paddingVertical: 10 }}>
                   <Text style={{ fontWeight: '700', color: visibility === 'everyone' ? '#000' : '#666' }}>Everyone</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setVisibility('closeFriends' as any)} style={{ flex: 1, backgroundColor: visibility === 'closeFriends' ? '#fff' : 'transparent', borderRadius: 8, alignItems: 'center', paddingVertical: 10 }}>
+                  <Text style={{ fontWeight: '700', color: visibility === 'closeFriends' ? '#000' : '#666' }}>Close Friends</Text>
                 </TouchableOpacity>
               </View>
             </View>

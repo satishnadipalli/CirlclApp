@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const auth = require("../middlewares/auth.middleware"); // JWT protect
-const { register, login, getProfile, followUser, unfollowUser, searchuser, getUserById, getFollowers, getFollowing } = require("../controllers/user.controller");
+const { register, login, getProfile, followUser, unfollowUser, searchuser, getUserById, getFollowers, getFollowing, listCloseFriends, addCloseFriend, removeCloseFriend } = require("../controllers/user.controller");
 
 // Public routes
 router.post("/register", register);
@@ -13,6 +13,10 @@ router.get("/me", auth, getProfile);
 router.post("/:id/follow", auth, followUser);
 router.post("/:id/unfollow", auth, unfollowUser);
 router.get("/search", auth, searchuser);
+// Close Friends
+router.get("/me/close-friends", auth, listCloseFriends)
+router.post("/close-friends/:id", auth, addCloseFriend)
+router.delete("/close-friends/:id", auth, removeCloseFriend)
 // Place more specific routes before the generic /:id route
 router.get("/:id/followers", auth, getFollowers)
 router.get("/:id/following", auth, getFollowing)
