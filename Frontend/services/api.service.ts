@@ -194,8 +194,9 @@ class ApiService {
   async getDailyRings() { return this.request(`/daily/rings`) }
   async getDailyEntryByUser(userId: string) { return this.request(`/daily/entry/${userId}`) }
   async dailyView(entryId: string) { return this.request(`/daily/view`, { method: 'POST', body: JSON.stringify({ entryId }) }) }
-  async dailyReact(entryId: string, type: string) { return this.request(`/daily/react`, { method: 'POST', body: JSON.stringify({ entryId, type }) }) }
+  async dailyReact(entryId: string, type?: string | null) { return this.request(`/daily/react`, { method: 'POST', body: JSON.stringify({ entryId, type: type ?? null }) }) }
   async dailyHighlight(entryId: string, on: boolean) { return this.request(`/daily/highlight`, { method: 'POST', body: JSON.stringify({ entryId, on }) }) }
+  async getDailyHighlights() { return this.request(`/daily/highlights`) }
 
   async getDirectMessages(withUserId) {
     return this.request(`/messages/direct/${withUserId}`)

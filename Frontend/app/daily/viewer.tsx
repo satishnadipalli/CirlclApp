@@ -4,6 +4,7 @@ import { ActivityIndicator, Image, StyleSheet, Text, TouchableOpacity, View, Dim
 import { Ionicons } from "@expo/vector-icons"
 import { Video } from "expo-av"
 import api from "@/services/api.service"
+import AsyncStorage from "@react-native-async-storage/async-storage"
 
 const { width, height } = Dimensions.get('window')
 
@@ -26,6 +27,9 @@ export default function DailyViewer() {
   const [error, setError] = useState<string | null>(null)
   const [paused, setPaused] = useState(false)
   const [progress, setProgress] = useState<number[]>([])
+  const [myId, setMyId] = useState<string | null>(null)
+  const [highlightIds, setHighlightIds] = useState<Set<string>>(new Set())
+  const [reactionState, setReactionState] = useState<Record<string, { counts: Record<string, number>; my: string | null }>>({})
   const timerRef = useRef<any>(null)
 
   const defaultSegMs = Math.max(1000, Math.min(45000, Number.parseInt(String(dur || "")) || 5000))
@@ -33,6 +37,29 @@ export default function DailyViewer() {
   const videoRef = useRef<Video | null>(null)
 
   const isVideoUrl = (u?: string) => !!u && /\.(mp4|mov|m4v|webm)$/i.test(u)
+
+  // Load my user id and highlights
+  useEffect(() => {
+    ;(async () => {
+      try {
+        const raw = await AsyncStorage.getItem("user")
+        if (raw) {
+          const parsed = JSON.parse(raw)
+          setMyId(parsed?.id || null)
+        }
+      } catch {}
+    })()
+  }, [])
+
+  useEffect(() => {
+    ;(async () => {
+      try {
+        const res: any = await api.getDailyHighlights()
+        const ids = new Set<string>((Array.isArray(res?.entries) ? res.entries : []).map((e: any) => String(e._id)))
+        setHighlightIds(ids)
+      } catch {}
+    })()
+  }, [])
 
   // Group mode: simple list of today's entries
   useEffect(() => {
@@ -88,17 +115,50 @@ export default function DailyViewer() {
     if (next?.mediaUrl) Image.prefetch(next.mediaUrl)
   }, [entryIndex, entries])
 
-  // Track view on entry change
+  // Track view on entry change and update viewsCount
   useEffect(() => {
     const entry = entries[entryIndex]
     if (!entry?._id) return
-    ;(async () => { try { await api.dailyView(String(entry._id)) } catch {} })()
+    ;(async () => {
+      try {
+        const res: any = await api.dailyView(String(entry._id))
+        const newCount = typeof res?.viewsCount === 'number' ? res.viewsCount : undefined
+        if (typeof newCount === 'number') {
+          setEntries((prev) => {
+            const next = prev.slice()
+            const idx = entryIndex
+            if (next[idx] && String(next[idx]._id) === String(entry._id)) {
+              next[idx] = { ...next[idx], viewsCount: newCount }
+            }
+            return next
+          })
+        }
+      } catch {}
+    })()
   }, [entryIndex, entries])
 
-  // Reset segment duration when entry changes
+  // Build reaction state from entries
   useEffect(() => {
-    segMsRef.current = defaultSegMs
-  }, [entryIndex, defaultSegMs])
+    if (!entries || entries.length === 0) { setReactionState({}); return }
+    const next: Record<string, { counts: Record<string, number>; my: string | null }> = {}
+    for (const e of entries) {
+      const counts: Record<string, number> = {}
+      const arr = Array.isArray(e.reactions) ? e.reactions : []
+      for (const r of arr) {
+        if (!r?.type) continue
+        counts[r.type] = (counts[r.type] || 0) + 1
+      }
+      let my: string | null = null
+      if (myId) {
+        for (const r of arr) {
+          const uid = String((r as any)?.user?._id || (r as any)?.user || "")
+          if (uid === String(myId)) { my = (r as any)?.type || null; break }
+        }
+      }
+      next[String(e._id)] = { counts, my }
+    }
+    setReactionState(next)
+  }, [entries, myId])
 
   // Progress timer
   const clearTimer = () => { if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null } }
@@ -183,6 +243,20 @@ export default function DailyViewer() {
     } finally { setSending(false) }
   }
 
+  const onReactPress = async (emoji: string) => {
+    const item = entries[entryIndex]
+    if (!item?._id) return
+    const eid = String(item._id)
+    const current = reactionState[eid]?.my || null
+    const nextType = current === emoji ? null : emoji
+    try {
+      const res: any = await api.dailyReact(eid, nextType)
+      if (res?.success) {
+        setReactionState((prev) => ({ ...prev, [eid]: { counts: (res as any)?.counts || {}, my: (res as any)?.myReaction ?? null } }))
+      }
+    } catch {}
+  }
+
   if (loading) return (
     <View style={styles.container}><ActivityIndicator /></View>
   )
@@ -226,8 +300,19 @@ export default function DailyViewer() {
         <View style={{ flex: 1 }} />
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <Text style={{ color: '#fff', fontSize: 12 }}>{typeof item?.viewsCount === 'number' ? `${item.viewsCount} views` : ''}</Text>
-          <TouchableOpacity onPress={async () => { try { await api.dailyHighlight(String(item._id), true) } catch {} }}>
-            <Ionicons name="bookmark-outline" size={20} color="#fff" />
+          <TouchableOpacity onPress={async () => {
+            try {
+              const eid = String(item._id)
+              const isOn = highlightIds.has(eid)
+              await api.dailyHighlight(eid, !isOn)
+              setHighlightIds((prev) => {
+                const next = new Set(prev)
+                if (isOn) next.delete(eid); else next.add(eid)
+                return next
+              })
+            } catch {}
+          }}>
+            <Ionicons name={highlightIds.has(String(item._id)) ? "bookmark" : "bookmark-outline"} size={20} color="#fff" />
           </TouchableOpacity>
         </View>
       </View>
@@ -264,12 +349,19 @@ export default function DailyViewer() {
 
       {/* Reactions */}
       <View style={{ position: 'absolute', left: 0, right: 0, bottom: 70, paddingHorizontal: 20 }}>
-        <View style={{ flexDirection: 'row', gap: 12, justifyContent: 'center' }}>
-          {['❤️','😂','🔥','😮','👏'].map((emoji) => (
-            <TouchableOpacity key={emoji} onPress={async () => { try { await api.dailyReact(String(item._id), emoji) } catch {} }}>
-              <Text style={{ fontSize: 24 }}>{emoji}</Text>
-            </TouchableOpacity>
-          ))}
+        <View style={{ flexDirection: 'row', gap: 16, justifyContent: 'center', alignItems: 'center' }}>
+          {['❤️','😂','🔥','😮','👏'].map((emoji) => {
+            const eid = String(item?._id || "")
+            const state = reactionState[eid] || { counts: {}, my: null }
+            const count = (state.counts && state.counts[emoji]) ? state.counts[emoji] : 0
+            const selected = state.my === emoji
+            return (
+              <TouchableOpacity key={emoji} onPress={() => onReactPress(emoji)} style={{ alignItems: 'center' }}>
+                <Text style={{ fontSize: selected ? 28 : 24, opacity: selected ? 1 : 0.85 }}>{emoji}</Text>
+                {count > 0 && <Text style={{ color: '#fff', fontSize: 12, marginTop: 2 }}>{count}</Text>}
+              </TouchableOpacity>
+            )
+          })}
         </View>
       </View>
 

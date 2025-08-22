@@ -5,6 +5,7 @@ const upload = require("../middlewares/upload.middleware")
 const { getTodayPrompt, postTodayEntry, getTodayFeed, getMyStreak, getRings, getEntryByUser } = require("../controllers/daily.controllers")
 const { getGroupDailyFeed } = require("../controllers/daily.controllers")
 const { incrementView, reactToEntry, toggleHighlight } = require("../controllers/daily.controllers")
+const { getHighlights } = require("../controllers/daily.controllers")
 
 // Get today prompt and whether user has posted
 router.get("/prompt", auth, getTodayPrompt)
@@ -31,6 +32,8 @@ router.get("/group/:groupId", auth, getGroupDailyFeed)
 router.post("/view", auth, incrementView)
 router.post("/react", auth, reactToEntry)
 router.post("/highlight", auth, toggleHighlight)
+// Highlights list
+router.get("/highlights", auth, getHighlights)
 
 module.exports = router
 

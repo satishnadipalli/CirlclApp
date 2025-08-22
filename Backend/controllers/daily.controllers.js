@@ -233,12 +233,30 @@ const incrementView = async (req, res) => {
     const { entryId } = req.body
     if (!entryId) return res.status(400).json({ success: false, message: 'entryId required' })
     const userId = String(req.user._id)
-    const upd = await DailyCircleEntry.findByIdAndUpdate(
+    const { Types } = require('mongoose')
+    const userObjId = new Types.ObjectId(userId)
+
+    // Atomic, idempotent per user: only append if not present; then recompute viewsCount from array size
+    const updated = await DailyCircleEntry.findByIdAndUpdate(
       entryId,
-      { $addToSet: { views: userId }, $inc: { viewsCount: 1 } },
+      [
+        {
+          $set: {
+            views: {
+              $cond: [
+                { $or: [ { $in: [userObjId, "$views"] }, { $in: [userId, "$views"] } ] },
+                "$views",
+                { $concatArrays: ["$views", [userObjId]] }
+              ]
+            }
+          }
+        },
+        { $set: { viewsCount: { $size: "$views" } } }
+      ],
       { new: true }
     )
-    res.json({ success: true, viewsCount: upd?.viewsCount || 0 })
+
+    res.json({ success: true, viewsCount: updated?.viewsCount || 0 })
   } catch (e) {
     res.status(500).json({ success: false, message: e.message })
   }
@@ -249,13 +267,42 @@ const reactToEntry = async (req, res) => {
   try {
     const { entryId, type } = req.body
     const userId = String(req.user._id)
-    if (!entryId || !type) return res.status(400).json({ success: false, message: 'entryId and type required' })
-    const upd = await DailyCircleEntry.findByIdAndUpdate(
-      entryId,
-      { $push: { reactions: { user: userId, type, at: new Date() } } },
-      { new: true }
-    )
-    res.json({ success: true, reactions: upd?.reactions || [] })
+    if (!entryId) return res.status(400).json({ success: false, message: 'entryId and type required' })
+
+    const entry = await DailyCircleEntry.findById(entryId).select('reactions')
+    if (!entry) return res.status(404).json({ success: false, message: 'Entry not found' })
+
+    const now = new Date()
+    const idx = (entry.reactions || []).findIndex((r) => String(r.user) === userId)
+
+    let myReaction = null
+    if (!type) {
+      // If no type provided, treat as remove
+      if (idx !== -1) entry.reactions.splice(idx, 1)
+      myReaction = null
+    } else if (idx === -1) {
+      // New reaction
+      entry.reactions.push({ user: req.user._id, type, at: now })
+      myReaction = type
+    } else if (entry.reactions[idx]?.type === type) {
+      // Toggle off same reaction
+      entry.reactions.splice(idx, 1)
+      myReaction = null
+    } else {
+      // Switch reaction type
+      entry.reactions[idx].type = type
+      entry.reactions[idx].at = now
+      myReaction = type
+    }
+
+    await entry.save()
+
+    const counts = (entry.reactions || []).reduce((acc, r) => {
+      acc[r.type] = (acc[r.type] || 0) + 1
+      return acc
+    }, {})
+
+    res.json({ success: true, myReaction, counts })
   } catch (e) {
     res.status(500).json({ success: false, message: e.message })
   }
@@ -281,6 +328,32 @@ const toggleHighlight = async (req, res) => {
   }
 }
 
+const getHighlights = async (req, res) => {
+  try {
+    const userId = String(req.user._id)
+    const UserModel = require('../models/user.models')
+    const me = await UserModel.findById(userId).select('highlights')
+    const ids = (me?.highlights || []).map((id) => String(id))
+
+    if (!ids.length) return res.json({ success: true, entries: [] })
+
+    const entries = await DailyCircleEntry.find({ _id: { $in: ids } })
+      .sort({ createdAt: -1 })
+      .populate('user', 'name profilePic')
+
+    // Clean up stale references to expired/removed entries
+    const foundIds = new Set(entries.map((e) => String(e._id)))
+    if (me && ids.some((id) => !foundIds.has(id))) {
+      me.highlights = (me.highlights || []).filter((id) => foundIds.has(String(id)))
+      await me.save()
+    }
+
+    res.json({ success: true, entries })
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message })
+  }
+}
+
 module.exports = { getTodayPrompt, postTodayEntry, getTodayFeed, getMyStreak }
 module.exports.getRings = getRings
 module.exports.getEntryByUser = getEntryByUser
@@ -288,4 +361,5 @@ module.exports.getGroupDailyFeed = getGroupDailyFeed
 module.exports.incrementView = incrementView
 module.exports.reactToEntry = reactToEntry
 module.exports.toggleHighlight = toggleHighlight
+module.exports.getHighlights = getHighlights
 
