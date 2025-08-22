@@ -119,7 +119,7 @@ const addMembers = async (req, res) => {
     }
 
     // Check if user is admin
-    if (!group.admins.includes(userId)) {
+    if (!group.admins.some((id) => String(id) === String(userId))) {
       return res.status(403).json({
         success: false,
         message: "Only admins can add members",
@@ -127,7 +127,7 @@ const addMembers = async (req, res) => {
     }
 
     // Add new members (avoid duplicates)
-    const newMembers = members.filter((memberId) => !group.members.includes(memberId))
+    const newMembers = (members || []).filter((memberId) => !group.members.some((id) => String(id) === String(memberId)))
 
     group.members.push(...newMembers)
     await group.save()
@@ -213,7 +213,7 @@ const removeMember = async (req, res) => {
     }
 
     // Check if user is admin
-    if (!group.admins.includes(userId)) {
+    if (!group.admins.some((id) => String(id) === String(userId))) {
       return res.status(403).json({
         success: false,
         message: "Only admins can remove members",
@@ -262,7 +262,7 @@ const makeAdmin = async (req, res) => {
     }
 
     // Check if user is admin
-    if (!group.admins.includes(userId)) {
+    if (!group.admins.some((id) => String(id) === String(userId))) {
       return res.status(403).json({
         success: false,
         message: "Only admins can promote members",
@@ -270,7 +270,7 @@ const makeAdmin = async (req, res) => {
     }
 
     // Check if member exists in group
-    if (!group.members.includes(memberId)) {
+    if (!group.members.some((id) => String(id) === String(memberId))) {
       return res.status(400).json({
         success: false,
         message: "User is not a member of this group",
@@ -278,7 +278,7 @@ const makeAdmin = async (req, res) => {
     }
 
     // Add to admins if not already
-    if (!group.admins.includes(memberId)) {
+    if (!group.admins.some((id) => String(id) === String(memberId))) {
       group.admins.push(memberId)
       await group.save()
     }
@@ -311,7 +311,7 @@ const removeAdmin = async (req, res) => {
     }
 
     // Check if user is admin
-    if (!group.admins.includes(userId)) {
+    if (!group.admins.some((id) => String(id) === String(userId))) {
       return res.status(403).json({
         success: false,
         message: "Only admins can demote other admins",
