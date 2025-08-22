@@ -367,6 +367,55 @@ const getHighlights = async (req, res) => {
   }
 }
 
+// Reactions summary for an entry
+const getReactionsSummary = async (req, res) => {
+  try {
+    const { entryId } = req.params
+    if (!entryId) return res.status(400).json({ success: false, message: 'entryId required' })
+    const userId = String(req.user._id)
+    const entry = await DailyCircleEntry.findById(entryId).select('reactions')
+    if (!entry) return res.status(404).json({ success: false, message: 'Entry not found' })
+    const counts = (entry.reactions || []).reduce((acc, r) => {
+      if (!r?.type) return acc
+      acc[r.type] = (acc[r.type] || 0) + 1
+      return acc
+    }, {})
+    const my = (entry.reactions || []).find((r) => String(r.user) === userId)?.type || null
+    res.json({ success: true, counts, myReaction: my })
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message })
+  }
+}
+
+// List reactors for an entry (optionally filter by type)
+const listReactors = async (req, res) => {
+  try {
+    const { entryId } = req.params
+    const { type } = req.query
+    let page = Number.parseInt(req.query.page) || 1
+    let limit = Number.parseInt(req.query.limit) || 30
+    if (limit > 100) limit = 100
+    if (limit < 1) limit = 30
+    if (!entryId) return res.status(400).json({ success: false, message: 'entryId required' })
+    const entry = await DailyCircleEntry.findById(entryId).select('reactions')
+    if (!entry) return res.status(404).json({ success: false, message: 'Entry not found' })
+
+    let list = Array.isArray(entry.reactions) ? entry.reactions : []
+    if (type) list = list.filter((r) => String(r.type) === String(type))
+    const total = list.length
+    const start = (page - 1) * limit
+    const end = start + limit
+    const slice = list.slice(start, end)
+    const userIds = slice.map((r) => r.user)
+    const users = await require('../models/user.models').find({ _id: { $in: userIds } }).select('_id name profilePic')
+    const usersById = new Map(users.map((u) => [String(u._id), u]))
+    const reactors = slice.map((r) => ({ user: usersById.get(String(r.user)) || { _id: r.user }, type: r.type, at: r.at }))
+    res.json({ success: true, page, pages: Math.ceil(total / limit), total, reactors })
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message })
+  }
+}
+
 module.exports = { getTodayPrompt, postTodayEntry, getTodayFeed, getMyStreak }
 module.exports.getRings = getRings
 module.exports.getEntryByUser = getEntryByUser
@@ -375,4 +424,6 @@ module.exports.incrementView = incrementView
 module.exports.reactToEntry = reactToEntry
 module.exports.toggleHighlight = toggleHighlight
 module.exports.getHighlights = getHighlights
+module.exports.getReactionsSummary = getReactionsSummary
+module.exports.listReactors = listReactors
 

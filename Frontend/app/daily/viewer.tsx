@@ -257,6 +257,32 @@ export default function DailyViewer() {
     } catch {}
   }
 
+  const [showReactors, setShowReactors] = useState(false)
+  const [reactors, setReactors] = useState<any[]>([])
+  const [reactorFilter, setReactorFilter] = useState<string | undefined>(undefined)
+  const [reactorsLoading, setReactorsLoading] = useState(false)
+  const loadReactors = async (type?: string) => {
+    try {
+      const item = entries[entryIndex]
+      if (!item?._id) return
+      setReactorsLoading(true)
+      const res: any = await api.getDailyReactors(String(item._id), type)
+      const list = Array.isArray(res?.reactors) ? res.reactors : []
+      setReactors(list)
+    } finally { setReactorsLoading(false) }
+  }
+
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const drawerTimeoutRef = useRef<any>(null)
+  const openDrawer = () => {
+    if (drawerTimeoutRef.current) { clearTimeout(drawerTimeoutRef.current); drawerTimeoutRef.current = null }
+    setDrawerOpen(true)
+  }
+  const closeDrawerSoon = () => {
+    if (drawerTimeoutRef.current) clearTimeout(drawerTimeoutRef.current)
+    drawerTimeoutRef.current = setTimeout(() => setDrawerOpen(false), 1800)
+  }
+
   if (loading) return (
     <View style={styles.container}><ActivityIndicator /></View>
   )
@@ -356,13 +382,31 @@ export default function DailyViewer() {
             const count = (state.counts && state.counts[emoji]) ? state.counts[emoji] : 0
             const selected = state.my === emoji
             return (
-              <TouchableOpacity key={emoji} onPress={() => onReactPress(emoji)} style={{ alignItems: 'center' }}>
+              <TouchableOpacity
+                key={emoji}
+                onPress={() => onReactPress(emoji)}
+                onLongPress={() => { openDrawer() }}
+                style={{ alignItems: 'center' }}>
                 <Text style={{ fontSize: selected ? 28 : 24, opacity: selected ? 1 : 0.85 }}>{emoji}</Text>
                 {count > 0 && <Text style={{ color: '#fff', fontSize: 12, marginTop: 2 }}>{count}</Text>}
               </TouchableOpacity>
             )
           })}
+          <TouchableOpacity onPress={async () => { await loadReactors(); setReactorFilter(undefined); setShowReactors(true) }} style={{ marginLeft: 8 }}>
+            <Ionicons name="people-outline" size={22} color="#fff" />
+          </TouchableOpacity>
         </View>
+        {drawerOpen && (
+          <View style={{ marginTop: 10, alignSelf: 'center', backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8 }}>
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              {['👍','🎉','😍','😢','😡','🙏','✨','🤩'].map((e) => (
+                <TouchableOpacity key={e} onPress={() => { onReactPress(e); closeDrawerSoon() }}>
+                  <Text style={{ fontSize: 20 }}>{e}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
       </View>
 
       {/* Reply box */}
@@ -384,6 +428,46 @@ export default function DailyViewer() {
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Reactors modal */}
+      {showReactors && (
+        <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, top: 0, backgroundColor: 'rgba(0,0,0,0.6)' }}>
+          <TouchableOpacity style={{ flex: 1 }} onPress={() => setShowReactors(false)} />
+          <View style={{ backgroundColor: '#111', padding: 16, borderTopLeftRadius: 16, borderTopRightRadius: 16, maxHeight: height * 0.5 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <Text style={{ color: '#fff', fontWeight: '800' }}>Reactors</Text>
+              <TouchableOpacity onPress={() => setShowReactors(false)}><Ionicons name="close" size={22} color="#fff" /></TouchableOpacity>
+            </View>
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+              {['All','❤️','😂','🔥','😮','👏'].map((label) => (
+                <TouchableOpacity
+                  key={label}
+                  onPress={async () => { const t = label === 'All' ? undefined : label; setReactorFilter(t); await loadReactors(t) }}
+                  style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, backgroundColor: (reactorFilter ?? 'All') === (label === 'All' ? undefined : label) ? '#222' : '#000' }}>
+                  <Text style={{ color: '#fff' }}>{label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            {reactorsLoading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <View>
+                {reactors.length === 0 ? (
+                  <Text style={{ color: '#999' }}>No reactions yet.</Text>
+                ) : (
+                  reactors.map((r, idx) => (
+                    <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 8 }}>
+                      <Image source={{ uri: r?.user?.profilePic || 'https://i.pravatar.cc/100?img=8' }} style={{ width: 32, height: 32, borderRadius: 16, marginRight: 10 }} />
+                      <Text style={{ color: '#fff', flex: 1 }}>{r?.user?.name || 'User'}</Text>
+                      <Text style={{ fontSize: 16 }}>{r?.type || ''}</Text>
+                    </View>
+                  ))
+                )}
+              </View>
+            )}
+          </View>
+        </View>
+      )}
     </View>
   )
 }

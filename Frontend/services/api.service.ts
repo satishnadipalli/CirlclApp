@@ -197,6 +197,11 @@ class ApiService {
   async dailyReact(entryId: string, type?: string | null) { return this.request(`/daily/react`, { method: 'POST', body: JSON.stringify({ entryId, type: type ?? null }) }) }
   async dailyHighlight(entryId: string, on: boolean) { return this.request(`/daily/highlight`, { method: 'POST', body: JSON.stringify({ entryId, on }) }) }
   async getDailyHighlights() { return this.request(`/daily/highlights`) }
+  async getDailyReactions(entryId: string) { return this.request(`/daily/${entryId}/reactions`) }
+  async getDailyReactors(entryId: string, type?: string, page = 1, limit = 30) {
+    const t = type ? `&type=${encodeURIComponent(type)}` : ""
+    return this.request(`/daily/${entryId}/reactors?page=${page}&limit=${limit}${t}`)
+  }
 
   async getDirectMessages(withUserId) {
     return this.request(`/messages/direct/${withUserId}`)
