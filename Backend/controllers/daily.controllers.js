@@ -29,7 +29,20 @@ const getTodayPrompt = async (req, res) => {
       posted = !!existing
     }
 
-    res.json({ success: true, prompt, posted })
+    // Generate up to three suggestion options
+    const base = prompt.text || "Share something about your day."
+    const pool = [
+      base,
+      "Capture a moment that made you smile today.",
+      "What’s one tiny win you had today?",
+      "Share something you learned today.",
+      "A sound, sight, or smell that stood out today.",
+    ]
+    const dedup = []
+    for (const p of pool) { if (!dedup.includes(p)) dedup.push(p) }
+    const options = dedup.slice(0, 3).map((t) => ({ text: t }))
+
+    res.json({ success: true, prompt, posted, options })
   } catch (e) {
     res.status(500).json({ success: false, message: e.message })
   }

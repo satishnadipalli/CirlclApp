@@ -6,6 +6,7 @@ import { Ionicons } from "@expo/vector-icons"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import { LinearGradient } from "expo-linear-gradient"
 import { useRouter } from "expo-router"
+import * as Notifications from "expo-notifications"
 import { useEffect, useState } from "react"
 import { Dimensions, FlatList, Image, Modal, StyleSheet, Text, TouchableOpacity, View } from "react-native"
 import socketService from "@/services/socket.service"
@@ -129,6 +130,23 @@ export default function HomeScreen() {
     } catch { setCountdown("") }
   }
 
+  // Schedule a gentle reminder at drop time if not posted
+  useEffect(() => {
+    ;(async () => {
+      try {
+        const status = await Notifications.getPermissionsAsync()
+        if (!status.granted) return
+        const dropsAt = daily?.prompt?.dropsAt
+        if (!dropsAt || daily?.posted) return
+        const when = new Date(dropsAt)
+        const id = await Notifications.scheduleNotificationAsync({
+          content: { title: 'Daily Circle', body: 'Your Daily is open. Share a moment today.' },
+          trigger: when,
+        })
+      } catch {}
+    })()
+  }, [daily?.prompt?.dropsAt, daily?.posted])
+
   useEffect(() => {
     const id = setInterval(() => updateCountdown(daily?.prompt?.dropsAt), 1000)
     return () => clearInterval(id)
@@ -202,6 +220,18 @@ export default function HomeScreen() {
                       )}
                     </View>
                   </View>
+                  {!!(daily as any)?.options && Array.isArray((daily as any).options) && (
+                    <View style={{ paddingHorizontal: 16, paddingTop: 6, flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+                      {((daily as any).options as any[]).slice(0, 3).map((opt: any, idx: number) => (
+                        <TouchableOpacity
+                          key={idx}
+                          onPress={() => router.push({ pathname: "/(tabs)/search", params: { focusDaily: "1", openComposer: "1", seedText: String(opt?.text || '') } })}
+                          style={{ backgroundColor: '#f5f5f5', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6 }}>
+                          <Text numberOfLines={1} style={{ color: '#333' }}>{String(opt?.text || '').slice(0, 50)}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
                   <Text numberOfLines={2} ellipsizeMode='tail' style={{ marginTop: 6, color: "#333", paddingHorizontal: 16 }}>{daily.prompt?.text}</Text>
                   {!!daily?.posted && (
                     <View style={{ paddingHorizontal: 16, marginTop: 8 }}>

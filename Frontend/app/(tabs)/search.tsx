@@ -18,6 +18,7 @@ import * as Camera from "expo-camera"
 import { useLocalSearchParams, useRouter } from "expo-router"
 import { apiService } from "@/services/api.service"
 import { Ionicons } from "@expo/vector-icons"
+import AsyncStorage from "@react-native-async-storage/async-storage"
 
 const Search = () => {
   const [query, setQuery] = useState("")
@@ -42,7 +43,7 @@ const Search = () => {
   const [dailyPage, setDailyPage] = useState(1)
   const [dailyHasMore, setDailyHasMore] = useState(true)
   const router = useRouter()
-  const params = useLocalSearchParams()
+  const params = useLocalSearchParams() as any
   const openHandledRef = useRef(false)
 
   useEffect(() => {
@@ -64,6 +65,18 @@ const Search = () => {
       setShowComposer(false)
     }
   }, [params])
+
+  // Seed composer from params
+  useEffect(() => {
+    try {
+      const f = String(params?.focusDaily || '')
+      const oc = String(params?.openComposer || '')
+      const seed = String(params?.seedText || '')
+      if (f === '1') setTab('daily')
+      if (oc === '1') setShowComposer(true)
+      if (seed) setComposingText(seed)
+    } catch {}
+  }, [params?.focusDaily, params?.openComposer, params?.seedText])
 
   const loadDaily = async (reset = false) => {
     try {
