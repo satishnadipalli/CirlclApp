@@ -314,6 +314,25 @@ const registerPushToken = async (req, res) => {
   }
 }
 
+// Block / Unblock
+const blockUser = async (req, res) => {
+  try {
+    const { id } = req.params
+    if (!id) return res.status(400).json({ success: false, message: 'user id required' })
+    await User.findByIdAndUpdate(req.user.id, { $addToSet: { blockedUsers: id } })
+    res.json({ success: true })
+  } catch (e) { res.status(500).json({ success: false, message: e.message }) }
+}
+
+const unblockUser = async (req, res) => {
+  try {
+    const { id } = req.params
+    if (!id) return res.status(400).json({ success: false, message: 'user id required' })
+    await User.findByIdAndUpdate(req.user.id, { $pull: { blockedUsers: id } })
+    res.json({ success: true })
+  } catch (e) { res.status(500).json({ success: false, message: e.message }) }
+}
+
 module.exports = {
   register,
   login,
@@ -328,4 +347,6 @@ module.exports = {
   addCloseFriend,
   removeCloseFriend,
   registerPushToken,
+  blockUser,
+  unblockUser,
 };

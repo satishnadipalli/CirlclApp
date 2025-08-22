@@ -127,9 +127,10 @@ const getTodayFeed = async (req, res) => {
     limit = Math.min(60, Math.max(6, parseInt(limit)))
 
     // Followers-only and close-friends visibility support
-    const me = await User.findById(userId).select('following closeFriends')
+    const me = await User.findById(userId).select('following closeFriends blockedUsers')
     const followingIds = (me?.following || []).map((id) => String(id))
     const cfIds = new Set((me?.closeFriends || []).map((id) => String(id)))
+    const blockedIds = new Set((me?.blockedUsers || []).map((id) => String(id)))
 
     const filter = {
       dateKey,
@@ -138,6 +139,7 @@ const getTodayFeed = async (req, res) => {
         { visibility: "followers", user: { $in: [...followingIds, String(userId)] } },
         { visibility: "closeFriends", user: { $in: [...followingIds, String(userId)] } },
       ],
+      user: { $nin: Array.from(blockedIds) },
     }
 
     const total = await DailyCircleEntry.countDocuments(filter)
@@ -201,6 +203,12 @@ const getEntryByUser = async (req, res) => {
     const { userId } = req.params
     const dateKey = formatDateKey(new Date())
 
+    // Block safety: don't return content if requestor has blocked target
+    const me = await User.findById(requestorId).select('blockedUsers')
+    if ((me?.blockedUsers || []).some((id) => String(id) === String(userId))) {
+      return res.status(404).json({ success: false, message: 'No entry' })
+    }
+
     // Fetch entries for the day (multiple allowed)
     const entries = await DailyCircleEntry.find({ user: userId, dateKey, group: { $exists: false } })
       .sort({ createdAt: -1 })
@@ -243,8 +251,12 @@ const getGroupDailyFeed = async (req, res) => {
     if (!grp) return res.status(404).json({ success: false, message: 'Group not found' })
     if (!grp.members.some((m) => String(m) === userId)) return res.status(403).json({ success: false, message: 'Not a member' })
 
+    const me = await User.findById(userId).select('blockedUsers')
+    const blockedIds = new Set((me?.blockedUsers || []).map((id) => String(id)))
+
     const entries = await DailyCircleEntry.find({ dateKey, group: groupId })
       .sort({ createdAt: -1 })
+      .where('user').nin(Array.from(blockedIds))
       .populate('user', 'name profilePic')
 
     res.json({ success: true, entries })

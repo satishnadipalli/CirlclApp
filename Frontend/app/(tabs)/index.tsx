@@ -194,45 +194,43 @@ export default function HomeScreen() {
                     backgroundColor: "#fff",
                     borderWidth: 0,
                     borderRadius: 14,
-                    padding: 0,
-                    marginBottom: 12,
+                    paddingVertical: 10,
+                    paddingHorizontal: 12,
+                    marginBottom: 8,
                     overflow: 'hidden',
                   }}
                   onPress={() => router.push({ pathname: "/(tabs)/search", params: { focusDaily: "1", openComposer: daily?.posted ? "0" : "1" } })}
                 >
-                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingTop: 8 }}>
-                    <Text style={{ fontWeight: "800", fontSize: 18 }}>Daily Circle</Text>
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1, justifyContent: "flex-end", flexWrap: "wrap" }}>
+                  <View style={{ flexDirection: "row", alignItems: "center" }}>
+                    <Image source={{ uri: myDaily?.mediaUrl || currentUserId ? (myDaily?.mediaUrl || 'https://i.pravatar.cc/100?img=12') : 'https://i.pravatar.cc/100?img=12' }} style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: '#eee' }} />
+                    <View style={{ flex: 1, marginLeft: 10 }}>
+                      <Text numberOfLines={1} style={{ fontWeight: "800", fontSize: 16 }}>Daily Circle</Text>
+                      <View style={{ flexDirection: 'row', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
+                        {!!(daily as any)?.options && Array.isArray((daily as any).options) && ((daily as any).options as any[]).slice(0, 3).map((opt: any, idx: number) => (
+                          <TouchableOpacity
+                            key={idx}
+                            onPress={() => router.push({ pathname: "/(tabs)/search", params: { focusDaily: "1", openComposer: "1", seedText: String(opt?.text || '') } })}
+                            style={{ backgroundColor: '#f5f5f5', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6 }}>
+                            <Text numberOfLines={1} style={{ color: '#333', maxWidth: 140 }}>{String(opt?.text || '').slice(0, 50)}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    </View>
+                    <View style={{ alignItems: 'flex-end', gap: 6 }}>
                       <View style={{ backgroundColor: daily.posted ? "#e8f5e9" : "#fdecea", borderRadius: 20, paddingHorizontal: 10, paddingVertical: 6 }}>
                         <Text style={{ color: daily.posted ? "#2e7d32" : "#c62828", fontWeight: "700" }}>
                           {daily.posted && typeof daily.streak?.current === 'number' ? `Streak ${daily.streak.current}` : "Post to unlock"}
                         </Text>
                       </View>
-                      {!!countdown && (
-                        <View style={{ backgroundColor: "#eef2ff", borderRadius: 20, paddingHorizontal: 10, paddingVertical: 6, marginTop: 6, maxWidth: 180 }}>
-                          <Text numberOfLines={1} style={{ color: "#3f51b5", fontWeight: "700" }}>Drops in {countdown}</Text>
-                        </View>
-                      )}
+                      {!!countdown && (<Text numberOfLines={1} style={{ color: "#3f51b5", fontWeight: "700" }}>Drops in {countdown}</Text>)}
                       {!daily.posted && (
-                        <TouchableOpacity onPress={() => router.push({ pathname: "/(tabs)/search", params: { focusDaily: "1", openComposer: "1" } })} style={{ backgroundColor: '#0095f6', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 }}>
-                          <Text style={{ color: '#fff', fontWeight: '800' }}>Post Daily</Text>
+                        <TouchableOpacity onPress={() => router.push({ pathname: "/(tabs)/search", params: { focusDaily: "1", openComposer: "1" } })} style={{ backgroundColor: '#0095f6', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 }}>
+                          <Text style={{ color: '#fff', fontWeight: '800' }}>Post</Text>
                         </TouchableOpacity>
                       )}
                     </View>
                   </View>
-                  {!!(daily as any)?.options && Array.isArray((daily as any).options) && (
-                    <View style={{ paddingHorizontal: 16, paddingTop: 6, flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-                      {((daily as any).options as any[]).slice(0, 3).map((opt: any, idx: number) => (
-                        <TouchableOpacity
-                          key={idx}
-                          onPress={() => router.push({ pathname: "/(tabs)/search", params: { focusDaily: "1", openComposer: "1", seedText: String(opt?.text || '') } })}
-                          style={{ backgroundColor: '#f5f5f5', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6 }}>
-                          <Text numberOfLines={1} style={{ color: '#333' }}>{String(opt?.text || '').slice(0, 50)}</Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  )}
-                  <Text numberOfLines={2} ellipsizeMode='tail' style={{ marginTop: 6, color: "#333", paddingHorizontal: 16 }}>{daily.prompt?.text}</Text>
+                  <Text numberOfLines={2} ellipsizeMode='tail' style={{ marginTop: 8, color: "#333" }}>{daily.prompt?.text}</Text>
                   {!!daily?.posted && (
                     <View style={{ paddingHorizontal: 16, marginTop: 8 }}>
                       <Text style={{ color: '#666', marginBottom: 6, fontWeight: '600' }}>Your Daily</Text>
