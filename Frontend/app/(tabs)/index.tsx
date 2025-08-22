@@ -10,6 +10,7 @@ import { useEffect, useState } from "react"
 import { Dimensions, FlatList, Image, Modal, StyleSheet, Text, TouchableOpacity, View } from "react-native"
 import socketService from "@/services/socket.service"
 import logo from "../../assets/images/circle-full.png"
+import DailyRing from "@/components/DailyRing"
 const { width } = Dimensions.get("window")
 
 export default function HomeScreen() {
@@ -220,18 +221,17 @@ export default function HomeScreen() {
                   {daily?.posted && (
                     <View style={{ height: 120, marginTop: 8 }}>
                       <FlatList
-                        data={daily?.rings || []}
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        keyExtractor={(_, idx) => String(idx)}
-                        contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: 10 }}
+                         data={daily?.rings || []}
+                         horizontal
+                         showsHorizontalScrollIndicator={false}
+                         keyExtractor={(_, idx) => String(idx)}
+                         contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: 10 }}
                         renderItem={({ item }) => (
-                          <View style={{ width: 70, alignItems: "center", marginHorizontal: 6 }}>
-                            <TouchableOpacity onPress={() => router.push({ pathname: "/daily/viewer", params: { userId: item?.user?._id } })}>
-                              <Image source={{ uri: item?.user?.profilePic || "https://i.pravatar.cc/100?img=11" }} style={{ width: 66, height: 66, borderRadius: 33, borderWidth: 2, borderColor: "#ff8a00" }} />
-                            </TouchableOpacity>
-                            <Text style={{ fontSize: 12, color: "#666", marginTop: 6 }} numberOfLines={1}>{item?.user?.name || "Friend"}</Text>
-                          </View>
+                          <DailyRing
+                            imageUrl={item?.user?.profilePic || "https://i.pravatar.cc/100?img=11"}
+                            label={item?.user?.name || "Friend"}
+                            onPress={() => router.push({ pathname: "/daily/viewer", params: { userId: item?.user?._id } })}
+                          />
                         )}
                       />
                     </View>
