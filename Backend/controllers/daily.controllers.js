@@ -2,6 +2,7 @@ const DailyPrompt = require("../models/dailyPrompt.model")
 const DailyCircleEntry = require("../models/dailyCircleEntry.model")
 const DailyStreak = require("../models/dailyStreak.model")
 const User = require("../models/user.models")
+const Group = require("../models/group.model")
 
 const formatDateKey = (d = new Date()) => new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()))
   .toISOString()
@@ -42,8 +43,15 @@ const postTodayEntry = async (req, res) => {
     const mediaUrl = (req.file && req.file.path) || req.fileUrl || req.body.mediaUrl || ""
     const userId = req.user._id
     const dateKey = formatDateKey(new Date())
+    const groupId = req.body?.group || null
 
-    const entry = await DailyCircleEntry.create({ user: userId, dateKey, mediaUrl, text, visibility })
+    if (visibility === 'group' && groupId) {
+      const grp = await Group.findById(groupId)
+      if (!grp) return res.status(404).json({ success: false, message: 'Group not found' })
+      if (!grp.members.some((m) => String(m) === String(userId))) return res.status(403).json({ success: false, message: 'Not a member of this group' })
+    }
+
+    const entry = await DailyCircleEntry.create({ user: userId, dateKey, mediaUrl, text, visibility, ...(groupId ? { group: groupId } : {}) })
 
     // Update streak
     const streak = await DailyStreak.findOneAndUpdate(
@@ -74,15 +82,17 @@ const postTodayEntry = async (req, res) => {
       const selfSocketId = onlineUsers.get(String(userId))
       if (selfSocketId) io.to(selfSocketId).emit("dailyPosted", { userId, dateKey, streak: streak?.current || 0 })
 
-      // Notify followers to update rings if online
-      const me = await User.findById(userId).select("name profilePic followers")
-      const ringPayload = {
-        user: { _id: String(userId), name: me?.name || "User", profilePic: me?.profilePic || "" },
-        createdAt: entry.createdAt,
-      }
-      for (const followerId of me?.followers || []) {
-        const followerSocketId = onlineUsers.get(String(followerId))
-        if (followerSocketId) io.to(followerSocketId).emit("dailyRing", ringPayload)
+      // Notify followers to update rings if online (only non-group)
+      if (!groupId) {
+        const me = await User.findById(userId).select("name profilePic followers")
+        const ringPayload = {
+          user: { _id: String(userId), name: me?.name || "User", profilePic: me?.profilePic || "" },
+          createdAt: entry.createdAt,
+        }
+        for (const followerId of me?.followers || []) {
+          const followerSocketId = onlineUsers.get(String(followerId))
+          if (followerSocketId) io.to(followerSocketId).emit("dailyRing", ringPayload)
+        }
       }
     } catch {}
 
@@ -197,7 +207,28 @@ const getEntryByUser = async (req, res) => {
   }
 }
 
+const getGroupDailyFeed = async (req, res) => {
+  try {
+    const { groupId } = req.params
+    const userId = String(req.user._id)
+    const dateKey = formatDateKey(new Date())
+
+    const grp = await Group.findById(groupId).select('members')
+    if (!grp) return res.status(404).json({ success: false, message: 'Group not found' })
+    if (!grp.members.some((m) => String(m) === userId)) return res.status(403).json({ success: false, message: 'Not a member' })
+
+    const entries = await DailyCircleEntry.find({ dateKey, group: groupId })
+      .sort({ createdAt: -1 })
+      .populate('user', 'name profilePic')
+
+    res.json({ success: true, entries })
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message })
+  }
+}
+
 module.exports = { getTodayPrompt, postTodayEntry, getTodayFeed, getMyStreak }
 module.exports.getRings = getRings
 module.exports.getEntryByUser = getEntryByUser
+module.exports.getGroupDailyFeed = getGroupDailyFeed
 

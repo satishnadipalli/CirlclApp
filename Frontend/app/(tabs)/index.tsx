@@ -192,6 +192,11 @@ export default function HomeScreen() {
                           <Text numberOfLines={1} style={{ color: "#3f51b5", fontWeight: "700" }}>Drops in {countdown}</Text>
                         </View>
                       )}
+                      {!daily.posted && (
+                        <TouchableOpacity onPress={() => router.push({ pathname: "/(tabs)/search", params: { focusDaily: "1", openComposer: "1" } })} style={{ backgroundColor: '#0095f6', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 }}>
+                          <Text style={{ color: '#fff', fontWeight: '800' }}>Post Daily</Text>
+                        </TouchableOpacity>
+                      )}
                     </View>
                   </View>
                   <Text numberOfLines={2} ellipsizeMode='tail' style={{ marginTop: 6, color: "#333", paddingHorizontal: 16 }}>{daily.prompt?.text}</Text>

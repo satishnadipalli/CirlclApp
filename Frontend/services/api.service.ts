@@ -141,6 +141,36 @@ class ApiService {
       return { success: false, message: e instanceof Error ? e.message : "Failed" }
     }
   }
+  async postGroupDailyEntry(groupId: string, { text, fileUri }: { text?: string; fileUri?: string }) {
+    try {
+      let authHeader: any = {}
+      const token = this.token || (await AsyncStorage.getItem("token"))
+      if (token) authHeader = { Authorization: `Bearer ${token}` }
+      const formData = new FormData()
+      if (fileUri) {
+        const isVideo = /\.(mp4|mov|avi)$/i.test(fileUri)
+        formData.append("file", {
+          uri: fileUri as any,
+          type: isVideo ? "video/mp4" : "image/jpeg",
+          name: `daily.${isVideo ? "mp4" : "jpg"}`,
+        } as any)
+      }
+      if (text) formData.append("text", text)
+      formData.append("visibility", "group")
+      formData.append("group", String(groupId))
+
+      const response = await fetch(`${this.baseURL}/daily/entry`, {
+        method: "POST",
+        headers: authHeader,
+        body: formData as any,
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.message || "Failed to post group daily entry")
+      return { success: true, ...data }
+    } catch (e) {
+      return { success: false, message: e instanceof Error ? e.message : "Failed" }
+    }
+  }
   async getDailyFeed() {
     try {
       const headers = await this.getHeaders()
@@ -156,6 +186,9 @@ class ApiService {
     } catch (e) {
       return { success: false, message: e instanceof Error ? e.message : "Failed" }
     }
+  }
+  async getGroupDailyFeed(groupId: string) {
+    return this.request(`/daily/group/${groupId}`)
   }
   async getDailyStreak() { return this.request(`/daily/streak`) }
   async getDailyRings() { return this.request(`/daily/rings`) }

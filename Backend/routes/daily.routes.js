@@ -3,6 +3,7 @@ const router = express.Router()
 const auth = require("../middlewares/auth.middleware")
 const upload = require("../middlewares/upload.middleware")
 const { getTodayPrompt, postTodayEntry, getTodayFeed, getMyStreak, getRings, getEntryByUser } = require("../controllers/daily.controllers")
+const { getGroupDailyFeed } = require("../controllers/daily.controllers")
 
 // Get today prompt and whether user has posted
 router.get("/prompt", auth, getTodayPrompt)
@@ -21,6 +22,9 @@ router.get("/rings", auth, getRings)
 
 // Fetch a specific user's entry (requires unlock unless own)
 router.get("/entry/:userId", auth, getEntryByUser)
+
+// Group-specific Daily feed for today (requires membership)
+router.get("/group/:groupId", auth, getGroupDailyFeed)
 
 module.exports = router
 
