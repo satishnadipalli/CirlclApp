@@ -90,12 +90,16 @@ export default function ChatScreen() {
   const dot2Opacity = useRef(new Animated.Value(0.3)).current
   const dot3Opacity = useRef(new Animated.Value(0.3)).current
 
+  console.log("params",params);
+
+
   const loadUserAndInitialize = async () => {
     try {
       const [userData, token] = await Promise.all([AsyncStorage.getItem("user"), AsyncStorage.getItem("token")])
 
       if (userData) {
-        const parsedUser = JSON.parse(userData)
+        const parsedUser = JSON.parse(userData);
+        console.log("parsed user",parsedUser)
         const formattedUser: User = {
           _id: parsedUser.id,
           name: parsedUser.name,
@@ -113,8 +117,8 @@ export default function ChatScreen() {
         if (params.chatType === "direct" && params.chatId) {
           const seededOther: User = {
             _id: params.chatId,
-            name: (params as any).chatName || "",
-            profilePic: "",
+            name: (params as any).name || "",
+            profilePic: params?.profilePic,
           }
           setOtherUser((prev) => prev ?? seededOther)
           otherUserRef.current = seededOther

@@ -373,6 +373,7 @@ export default function ProfileScreen() {
     setRefreshing(false)
   }
 
+  
   const handleMessage = () => {
     if (!user || !currentUser) return
 
@@ -380,6 +381,7 @@ export default function ProfileScreen() {
       pathname: `/chats/${user._id}`,
       params: {
         userId: user._id,
+        chatType:"direct",
         name: user.name,
         profilePic: user.profilePic || "https://i.pravatar.cc/150?img=30",
         currentUserId: currentUser._id,
