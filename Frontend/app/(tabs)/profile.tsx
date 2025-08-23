@@ -287,7 +287,7 @@ export default function ProfileScreen() {
   }
 
   const handleCreatePost = () => {
-    router.push("/create-post")
+    router.push("/create/compose-post")
   }
 
   const handleFollowersPress = () => {
