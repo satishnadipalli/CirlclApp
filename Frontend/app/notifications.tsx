@@ -249,8 +249,12 @@ const NotificationsScreen = () => {
     if (!notification.isRead) {
       markAsRead(notification._id)
     }
-    // Handle navigation based on notification type and actionLink
-    // You can implement navigation logic here
+    const pid = (notification?.post as any)?._id
+    if (pid) {
+      try { (require("expo-router") as any).router.push(`/post/${pid}`) } catch {}
+      return
+    }
+    // TODO: handle other types (profiles, comments)
   }
 
   const handleLongPress = (notification: Notification) => {

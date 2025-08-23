@@ -407,6 +407,9 @@ class ApiService {
     return this.request(`/notifications/${id}`, { method: 'DELETE' })
   }
 
+  async getPostById(id: string) {
+    return this.request(`/posts/${id}`)
+  }
 }
 
 const apiService = new ApiService()
