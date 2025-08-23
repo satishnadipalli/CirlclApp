@@ -340,13 +340,6 @@ class ApiService {
     return this.request(`/users/${userId}/unfollow`, { method: "POST" })
   }
 
-  async updateProfile(profileData) {
-    return this.request("/users/profile", {
-      method: "PUT",
-      body: JSON.stringify(profileData),
-    })
-  }
-
   async registerPushToken(token: string) {
     return this.request(`/users/me/push-token`, { method: 'POST', body: JSON.stringify({ token }) })
   }
@@ -371,11 +364,22 @@ class ApiService {
     })
   }
 
-  async logout() {
-    return this.request("/auth/logout", {
-      method: "POST",
-    })
+  async getNotifications(page = 1, limit = 20) {
+    return this.request(`/notifications?page=${page}&limit=${limit}`)
   }
+  async getUnreadNotificationsCount() {
+    return this.request(`/notifications/unread-count`)
+  }
+  async markNotificationRead(id: string) {
+    return this.request(`/notifications/${id}/read`, { method: 'PUT' })
+  }
+  async markAllNotificationsRead() {
+    return this.request(`/notifications/read-all`, { method: 'PUT' })
+  }
+  async deleteNotification(id: string) {
+    return this.request(`/notifications/${id}`, { method: 'DELETE' })
+  }
+
 }
 
 const apiService = new ApiService()

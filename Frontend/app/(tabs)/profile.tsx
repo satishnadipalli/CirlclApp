@@ -131,30 +131,21 @@ export default function ProfileScreen() {
       }
 
       console.log("[v0] Fetching user profile from API")
-      const response = await fetch(require("../../constants/Config").API_BASE_URL + "/users/me", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      })
+      const me = await (await import("@/services/api.service")).apiService.getMe()
+      const meObj: any = me
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-
-      const userData = await response.json()
-      console.log("[v0] Fetched user profile data:", userData)
+      const src = (meObj && (meObj.user || meObj)) || {}
 
       const formattedUser: User = {
-        _id: userData._id,
-        name: userData.name,
-        email: userData.email,
-        profilePic: userData.profilePic || "",
-        followers: userData.followers || [],
-        following: userData.following || [],
-        savedPosts: userData.savedPosts || [],
-        bio: userData.bio,
-        website: userData.website,
+        _id: src._id,
+        name: src.name,
+        email: src.email,
+        profilePic: src.profilePic || "",
+        followers: src.followers || [],
+        following: src.following || [],
+        savedPosts: src.savedPosts || [],
+        bio: src.bio,
+        website: src.website,
       }
 
       setUser(formattedUser)

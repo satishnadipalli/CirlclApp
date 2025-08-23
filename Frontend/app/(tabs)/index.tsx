@@ -33,16 +33,8 @@ export default function HomeScreen() {
       const token = await AsyncStorage.getItem("token")
       if (!token) return
 
-      const response = await fetch(`${BASE_URL}/api/notifications/unread-count`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-
-      const data = await response.json()
-      if (data.success) {
-        setUnreadCount(data.count)
-      }
+      const data: any = await api.getUnreadNotificationsCount()
+      if (data?.success) setUnreadCount(data.count)
     } catch (error) {
       console.error("Error fetching unread count:", error)
     }
