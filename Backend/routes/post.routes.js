@@ -15,14 +15,11 @@ router.get("/", protect, postController.getAllPosts);
 // Explore
 router.get("/explore", protect, postController.getExplorePosts);
 
-// Single post detail
-router.get("/:id", protect, postController.getPostById);
-
 // My posts (also paginated)
 router.get("/me", protect, postController.getMyPosts);
 
-// Delete
-router.delete("/:id", protect, postController.deletePost);
+// get saved post
+router.get("/saved", protect, postController.getSavedPosts);
 
 // Like/unlike post
 router.put("/:id/like", protect, postController.likePost);
@@ -51,7 +48,10 @@ router.put("/:id/comment/:commentId/reply/:replyId", protect, postController.edi
 // Save Post
 router.put("/:id/save", protect, postController.savePost);
 
-// get saved post
-router.get("/saved", protect, postController.getSavedPosts);
+// Delete
+router.delete("/:id", protect, postController.deletePost);
+
+// Single post detail
+router.get("/:id", protect, postController.getPostById);
 
 module.exports = router;
