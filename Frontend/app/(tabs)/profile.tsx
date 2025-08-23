@@ -18,6 +18,8 @@ import {
 } from "react-native"
 import socketService from "@/services/socket.service"
 import { Brand } from "@/constants/Colors"
+import { LinearGradient } from "expo-linear-gradient"
+import { Video } from "expo-av"
 const { width } = Dimensions.get("window")
 
 interface User {
@@ -63,6 +65,7 @@ export default function ProfileScreen() {
   const [loadingMore, setLoadingMore] = useState(false)
   const [activeTab, setActiveTab] = useState("posts")
   const [saved, setSaved] = useState<any[]>([])
+  const [reels, setReels] = useState<any[]>([])
   const router = useRouter()
 
   const onRefresh = async () => {
@@ -305,7 +308,7 @@ export default function ProfileScreen() {
       case "posts":
         return renderPostsContent()
       case "reels":
-        return renderEmptyTabContent("🎬", "No Reels Yet", "Share your first reel to get started!")
+        return renderReelsContent()
       case "tagged":
         return renderTaggedContent()
       case "saved":
@@ -366,6 +369,34 @@ export default function ProfileScreen() {
         true,
       )
     }
+  }
+
+  const renderReelsContent = () => {
+    const data = reels
+    if (!data || data.length === 0) return renderEmptyTabContent("▶", "No Reels", "Share a video to see it here.")
+    return (
+      <View style={{ height: Dimensions.get('window').height * 0.7 }}>
+        <FlatList
+          data={data}
+          keyExtractor={(item) => `reel_${item._id}`}
+          renderItem={({ item }) => (
+            <View style={{ height: Dimensions.get('window').height * 0.7 }}>
+              <Video
+                source={{ uri: item.mediaUrl }}
+                style={{ width: '100%', height: '100%', backgroundColor: '#000' }}
+                resizeMode={"cover" as any}
+                shouldPlay={true}
+                isLooping
+                isMuted
+                useNativeControls={false}
+              />
+            </View>
+          )}
+          pagingEnabled
+          showsVerticalScrollIndicator={false}
+        />
+      </View>
+    )
   }
 
   const renderTaggedContent = () => {
@@ -468,6 +499,10 @@ export default function ProfileScreen() {
         renderItem={() => renderTabContent()}
         ListHeaderComponent={() => (
           <View>
+            <View style={styles.cover}>
+              {!!user.profilePic && <Image source={{ uri: user.profilePic }} style={styles.coverImage} />}
+              <LinearGradient colors={["transparent", "rgba(0,0,0,0.35)"]} style={styles.coverGradient} />
+            </View>
             <View style={styles.topSection}>
               <Image
                 source={{ uri: user.profilePic || "https://i.pravatar.cc/150?img=30" }}
@@ -530,7 +565,13 @@ export default function ProfileScreen() {
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.tab, activeTab === "reels" && styles.activeTab]}
-                onPress={() => setActiveTab("reels")}
+                onPress={async () => {
+                  setActiveTab("reels")
+                  try {
+                    const vids = posts.filter((p: any) => /\.(mp4|mov|webm)$/i.test(p.mediaUrl || ""))
+                    setReels(vids)
+                  } catch {}
+                }}
               >
                 <Text style={[styles.tabIcon, activeTab === "reels" && styles.activeTabIcon]}>▶</Text>
               </TouchableOpacity>
@@ -593,12 +634,10 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontWeight: "bold",
   },
-  topSection: {
-    flexDirection: "row",
-    padding: 15,
-    paddingTop: 50,
-    alignItems: "center",
-  },
+  cover: { height: 160, backgroundColor: "#000" },
+  coverImage: { width: '100%', height: '100%' },
+  coverGradient: { position: 'absolute', left: 0, right: 0, bottom: 0, top: 0 },
+  topSection: { flexDirection: "row", alignItems: "center", padding: 16, marginTop: -40 },
   profilePic: {
     width: 90,
     height: 90,
