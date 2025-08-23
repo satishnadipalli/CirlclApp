@@ -259,16 +259,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       const token = await AsyncStorage.getItem("token")
       if (!token) return
 
-      const response = await fetch(`${BASE_URL}/api/notifications/unread-count`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        setUnreadCount(data.count || 0)
-      }
+      const data: any = await (await import("@/services/api.service")).apiService.getUnreadNotificationsCount()
+      if (data?.success) setUnreadCount(data.count || 0)
     } catch (error) {
       console.error("[v0] Error fetching unread count:", error)
     }

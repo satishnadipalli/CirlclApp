@@ -59,14 +59,7 @@ const NotificationsScreen = () => {
       const token = await AsyncStorage.getItem("token")
       if (!token) return
 
-      const response = await fetch(`${BASE_URL}/api/notifications?page=${pageNum}&limit=20`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      })
-
-      const data: NotificationResponse = await response.json()
+      const data: any = await (await import("@/services/api.service")).apiService.getNotifications(pageNum, 20)
 
       if (data.success) {
         if (refresh || pageNum === 1) {
@@ -90,13 +83,7 @@ const NotificationsScreen = () => {
       const token = await AsyncStorage.getItem("token")
       if (!token) return
 
-      const response = await fetch(`${BASE_URL}/api/notifications/unread-count`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-
-      const data = await response.json()
+      const data: any = await (await import("@/services/api.service")).apiService.getUnreadNotificationsCount()
       if (data.success) {
         setUnreadCount(data.count)
       }
@@ -110,13 +97,7 @@ const NotificationsScreen = () => {
       const token = await AsyncStorage.getItem("token")
       if (!token) return
 
-      await fetch(`${BASE_URL}/api/notifications/${notificationId}/read`, {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      })
+      await (await import("@/services/api.service")).apiService.markNotificationRead(notificationId)
 
       // Update local state
       setNotifications((prev) =>
@@ -135,12 +116,7 @@ const NotificationsScreen = () => {
       const token = await AsyncStorage.getItem("token")
       if (!token) return
 
-      await fetch(`${BASE_URL}/api/notifications/read-all`, {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
+      await (await import("@/services/api.service")).apiService.markAllNotificationsRead()
 
       // Update local state
       setNotifications((prev) => prev.map((notif) => ({ ...notif, isRead: true })))
@@ -155,12 +131,7 @@ const NotificationsScreen = () => {
       const token = await AsyncStorage.getItem("token")
       if (!token) return
 
-      await fetch(`${BASE_URL}/api/notifications/${notificationId}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
+      await (await import("@/services/api.service")).apiService.deleteNotification(notificationId)
 
       // Update local state
       setNotifications((prev) => prev.filter((notif) => notif._id !== notificationId))

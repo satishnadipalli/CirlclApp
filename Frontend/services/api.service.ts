@@ -364,6 +364,22 @@ class ApiService {
     })
   }
 
+  async getNotifications(page = 1, limit = 20) {
+    return this.request(`/notifications?page=${page}&limit=${limit}`)
+  }
+  async getUnreadNotificationsCount() {
+    return this.request(`/notifications/unread-count`)
+  }
+  async markNotificationRead(id: string) {
+    return this.request(`/notifications/${id}/read`, { method: 'PUT' })
+  }
+  async markAllNotificationsRead() {
+    return this.request(`/notifications/read-all`, { method: 'PUT' })
+  }
+  async deleteNotification(id: string) {
+    return this.request(`/notifications/${id}`, { method: 'DELETE' })
+  }
+
 }
 
 const apiService = new ApiService()

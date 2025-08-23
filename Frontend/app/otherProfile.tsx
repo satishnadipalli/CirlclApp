@@ -51,19 +51,11 @@ export default function ProfileScreen() {
         return
       }
 
-      const response = await fetch(require("../constants/Config").API_BASE_URL + `/users/${userId}/${isFollowing ? "unfollow" : "follow"}`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      })
+      const api = (await import("@/services/api.service")).apiService
+      if (isFollowing) await api.unfollowUser(String(userId))
+      else await api.followUser(String(userId))
 
-      if (response.ok) {
-        setIsFollowing(!isFollowing)
-      } else {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
+      setIsFollowing(!isFollowing)
     } catch (error) {
       console.error("Error toggling follow:", error)
       Alert.alert("Error", "Failed to toggle follow")
