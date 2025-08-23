@@ -414,6 +414,13 @@ class ApiService {
   async getSavedPosts() {
     return this.request(`/posts/saved`)
   }
+
+  async likePost(postId: string) {
+    return this.request(`/posts/${postId}/like`, { method: 'PUT' })
+  }
+  async addComment(postId: string, text: string) {
+    return this.request(`/posts/${postId}/comment`, { method: 'POST', body: JSON.stringify({ text }) })
+  }
 }
 
 const apiService = new ApiService()

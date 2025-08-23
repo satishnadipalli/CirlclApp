@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useEffect, useState } from "react"
-import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native"
+import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View, TextInput } from "react-native"
 import { useLocalSearchParams, useRouter } from "expo-router"
 import api from "@/services/api.service"
 
@@ -10,6 +10,8 @@ export default function PostDetailScreen() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [post, setPost] = useState<any>(null)
+  const [liking, setLiking] = useState(false)
+  const [commentText, setCommentText] = useState("")
 
   useEffect(() => {
     (async () => {
@@ -37,6 +39,33 @@ export default function PostDetailScreen() {
     )
   }
 
+  const onLike = async () => {
+    if (!post || liking) return
+    setLiking(true)
+    try {
+      const prevLikes = Array.isArray(post.likes) ? post.likes.length : 0
+      setPost((p: any) => ({ ...p, likes: new Array(prevLikes + 1).fill(0) }))
+      const r: any = await api.likePost(String(post._id))
+      if (r && r?.success !== false) {
+        const fresh: any = await api.getPostById(String(post._id))
+        if (fresh?.success) setPost(fresh.post)
+      }
+    } finally { setLiking(false) }
+  }
+
+  const onAddComment = async () => {
+    const t = commentText.trim()
+    if (!t) return
+    try {
+      setCommentText("")
+      const r: any = await api.addComment(String(post._id), t)
+      if (r && r?._id) {
+        const fresh: any = await api.getPostById(String(post._id))
+        if (fresh?.success) setPost(fresh.post)
+      }
+    } catch {}
+  }
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.header}>
@@ -61,6 +90,7 @@ export default function PostDetailScreen() {
       <View style={styles.counters}>
         <Text style={styles.counterText}>❤️ {post.likes?.length || 0}</Text>
         <Text style={styles.counterText}>💬 {post.comments?.length || 0}</Text>
+        <TouchableOpacity style={styles.likeBtn} onPress={onLike} disabled={liking}><Text style={styles.likeText}>{liking ? 'Liking…' : 'Like'}</Text></TouchableOpacity>
       </View>
 
       {Array.isArray(post.comments) && post.comments.length > 0 && (
@@ -77,6 +107,17 @@ export default function PostDetailScreen() {
           ))}
         </View>
       )}
+      <View style={styles.commentComposer}>
+        <TextInput
+          value={commentText}
+          onChangeText={setCommentText}
+          placeholder="Add a comment…"
+          style={styles.commentInput}
+        />
+        <TouchableOpacity onPress={onAddComment} disabled={!commentText.trim()}>
+          <Text style={[styles.link, !commentText.trim() && { opacity: 0.4 }]}>Post</Text>
+        </TouchableOpacity>
+      </View>
     </ScrollView>
   )
 }
@@ -103,4 +144,8 @@ const styles = StyleSheet.create({
   commentAvatar: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#eee' },
   commentAuthor: { fontSize: 13, fontWeight: '600' },
   commentText: { fontSize: 14, color: '#333' },
+  likeBtn: { marginLeft: 'auto', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, backgroundColor: '#007AFF' },
+  likeText: { color: '#fff', fontWeight: '600' },
+  commentComposer: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, gap: 10 },
+  commentInput: { flex: 1, borderWidth: 1, borderColor: '#ddd', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#fff' },
 })
