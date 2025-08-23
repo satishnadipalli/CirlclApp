@@ -251,7 +251,15 @@ const NotificationsScreen = () => {
     }
     const pid = (notification?.post as any)?._id
     if (pid) {
-      try { (require("expo-router") as any).router.push(`/post/${pid}`) } catch {}
+      // Try comment focus via actionLink like /post/:id?focusCommentId=... or ?commentId=...
+      const link = (notification as any)?.actionLink || ""
+      let focusCommentId = ""
+      try {
+        const m = link.match(/focusCommentId=([a-f0-9]+)/i) || link.match(/commentId=([a-f0-9]+)/i)
+        if (m && m[1]) focusCommentId = m[1]
+      } catch {}
+      const target = focusCommentId ? `/post/${pid}?focusCommentId=${focusCommentId}` : `/post/${pid}`
+      try { (require("expo-router") as any).router.push(target) } catch {}
       return
     }
     if (notification.type === 'follow') {

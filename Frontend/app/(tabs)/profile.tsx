@@ -17,6 +17,7 @@ import {
     View,
 } from "react-native"
 import socketService from "@/services/socket.service"
+import { Brand } from "@/constants/Colors"
 const { width } = Dimensions.get("window")
 
 interface User {
@@ -495,14 +496,14 @@ export default function ProfileScreen() {
             </View>
 
             <View style={styles.buttonsRow}>
-              <TouchableOpacity style={styles.button} onPress={handleEditProfile}>
-                <Text style={styles.buttonText}>Edit Profile</Text>
+              <TouchableOpacity style={[styles.button, { backgroundColor: Brand.primary }]} onPress={handleEditProfile}>
+                <Text style={[styles.buttonText, { color: '#fff' }]}>Edit Profile</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.button} onPress={handleShareProfile}>
-                <Text style={styles.buttonText}>Share Profile</Text>
+              <TouchableOpacity style={[styles.button, { backgroundColor: Brand.muted }]} onPress={handleShareProfile}>
+                <Text style={[styles.buttonText, { color: Brand.text }]}>Share Profile</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.button} onPress={async () => { try { await AsyncStorage.multiRemove(["token","user"]); router.push("/login"); } catch {} }}>
-                <Text style={styles.buttonText}>Logout</Text>
+              <TouchableOpacity style={[styles.button, { backgroundColor: '#eee' }]} onPress={async () => { try { await AsyncStorage.multiRemove(["token","user"]); router.push("/login"); } catch {} }}>
+                <Text style={[styles.buttonText, { color: '#333' }]}>Logout</Text>
               </TouchableOpacity>
             </View>
 

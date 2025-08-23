@@ -430,6 +430,12 @@ class ApiService {
   async addComment(postId: string, text: string) {
     return this.request(`/posts/${postId}/comment`, { method: 'POST', body: JSON.stringify({ text }) })
   }
+  async replyToComment(postId: string, commentId: string, text: string) {
+    return this.request(`/posts/${postId}/comment/${commentId}/reply`, { method: 'POST', body: JSON.stringify({ text }) })
+  }
+  async likeComment(postId: string, commentId: string, replyId?: string) {
+    return this.request(`/posts/${postId}/comment/like`, { method: 'PUT', body: JSON.stringify({ commentId, ...(replyId ? { replyId } : {}) }) })
+  }
 }
 
 const apiService = new ApiService()
