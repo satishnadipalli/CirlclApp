@@ -14,7 +14,9 @@ const userSchema = new mongoose.Schema({
   highlights: [{ type: mongoose.Schema.Types.ObjectId, ref: "DailyCircleEntry" }],
   closeFriends: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   expoPushTokens: [{ type: String }],
-  blockedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }]
+  blockedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+  bio: { type: String, default: "" },
+  website: { type: String, default: "" }
 }, { timestamps: true });
 
 module.exports = mongoose.model("User", userSchema);

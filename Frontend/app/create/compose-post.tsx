@@ -93,20 +93,21 @@ export default function ComposePostScreen() {
   }
 
   const compositionOptions = [
-    {
-      id: "music",
-      icon: "musical-notes-outline",
-      label: "Add music",
-      value: selectedMusic?.name || null,
-      onPress: () => handleAddMusic(),
-    },
-    {
-      id: "tag",
-      icon: "person-outline",
-      label: "Tag people",
-      value: taggedPeople.length > 0 ? `${taggedPeople.length} people` : null,
-      onPress: () => handleTagPeople(),
-    },
+    // Temporarily hide unfinished options to keep UI clean
+    // {
+    //   id: "music",
+    //   icon: "musical-notes-outline",
+    //   label: "Add music",
+    //   value: selectedMusic?.name || null,
+    //   onPress: () => handleAddMusic(),
+    // },
+    // {
+    //   id: "tag",
+    //   icon: "person-outline",
+    //   label: "Tag people",
+    //   value: taggedPeople.length > 0 ? `${taggedPeople.length} people` : null,
+    //   onPress: () => handleTagPeople(),
+    // },
     {
       id: "location",
       icon: "location-outline",

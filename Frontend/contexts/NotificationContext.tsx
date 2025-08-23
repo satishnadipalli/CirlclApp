@@ -191,7 +191,7 @@ const AnimatedNotification: React.FC<{
         },
       ]}
     >
-      <View style={{ backgroundColor: "rgba(255, 0, 0, 0.1)", padding: 2 }}>
+      <View style={styles.notificationContainerOverlay}>
         <TouchableOpacity style={styles.notificationContent} onPress={dismissNotification} activeOpacity={0.9}>
           <View style={[styles.iconContainer, { backgroundColor: iconConfig.color + "15" }]}>
             <Ionicons name={iconConfig.name as any} size={22} color={iconConfig.color} />
@@ -307,6 +307,10 @@ const styles = StyleSheet.create({
     zIndex: 9999,
     paddingHorizontal: 12,
     pointerEvents: "box-none",
+  },
+  notificationContainerOverlay: {
+    backgroundColor: "transparent",
+    padding: 2,
   },
   notificationContent: {
     backgroundColor: "white",
