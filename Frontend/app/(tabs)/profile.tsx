@@ -279,7 +279,7 @@ export default function ProfileScreen() {
   }
 
   const handleEditProfile = () => {
-    router.push("/notifications")
+    router.push("/edit-profile")
   }
 
   const handleShareProfile = () => {
