@@ -55,27 +55,36 @@ class ApiService {
         },
       })
 
-      const data = await response.json()
+      const contentType = response.headers.get("content-type") || ""
+      let data: any = null
+      try {
+        if (contentType.includes("application/json")) data = await response.json()
+        else data = await response.text()
+      } catch (_) {
+        try { data = await response.text() } catch {}
+      }
 
       if (!response.ok) {
-        // Gracefully handle expected 404/403 (e.g., no daily entry or locked)
-        if (response.status === 404 || response.status === 403) {
+        // Gracefully handle expected 404/403/429 (e.g., no daily entry, locked, rate limited)
+        if (response.status === 404 || response.status === 403 || response.status === 429) {
+          const msg = typeof data === 'string' ? data : (data && (data.message || data.error))
           return {
             success: false,
             status: response.status,
-            message: (data && (data.message || data.error)) || (response.status === 404 ? "Not found" : "Forbidden"),
+            message: msg || (response.status === 404 ? "Not found" : response.status === 403 ? "Forbidden" : "Too many requests"),
           }
         }
-        throw new Error(data.message || "Request failed")
+        const msg = typeof data === 'string' ? data : data?.message
+        throw new Error(msg || "Request failed")
       }
 
-      return {
-        success: true,
-        ...data,
+      if (contentType.includes("application/json") && data && typeof data === 'object') {
+        return { success: true, ...data }
       }
+      return { success: true, data }
     } catch (error) {
       // Avoid noisy logs for handled cases
-      if (!(error instanceof Error && (error.message === "Not found" || error.message === "Forbidden"))) {
+      if (!(error instanceof Error && (error.message === "Not found" || error.message === "Forbidden" || error.message === 'Too many requests'))) {
         console.error(`API Error (${endpoint}):`, error)
       }
       return {
