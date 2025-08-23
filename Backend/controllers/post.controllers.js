@@ -721,6 +721,20 @@ const getExplorePosts = async (req, res) => {
   }
 }
 
+const getPostById = async (req, res) => {
+  try {
+    const { id } = req.params
+    const post = await Post.findById(id)
+      .populate("user", "name profilePic")
+      .populate("comments.user", "name profilePic")
+      .populate("comments.replies.user", "name profilePic")
+    if (!post) return res.status(404).json({ success: false, message: "Post not found" })
+    res.json({ success: true, post })
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message })
+  }
+}
+
 module.exports = {
   createPost,
   getAllPosts,
@@ -737,4 +751,5 @@ module.exports = {
   savePost,
   getSavedPosts,
   getExplorePosts,
+  getPostById,
 };

@@ -9,6 +9,10 @@ const sendMessage = async (req, res) => {
     const { text, to, group, messageType, replyTo } = req.body
     const from = req.user.id
 
+    if (typeof text !== 'string' || text.trim().length === 0 || text.length > 2000) {
+      return res.status(400).json({ success: false, message: 'Invalid text' })
+    }
+
     // Validate message type
     if (!["direct", "group"].includes(messageType)) {
       return res.status(400).json({

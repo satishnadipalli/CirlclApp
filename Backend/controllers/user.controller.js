@@ -7,6 +7,9 @@ const Group = require("../models/group.model");
 const register = async (req, res) => {
   try {
     const { name, email, password } = req.body;
+    if (typeof name !== 'string' || name.trim().length < 2) return res.status(400).json({ success: false, message: 'Name required' })
+    if (typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ success: false, message: 'Valid email required' })
+    if (typeof password !== 'string' || password.length < 6) return res.status(400).json({ success: false, message: 'Password too short' })
 
     let existingUser = await User.findOne({ email });
     if (existingUser)
@@ -37,6 +40,7 @@ const register = async (req, res) => {
 const login = async (req, res) => {
   try {
     const { email, password } = req.body;
+    if (typeof email !== 'string' || typeof password !== 'string') return res.status(400).json({ success: false, message: 'Email and password required' })
 
     // Find the user by email
     const user = await User.findOne({ email });

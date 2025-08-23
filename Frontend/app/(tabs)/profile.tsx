@@ -61,6 +61,7 @@ export default function ProfileScreen() {
   const [hasMorePosts, setHasMorePosts] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [activeTab, setActiveTab] = useState("posts")
+  const [saved, setSaved] = useState<any[]>([])
   const router = useRouter()
 
   const onRefresh = async () => {
@@ -306,6 +307,8 @@ export default function ProfileScreen() {
         return renderEmptyTabContent("🎬", "No Reels Yet", "Share your first reel to get started!")
       case "tagged":
         return renderTaggedContent()
+      case "saved":
+        return renderSavedContent()
       default:
         return renderPostsContent()
     }
@@ -338,6 +341,8 @@ export default function ProfileScreen() {
             scrollEnabled={true}
             onEndReached={loadMorePosts}
             onEndReachedThreshold={0.1}
+            removeClippedSubviews
+            getItemLayout={(_, index) => ({ length: Math.floor(width / 3), offset: Math.floor(width / 3) * index, index })}
             ListFooterComponent={() => {
               if (loadingMore && hasMorePosts) {
                 return (
@@ -395,6 +400,26 @@ export default function ProfileScreen() {
     } else {
       return renderEmptyTabContent("🏷️", "No Tagged Posts", "You haven't been tagged in any posts yet.")
     }
+  }
+
+  const renderSavedContent = () => {
+    if (saved && saved.length > 0) {
+      return (
+        <View style={styles.tabContentContainer}>
+          <FlatList
+            data={saved}
+            keyExtractor={(item) => `saved_${item._id}`}
+            renderItem={({ item }) => (
+              <View style={styles.postContainer}>
+                <Image source={{ uri: item.mediaUrl || item.image }} style={styles.postImage} />
+              </View>
+            )}
+            numColumns={3}
+          />
+        </View>
+      )
+    }
+    return renderEmptyTabContent("🔖", "No Saved Posts", "Save posts to see them here.")
   }
 
   const renderEmptyTabContent = (icon: string, title: string, description: string, showButton = false) => {
@@ -476,6 +501,9 @@ export default function ProfileScreen() {
               <TouchableOpacity style={styles.button} onPress={handleShareProfile}>
                 <Text style={styles.buttonText}>Share Profile</Text>
               </TouchableOpacity>
+              <TouchableOpacity style={styles.button} onPress={async () => { try { await AsyncStorage.multiRemove(["token","user"]); router.push("/login"); } catch {} }}>
+                <Text style={styles.buttonText}>Logout</Text>
+              </TouchableOpacity>
             </View>
 
             <FlatList
@@ -513,6 +541,15 @@ export default function ProfileScreen() {
                 }}
               >
                 <Text style={[styles.tabIcon, activeTab === "tagged" && styles.activeTabIcon]}>👤</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.tab, activeTab === "saved" && styles.activeTab]}
+                onPress={async () => {
+                  setActiveTab("saved")
+                  try { const r: any = await (await import("@/services/api.service")).apiService.getSavedPosts(); setSaved(r?.savedPosts || r?.posts || []) } catch {}
+                }}
+              >
+                <Text style={[styles.tabIcon, activeTab === "saved" && styles.activeTabIcon]}>★</Text>
               </TouchableOpacity>
             </View>
           </View>

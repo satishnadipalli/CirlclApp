@@ -15,6 +15,9 @@ router.get("/", protect, postController.getAllPosts);
 // Explore
 router.get("/explore", protect, postController.getExplorePosts);
 
+// Single post detail
+router.get("/:id", protect, postController.getPostById);
+
 // My posts (also paginated)
 router.get("/me", protect, postController.getMyPosts);
 
