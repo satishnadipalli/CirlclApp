@@ -109,6 +109,17 @@ const followUser = async (req, res) => {
       });
     }
 
+    try {
+      const { createNotification } = require("../utils/functions");
+      await createNotification({
+        req,
+        receiverId: userToFollow._id,
+        senderId: currentUser._id,
+        type: "follow",
+        text: "started following you",
+      });
+    } catch {}
+
     console.log(`🔹 ${currentUser.name} followed ${userToFollow.name}`);
     res.json({ message: "Followed successfully" });
   } catch (err) {

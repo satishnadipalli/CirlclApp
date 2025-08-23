@@ -340,13 +340,6 @@ class ApiService {
     return this.request(`/users/${userId}/unfollow`, { method: "POST" })
   }
 
-  async updateProfile(profileData) {
-    return this.request("/users/profile", {
-      method: "PUT",
-      body: JSON.stringify(profileData),
-    })
-  }
-
   async registerPushToken(token: string) {
     return this.request(`/users/me/push-token`, { method: 'POST', body: JSON.stringify({ token }) })
   }
@@ -371,11 +364,6 @@ class ApiService {
     })
   }
 
-  async logout() {
-    return this.request("/auth/logout", {
-      method: "POST",
-    })
-  }
 }
 
 const apiService = new ApiService()
