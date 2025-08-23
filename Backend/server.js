@@ -7,11 +7,15 @@ const http = require("http");
 const { Server } = require("socket.io");
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
+const helmet = require("helmet");
+const rateLimit = require("express-rate-limit");
 
 dotenv.config();
 connectDB();
 
 const app = express();
+
+app.use(helmet());
 
 // Allow your frontend origin
 app.use(
@@ -22,6 +26,9 @@ app.use(
     credentials: false,
   })
 );
+
+const apiLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 300 });
+app.use("/api", apiLimiter);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

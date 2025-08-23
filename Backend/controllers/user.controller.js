@@ -79,6 +79,22 @@ const getProfile = async (req, res) => {
   }
 };
 
+const updateProfile = async (req, res) => {
+  try {
+    const { name, bio, website, profilePic } = req.body
+    const updates = {}
+    if (typeof name === 'string') updates.name = name
+    if (typeof bio === 'string') updates.bio = bio
+    if (typeof website === 'string') updates.website = website
+    if (typeof profilePic === 'string') updates.profilePic = profilePic
+
+    const updated = await User.findByIdAndUpdate(req.user.id, { $set: updates }, { new: true }).select('-password')
+    res.json({ success: true, user: updated })
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message })
+  }
+}
+
 const followUser = async (req, res) => {
   try {
     const userToFollow = await User.findById(req.params.id);
@@ -348,6 +364,7 @@ module.exports = {
   register,
   login,
   getProfile,
+  updateProfile,
   followUser,
   unfollowUser,
   searchuser,

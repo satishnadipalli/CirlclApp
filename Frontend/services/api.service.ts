@@ -349,6 +349,33 @@ class ApiService {
     return this.request(`/safety/report`, { method: 'POST', body: JSON.stringify({ targetType, targetId, reason, details, targetUser }) })
   }
 
+  async updateProfile(profileData: { name?: string; bio?: string; website?: string; profilePic?: string }) {
+    return this.request("/users/profile", {
+      method: "PUT",
+      body: JSON.stringify(profileData),
+    })
+  }
+
+  async uploadProfilePicture(fileUri: string) {
+    try {
+      let authHeader: any = {}
+      const token = this.token || (await AsyncStorage.getItem("token"))
+      if (token) authHeader = { Authorization: `Bearer ${token}` }
+      const formData = new FormData()
+      formData.append("file", {
+        uri: fileUri as any,
+        type: "image/jpeg",
+        name: "avatar.jpg",
+      } as any)
+      const response = await fetch(`${this.baseURL}/upload`, { method: 'POST', headers: authHeader, body: formData as any })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data?.message || 'Failed to upload profile picture')
+      return { success: true, ...data }
+    } catch (e) {
+      return { success: false, message: e instanceof Error ? e.message : 'Failed' }
+    }
+  }
+
   // Auth Methods
   async login(email, password) {
     return this.request("/users/login", {
