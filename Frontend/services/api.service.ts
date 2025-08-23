@@ -410,6 +410,10 @@ class ApiService {
   async getPostById(id: string) {
     return this.request(`/posts/${id}`)
   }
+
+  async getSavedPosts() {
+    return this.request(`/posts/saved`)
+  }
 }
 
 const apiService = new ApiService()
