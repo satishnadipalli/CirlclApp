@@ -338,6 +338,8 @@ export default function ProfileScreen() {
             scrollEnabled={true}
             onEndReached={loadMorePosts}
             onEndReachedThreshold={0.1}
+            removeClippedSubviews
+            getItemLayout={(_, index) => ({ length: Math.floor(width / 3), offset: Math.floor(width / 3) * index, index })}
             ListFooterComponent={() => {
               if (loadingMore && hasMorePosts) {
                 return (
@@ -475,6 +477,9 @@ export default function ProfileScreen() {
               </TouchableOpacity>
               <TouchableOpacity style={styles.button} onPress={handleShareProfile}>
                 <Text style={styles.buttonText}>Share Profile</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.button} onPress={async () => { try { await AsyncStorage.multiRemove(["token","user"]); router.push("/login"); } catch {} }}>
+                <Text style={styles.buttonText}>Logout</Text>
               </TouchableOpacity>
             </View>
 

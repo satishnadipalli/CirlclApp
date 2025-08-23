@@ -9,6 +9,7 @@ const cors = require("cors");
 const jwt = require("jsonwebtoken");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
+const morgan = require("morgan");
 
 dotenv.config();
 connectDB();
@@ -16,11 +17,12 @@ connectDB();
 const app = express();
 
 app.use(helmet());
+app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 
 // Allow your frontend origin
 app.use(
   cors({
-    origin: "*",
+    origin: process.env.ALLOWED_ORIGIN || "*",
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: false,

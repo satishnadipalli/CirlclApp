@@ -336,16 +336,31 @@ const NotificationsScreen = () => {
         )}
       </View>
 
-      <FlatList
-        data={notifications}
-        renderItem={renderNotification}
-        keyExtractor={(item) => item?._id}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        onEndReached={loadMore}
-        onEndReachedThreshold={0.1}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.listContainer}
-      />
+      {loading && notifications.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyIcon}>🔔</Text>
+          <Text style={styles.emptyTitle}>No notifications yet</Text>
+          <Text style={styles.emptySubtitle}>When people interact with you, you'll see it here.</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={notifications}
+          keyExtractor={(item) => item._id}
+          renderItem={renderNotification}
+          ItemSeparatorComponent={() => <View style={styles.separator} />}
+          contentContainerStyle={notifications.length === 0 ? { flexGrow: 1, justifyContent: 'center', alignItems: 'center' } : undefined}
+          ListEmptyComponent={() => (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyIcon}>🔔</Text>
+              <Text style={styles.emptyTitle}>You're all caught up</Text>
+              <Text style={styles.emptySubtitle}>No new notifications right now.</Text>
+            </View>
+          )}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          onEndReached={loadMore}
+          onEndReachedThreshold={0.2}
+        />
+      )}
     </View>
   )
 }
@@ -442,6 +457,10 @@ const styles = StyleSheet.create({
     backgroundColor: "#1877F2",
     marginLeft: 8,
   },
+  emptyContainer: { alignItems: 'center', padding: 24 },
+  emptyIcon: { fontSize: 48, marginBottom: 8 },
+  emptyTitle: { fontSize: 18, fontWeight: '600', marginBottom: 4 },
+  emptySubtitle: { fontSize: 14, color: '#666' },
 })
 
 export default NotificationsScreen

@@ -11,6 +11,12 @@ const storage = new CloudinaryStorage({
   },
 });
 
-const upload = multer({ storage });
+const fileFilter = (req, file, cb) => {
+  const ok = /^(image|video)\//.test(file.mimetype)
+  if (!ok) return cb(new Error("Unsupported file type"))
+  cb(null, true)
+}
+
+const upload = multer({ storage, limits: { fileSize: 15 * 1024 * 1024 }, fileFilter });
 
 module.exports = upload;
