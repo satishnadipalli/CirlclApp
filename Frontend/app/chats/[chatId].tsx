@@ -208,23 +208,20 @@ export default function ChatScreen() {
             system: /\badded\b/i.test(String(msg.text || "")),
           }
 
-          console.log("[v0] Processing socket message:", baseMessage)
+          // Mark as read immediately when a new incoming message arrives while viewing this conversation
+          if (fromUserId !== user._id) {
+            if (params.chatType === "direct") {
+              try { apiService.markDirectRead(params.chatId) } catch {}
+            } else {
+              try { apiService.markGroupRead(params.chatId) } catch {}
+            }
+          }
 
           setMessages((prev) => {
-            // If we already have this server message, skip
-            const exists = prev.find((m) => m.id === baseMessage.id)
-            if (exists) return prev
-
-            // Merge with a matching local temp message to avoid duplicates
             let newMessage = baseMessage
-            if (newMessage.sender === "me") {
-              const idx = prev.findIndex(
-                (m) =>
-                  m.sender === "me" &&
-                  m.id.startsWith("temp-") &&
-                  m.text === newMessage.text &&
-                  Math.abs(new Date(m.createdAt || 0).getTime() - new Date(newMessage.createdAt || 0).getTime()) < 15000,
-              )
+            const exists = prev.some((m) => m.id === newMessage.id)
+            if (exists) {
+              const idx = prev.findIndex((m) => m.id === newMessage.id)
               if (idx > -1) {
                 const next = [...prev]
                 next[idx] = newMessage
@@ -651,6 +648,11 @@ export default function ChatScreen() {
     if (isAtBottom) {
       setShowScrollToBottom(false)
       setNewMessagesCount(0)
+      // Best-effort mark-as-read when user reaches bottom
+      try {
+        if (params.chatType === "direct") apiService.markDirectRead(params.chatId)
+        else apiService.markGroupRead(params.chatId)
+      } catch {}
     }
   }
 
