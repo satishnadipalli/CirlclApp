@@ -762,6 +762,7 @@ module.exports = {
   putCaptions,
   autoCaptions,
   useLatePass,
-  deleteEntry
+  deleteEntry,
+  listViewers
 };
 

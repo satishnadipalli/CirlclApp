@@ -2,7 +2,7 @@ const express = require("express")
 const router = express.Router()
 const auth = require("../middlewares/auth.middleware")
 const upload = require("../middlewares/upload.middleware")
-const { getTodayPrompt, postTodayEntry, getTodayFeed, getMyStreak, getRings, getEntryByUser } = require("../controllers/daily.controllers")
+const { getTodayPrompt, postTodayEntry, getTodayFeed, getMyStreak, getRings, getEntryByUser, deleteEntry, listViewers } = require("../controllers/daily.controllers")
 const { getGroupDailyFeed } = require("../controllers/daily.controllers")
 const { incrementView, reactToEntry, toggleHighlight } = require("../controllers/daily.controllers")
 const { getHighlights } = require("../controllers/daily.controllers")
@@ -36,7 +36,7 @@ router.get("/group/:groupId", auth, getGroupDailyFeed)
 
 // Views / reactions / highlightss
 router.post("/view", auth, incrementView)
-router.get("/:entryId/viewers", auth, require('../controllers/daily.controllers').listViewers)
+router.get("/:entryId/viewers", auth, listViewers)
 router.post("/react", auth, reactToEntry)
 router.post("/highlight", auth, toggleHighlight)
 // Highlights list
@@ -50,7 +50,7 @@ router.put("/:entryId/captions", auth, putCaptions)
 router.post("/:entryId/captions/auto", auth, autoCaptions)
 
 // Delete own entry
-router.delete('/:entryId', auth, require('../controllers/daily.controllers').deleteEntry)
+router.delete('/:entryId', auth, deleteEntry)
 
 module.exports = router
 
