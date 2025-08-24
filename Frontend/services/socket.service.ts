@@ -19,6 +19,10 @@ class SocketService {
     this.followEventListeners = [];
     this.dailyPostedListeners = [];
     this.dailyRingListeners = [];
+    this.messageReactionListeners = [];
+    this.messageDeleteListeners = [];
+    this.messageEditListeners = [];
+    this.messageReadListeners = [];
     this.currentUserId = null;
   }
 
@@ -148,6 +152,20 @@ class SocketService {
     });
     this.socket.on("unfollowed", (data) => {
       this.followEventListeners.forEach((listener) => listener({ type: "unfollow", data }));
+    });
+
+    // Message meta events
+    this.socket.on("messageReactionsUpdated", (payload) => {
+      this.messageReactionListeners.forEach((l) => l(payload));
+    });
+    this.socket.on("messageDeleted", (payload) => {
+      this.messageDeleteListeners.forEach((l) => l(payload));
+    });
+    this.socket.on("messageEdited", (payload) => {
+      this.messageEditListeners.forEach((l) => l(payload));
+    });
+    this.socket.on("messagesRead", (payload) => {
+      this.messageReadListeners.forEach((l) => l(payload));
     });
 
     this.socket.on("connect", () => {
@@ -283,6 +301,11 @@ class SocketService {
     this.followEventListeners.push(callback);
   }
 
+  onMessageReactionsUpdated(cb) { this.messageReactionListeners.push(cb); }
+  onMessageDeleted(cb) { this.messageDeleteListeners.push(cb); }
+  onMessageEdited(cb) { this.messageEditListeners.push(cb); }
+  onMessagesRead(cb) { this.messageReadListeners.push(cb); }
+
   onGroupTyping(callback) {
     this.typingListeners.push(callback);
   }
@@ -353,6 +376,11 @@ class SocketService {
     if (index > -1) this.followEventListeners.splice(index, 1);
   }
 
+  removeMessageReactionsUpdated(cb) { const i = this.messageReactionListeners.indexOf(cb); if (i>-1) this.messageReactionListeners.splice(i,1); }
+  removeMessageDeleted(cb) { const i = this.messageDeleteListeners.indexOf(cb); if (i>-1) this.messageDeleteListeners.splice(i,1); }
+  removeMessageEdited(cb) { const i = this.messageEditListeners.indexOf(cb); if (i>-1) this.messageEditListeners.splice(i,1); }
+  removeMessagesRead(cb) { const i = this.messageReadListeners.indexOf(cb); if (i>-1) this.messageReadListeners.splice(i,1); }
+
   // Clear all listeners
   clearAllListeners() {
     this.messageListeners = [];
@@ -365,6 +393,10 @@ class SocketService {
     this.followEventListeners = [];
     this.dailyPostedListeners = [];
     this.dailyRingListeners = [];
+    this.messageReactionListeners = [];
+    this.messageDeleteListeners = [];
+    this.messageEditListeners = [];
+    this.messageReadListeners = [];
   }
 }
 
