@@ -318,6 +318,8 @@ export default function DailyViewer() {
   const [reactors, setReactors] = useState<any[]>([])
   const [reactorFilter, setReactorFilter] = useState<string | undefined>(undefined)
   const [reactorsLoading, setReactorsLoading] = useState(false)
+  const [showViewers, setShowViewers] = useState(false)
+  const [viewers, setViewers] = useState<any[]>([])
   const loadReactors = async (type?: string) => {
     try {
       const item = entries[entryIndex]
@@ -327,6 +329,16 @@ export default function DailyViewer() {
       const list = Array.isArray(res?.reactors) ? res.reactors : []
       setReactors(list)
     } finally { setReactorsLoading(false) }
+  }
+
+  const loadViewers = async () => {
+    try {
+      const item = entries[entryIndex]
+      if (!item?._id) return
+      const res: any = await api.getDailyViewers(String(item._id))
+      const list = Array.isArray(res?.viewers) ? res.viewers : []
+      setViewers(list)
+    } catch { setViewers([]) }
   }
 
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -621,6 +633,9 @@ export default function DailyViewer() {
             >
               <Text style={{ color: '#fff', fontWeight: '800' }}>Auto CC</Text>
             </TouchableOpacity>
+            <TouchableOpacity onPress={async () => { await loadViewers(); setShowViewers(true) }}>
+              <Text style={{ color: '#fff', fontWeight: '800' }}>Viewers</Text>
+            </TouchableOpacity>
             <TouchableOpacity
               onPress={async () => {
                 try {
@@ -757,6 +772,29 @@ export default function DailyViewer() {
               <TouchableOpacity onPress={() => setShowReport(false)}><Text style={{ color: '#aaa' }}>Cancel</Text></TouchableOpacity>
               <TouchableOpacity onPress={submitReport}><Text style={{ color: '#fff', fontWeight: '800' }}>Submit</Text></TouchableOpacity>
             </View>
+          </View>
+        </View>
+      )}
+
+      {/* Viewers modal */}
+      {showViewers && (
+        <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, top: 0, backgroundColor: 'rgba(0,0,0,0.6)' }}>
+          <TouchableOpacity style={{ flex: 1 }} onPress={() => setShowViewers(false)} />
+          <View style={{ backgroundColor: '#111', padding: 16, borderTopLeftRadius: 16, borderTopRightRadius: 16, maxHeight: height * 0.5 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <Text style={{ color: '#fff', fontWeight: '800' }}>Viewed by</Text>
+              <TouchableOpacity onPress={() => setShowViewers(false)}><Ionicons name="close" size={22} color="#fff" /></TouchableOpacity>
+            </View>
+            {viewers.length === 0 ? (
+              <Text style={{ color: '#999' }}>No views yet.</Text>
+            ) : (
+              viewers.map((u, idx) => (
+                <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 8 }}>
+                  <Image source={{ uri: u?.profilePic || 'https://i.pravatar.cc/100?img=9' }} style={{ width: 32, height: 32, borderRadius: 16, marginRight: 10 }} />
+                  <Text style={{ color: '#fff', flex: 1 }}>{u?.name || 'User'}</Text>
+                </View>
+              ))
+            )}
           </View>
         </View>
       )}

@@ -36,6 +36,7 @@ router.get("/group/:groupId", auth, getGroupDailyFeed)
 
 // Views / reactions / highlightss
 router.post("/view", auth, incrementView)
+router.get("/:entryId/viewers", auth, require('../controllers/daily.controllers').listViewers)
 router.post("/react", auth, reactToEntry)
 router.post("/highlight", auth, toggleHighlight)
 // Highlights list
