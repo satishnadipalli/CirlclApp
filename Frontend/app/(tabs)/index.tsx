@@ -22,6 +22,8 @@ export default function HomeScreen() {
   const [myDaily, setMyDaily] = useState<any>(null)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [showCelebration, setShowCelebration] = useState(false)
+  const [viewedRingKeys, setViewedRingKeys] = useState<Set<string>>(new Set())
+  const [loadingRingIndex, setLoadingRingIndex] = useState<number | null>(null)
 
   const [feed, setFeed] = useState<any[]>([])
   const [feedPage, setFeedPage] = useState(1)
@@ -39,6 +41,11 @@ export default function HomeScreen() {
       try {
         const u = await AsyncStorage.getItem("user")
         if (u) setCurrentUserId(JSON.parse(u)?.id || null)
+      } catch {}
+      try {
+        const raw = await AsyncStorage.getItem('daily_viewed_keys_v1')
+        const arr = raw ? JSON.parse(raw) : []
+        if (Array.isArray(arr)) setViewedRingKeys(new Set(arr.map(String)))
       } catch {}
     })()
     fetchUnreadCount()
@@ -96,6 +103,23 @@ export default function HomeScreen() {
       }
       updateCountdown((p as any)?.prompt?.dropsAt)
       if ((p as any)?.posted) loadMyDaily()
+    } catch {}
+  }
+
+  const markRingViewed = async (userId?: string, createdAt?: string) => {
+    try {
+      const uid = String(userId || '')
+      if (!uid) return
+      const d = createdAt ? new Date(createdAt) : new Date()
+      const dateKey = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())).toISOString().slice(0,10)
+      const key = `${uid}_${dateKey}`
+      setViewedRingKeys((prev) => {
+        if (prev.has(key)) return prev
+        const next = new Set(prev)
+        next.add(key)
+        AsyncStorage.setItem('daily_viewed_keys_v1', JSON.stringify(Array.from(next))).catch(() => {})
+        return next
+      })
     } catch {}
   }
 
@@ -294,20 +318,29 @@ export default function HomeScreen() {
                         keyExtractor={(_, idx) => String(idx)}
                         contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: 10, alignItems: 'center' }}
                         renderItem={({ item, index }) => {
-                          const viewed = !!item?.viewed // backend can set, else compute client-side later
+                          const uid = String(item?.user?._id || '')
+                          const createdAt = String(item?.createdAt || '')
+                          const d = createdAt ? new Date(createdAt) : new Date()
+                          const dateKey = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())).toISOString().slice(0,10)
+                          const localViewed = viewedRingKeys.has(`${uid}_${dateKey}`)
+                          const serverViewed = !!item?.viewed
+                          const viewed = serverViewed || localViewed
                           const mediaUrl = String(item?.mediaUrl || '')
                           const isVideo = /\.(mp4|mov|m4v|webm)$/i.test(mediaUrl)
+                          const posterUrl = isVideo ? (item?.user?.profilePic || 'https://i.pravatar.cc/100?img=11') : (mediaUrl || item?.user?.profilePic || 'https://i.pravatar.cc/100?img=11')
                           return (
                             <DailyRing
-                              imageUrl={mediaUrl || item?.user?.profilePic || 'https://i.pravatar.cc/100?img=11'}
+                              imageUrl={posterUrl}
                               label={item?.user?.name || 'Friend'}
                               viewed={viewed}
                               isVideo={isVideo}
-                              size={96}
+                              size={100}
+                              loading={loadingRingIndex === index}
                               onPress={() => {
+                                setLoadingRingIndex(index)
+                                markRingViewed(uid, createdAt)
                                 const ids = (daily?.rings || []).map((r: any) => r?.user?._id).filter(Boolean)
                                 const start = index
-                                // navigate immediately; viewer handles loading with its own spinner
                                 router.push({ pathname: '/daily/viewer', params: { userIds: ids.join(','), start: String(start) } })
                               }}
                             />
