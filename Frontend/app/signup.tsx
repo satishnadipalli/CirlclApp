@@ -3,6 +3,7 @@ import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import { Alert, Image, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity } from "react-native";
 import api from "@/services/api.service";
+import socketService from "@/services/socket.service";
 
 export default function SignupScreen() {
   const router = useRouter();
@@ -23,6 +24,13 @@ export default function SignupScreen() {
       await AsyncStorage.setItem("token", data.token)
       if (data?.refreshToken) await AsyncStorage.setItem("refreshToken", data.refreshToken)
       await AsyncStorage.setItem("user", JSON.stringify(data.user))
+
+      // Ensure socket is connected and user is registered
+      try {
+        await socketService.connect()
+        if (data?.user?.id) socketService.registerUser(data.user.id)
+      } catch {}
+
       router.replace("/(tabs)");
     } catch (e) {
       Alert.alert("Signup failed", (e as Error).message);
