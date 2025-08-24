@@ -29,7 +29,7 @@ const Search = () => {
   const [explore, setExplore] = useState([])
   const [dailyFeed, setDailyFeed] = useState<any[]>([])
   const [showDaily, setShowDaily] = useState(false)
-  const [tab, setTab] = useState<'explore' | 'daily'>('explore')
+  const [tab, setTab] = useState<'explore' | 'daily' | 'groups'>('explore')
   const [showComposer, setShowComposer] = useState(false)
   const [composingText, setComposingText] = useState("")
   const [visibility, setVisibility] = useState<'followers' | 'everyone' | 'closeFriends'>('followers')
@@ -43,6 +43,11 @@ const Search = () => {
   const [dailyPage, setDailyPage] = useState(1)
   const [dailyHasMore, setDailyHasMore] = useState(true)
   const [dailyLocked, setDailyLocked] = useState(false)
+  const [groups, setGroups] = useState<any[]>([])
+  const [groupsLoading, setGroupsLoading] = useState(false)
+  const [groupCounts, setGroupCounts] = useState<Record<string, number>>({})
+  const [postToGroup, setPostToGroup] = useState(false)
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null)
   const router = useRouter()
   const params = useLocalSearchParams() as any
   const openHandledRef = useRef(false)
@@ -79,6 +84,10 @@ const Search = () => {
     } catch {}
   }, [params?.focusDaily, params?.openComposer, params?.seedText])
 
+  useEffect(() => {
+    if (tab === 'groups') loadGroups()
+  }, [tab])
+
   const loadDaily = async (reset = false) => {
     try {
       if (loadingMoreRef.current) return
@@ -110,18 +119,46 @@ const Search = () => {
     loadDaily()
   }
 
+  const loadGroups = async () => {
+    try {
+      setGroupsLoading(true)
+      const res: any = await apiService.getUserGroups()
+      const gs = Array.isArray(res?.groups) ? res.groups : []
+      setGroups(gs)
+      const counts: Record<string, number> = {}
+      await Promise.all(gs.map(async (g: any) => {
+        try {
+          const gr: any = await apiService.getGroupDailyFeed(String(g._id))
+          const entries = Array.isArray(gr?.entries) ? gr.entries : []
+          counts[String(g._id)] = entries.length
+        } catch {}
+      }))
+      setGroupCounts(counts)
+    } finally {
+      setGroupsLoading(false)
+    }
+  }
+
   const submitDaily = async () => {
     if (posting) return
     setPosting(true)
     try {
-      const r = await apiService.postDailyEntry({ text: composingText, fileUri: pickedUri || undefined, visibility })
+      let r: any
+      if (postToGroup && selectedGroupId) {
+        r = await apiService.postGroupDailyEntry(String(selectedGroupId), { text: composingText, fileUri: pickedUri || undefined })
+      } else {
+        r = await apiService.postDailyEntry({ text: composingText, fileUri: pickedUri || undefined, visibility })
+      }
       if (r?.success) {
         setShowComposer(false)
         setComposingText("")
         setPickedUri(null)
         setIsVideo(false)
         setVisibility('followers')
+        setPostToGroup(false)
+        setSelectedGroupId(null)
         await loadDaily(true)
+        await loadGroups()
         setTab('daily')
         setShowDaily(true)
         try { (router as any)?.setParams?.({ openComposer: '0' }) } catch {}
@@ -221,6 +258,9 @@ const Search = () => {
         <TouchableOpacity style={{ flex: 1, paddingVertical: 10, alignItems: 'center', backgroundColor: tab === 'daily' ? '#fff' : 'transparent' }} onPress={() => { setTab('daily'); setShowDaily(true); loadDaily(true) }}>
           <Text style={{ fontWeight: '700', color: tab === 'daily' ? '#000' : '#666' }}>Daily</Text>
         </TouchableOpacity>
+        <TouchableOpacity style={{ flex: 1, paddingVertical: 10, alignItems: 'center', backgroundColor: tab === 'groups' ? '#fff' : 'transparent' }} onPress={() => { setTab('groups') }}>
+          <Text style={{ fontWeight: '700', color: tab === 'groups' ? '#000' : '#666' }}>Groups</Text>
+        </TouchableOpacity>
       </View>
       <View style={styles.searchBar}>
         <Ionicons name="search-outline" size={20} color="#666" />
@@ -316,6 +356,31 @@ const Search = () => {
             </View>
           )}
         />
+      ) : tab === 'groups' ? (
+        <FlatList
+          key="groups-list"
+          data={groups}
+          keyExtractor={(item, idx) => item._id || String(idx)}
+          renderItem={({ item }) => (
+            <TouchableOpacity style={styles.userRow} onPress={() => router.push({ pathname: "/daily/viewer", params: { groupId: item._id } })}>
+              <Image source={{ uri: item.groupPic || "https://i.pravatar.cc/100?img=18" }} style={styles.userAvatar} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.userName}>{item.name}</Text>
+                <Text style={{ color: '#666', fontSize: 12 }}>{(groupCounts[String(item._id)] || 0)} posted today</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#999" />
+            </TouchableOpacity>
+          )}
+          ItemSeparatorComponent={() => <View style={styles.sep} />}
+          onRefresh={loadGroups}
+          refreshing={groupsLoading}
+          contentContainerStyle={{ paddingBottom: 20 }}
+          ListEmptyComponent={() => (
+            <View style={{ padding: 20, alignItems: "center" }}>
+              <Text style={{ color: "#666", marginBottom: 12 }}>{groupsLoading ? 'Loading…' : 'No groups yet'}</Text>
+            </View>
+          )}
+        />
       ) : (
         <FlatList
           key="grid-3"
@@ -389,25 +454,53 @@ const Search = () => {
             </View>
 
             <View style={{ marginTop: 12 }}>
-              <Text style={{ color: '#666', marginBottom: 8 }}>Visibility</Text>
-              <View style={{ flexDirection: 'row', backgroundColor: '#f2f2f2', borderRadius: 10, padding: 4 }}>
-                <TouchableOpacity onPress={() => setVisibility('followers')} style={{ flex: 1, backgroundColor: visibility === 'followers' ? '#fff' : 'transparent', borderRadius: 8, alignItems: 'center', paddingVertical: 10 }}>
-                  <Text style={{ fontWeight: '700', color: visibility === 'followers' ? '#000' : '#666' }}>Followers</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => setVisibility('everyone')} style={{ flex: 1, backgroundColor: visibility === 'everyone' ? '#fff' : 'transparent', borderRadius: 8, alignItems: 'center', paddingVertical: 10 }}>
-                  <Text style={{ fontWeight: '700', color: visibility === 'everyone' ? '#000' : '#666' }}>Everyone</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => setVisibility('closeFriends' as any)} style={{ flex: 1, backgroundColor: visibility === 'closeFriends' ? '#fff' : 'transparent', borderRadius: 8, alignItems: 'center', paddingVertical: 10 }}>
-                  <Text style={{ fontWeight: '700', color: visibility === 'closeFriends' ? '#000' : '#666' }}>Close Friends</Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text style={{ color: '#666' }}>Post to a Group</Text>
+                <TouchableOpacity onPress={() => { const next = !postToGroup; setPostToGroup(next); if (next && groups.length === 0) loadGroups() }} style={{ paddingHorizontal: 10, paddingVertical: 6, backgroundColor: postToGroup ? '#0095f6' : '#eee', borderRadius: 999 }}>
+                  <Text style={{ color: postToGroup ? '#fff' : '#000', fontWeight: '700' }}>{postToGroup ? 'On' : 'Off'}</Text>
                 </TouchableOpacity>
               </View>
+              {postToGroup && (
+                <View style={{ marginTop: 10 }}>
+                  {groupsLoading ? (
+                    <Text style={{ color: '#666' }}>Loading groups…</Text>
+                  ) : groups.length === 0 ? (
+                    <Text style={{ color: '#666' }}>You have no groups.</Text>
+                  ) : (
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                      {groups.map((g: any) => (
+                        <TouchableOpacity key={String(g._id)} onPress={() => setSelectedGroupId(String(g._id))} style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, backgroundColor: selectedGroupId === String(g._id) ? '#0095f6' : '#eee' }}>
+                          <Text style={{ color: selectedGroupId === String(g._id) ? '#fff' : '#000', fontWeight: '700' }}>{g.name}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  )}
+                </View>
+              )}
             </View>
+
+            {!postToGroup && (
+              <View style={{ marginTop: 12 }}>
+                <Text style={{ color: '#666', marginBottom: 8 }}>Visibility</Text>
+                <View style={{ flexDirection: 'row', backgroundColor: '#f2f2f2', borderRadius: 10, padding: 4 }}>
+                  <TouchableOpacity onPress={() => setVisibility('followers')} style={{ flex: 1, backgroundColor: visibility === 'followers' ? '#fff' : 'transparent', borderRadius: 8, alignItems: 'center', paddingVertical: 10 }}>
+                    <Text style={{ fontWeight: '700', color: visibility === 'followers' ? '#000' : '#666' }}>Followers</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => setVisibility('everyone')} style={{ flex: 1, backgroundColor: visibility === 'everyone' ? '#fff' : 'transparent', borderRadius: 8, alignItems: 'center', paddingVertical: 10 }}>
+                    <Text style={{ fontWeight: '700', color: visibility === 'everyone' ? '#000' : '#666' }}>Everyone</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => setVisibility('closeFriends' as any)} style={{ flex: 1, backgroundColor: visibility === 'closeFriends' ? '#fff' : 'transparent', borderRadius: 8, alignItems: 'center', paddingVertical: 10 }}>
+                    <Text style={{ fontWeight: '700', color: visibility === 'closeFriends' ? '#000' : '#666' }}>Close Friends</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
           </ScrollView>
 
           {/* Footer */}
           <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 16, paddingTop: 10, paddingBottom: 16, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#eee' }}>
             {(() => {
-              const disabled = posting || (!pickedUri && composingText.trim().length === 0)
+              const disabled = posting || (!pickedUri && composingText.trim().length === 0) || (postToGroup && !selectedGroupId)
               return (
                 <TouchableOpacity
                   style={[styles.primaryBtn, disabled && { opacity: 0.6 }]}
