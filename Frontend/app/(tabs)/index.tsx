@@ -65,13 +65,30 @@ export default function HomeScreen() {
         return { ...prev, rings: [ring, ...rings].slice(0, 30) }
       })
     }
+    const onViewed = (evt: any) => {
+      try {
+        const uid = String(evt?.ringUserId || '')
+        const dateKey = String(evt?.dateKey || '')
+        if (!uid || !dateKey) return
+        const key = `${uid}_${dateKey}`
+        setViewedRingKeys((prev) => {
+          if (prev.has(key)) return prev
+          const next = new Set(prev)
+          next.add(key)
+          AsyncStorage.setItem('daily_viewed_keys_v1', JSON.stringify(Array.from(next))).catch(() => {})
+          return next
+        })
+      } catch {}
+    }
     socketService.onDailyPosted(onPosted)
     socketService.onDailyRing(onRing)
+    socketService.onDailyViewed(onViewed)
     return () => {
       const h = (notifHandlerRef as any).current
       if (h) socketService.removeNotificationListener(h)
       socketService.removeDailyPostedListener(onPosted)
       socketService.removeDailyRingListener(onRing)
+      // dailyViewed cleared on disconnect
     }
   }, [])
 

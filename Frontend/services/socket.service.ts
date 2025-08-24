@@ -19,6 +19,7 @@ class SocketService {
     this.followEventListeners = [];
     this.dailyPostedListeners = [];
     this.dailyRingListeners = [];
+    this.dailyViewedListeners = [];
     this.messageReactionListeners = [];
     this.messageDeleteListeners = [];
     this.messageEditListeners = [];
@@ -144,6 +145,9 @@ class SocketService {
     });
     this.socket.on("dailyRing", (data) => {
       this.dailyRingListeners.forEach((listener) => listener(data));
+    });
+    this.socket.on("dailyViewed", (data) => {
+      this.dailyViewedListeners.forEach((listener) => listener(data));
     });
 
     // Follow/unfollow events
@@ -296,6 +300,7 @@ class SocketService {
   onDailyRing(callback) {
     this.dailyRingListeners.push(callback);
   }
+  onDailyViewed(callback) { this.dailyViewedListeners.push(callback); }
 
   onFollowEvent(callback) {
     this.followEventListeners.push(callback);
@@ -393,6 +398,7 @@ class SocketService {
     this.followEventListeners = [];
     this.dailyPostedListeners = [];
     this.dailyRingListeners = [];
+    this.dailyViewedListeners = [];
     this.messageReactionListeners = [];
     this.messageDeleteListeners = [];
     this.messageEditListeners = [];

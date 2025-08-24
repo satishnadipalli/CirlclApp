@@ -484,6 +484,28 @@ const incrementView = async (req, res) => {
       { new: true }
     )
 
+    try {
+      const io = req.app.get('io')
+      const onlineUsers = req.app.get('onlineUsers')
+      const entry = await DailyCircleEntry.findById(entryId).select('user createdAt')
+      if (entry) {
+        // Notify viewer's other sessions to gray the ring
+        const viewerSocket = onlineUsers.get(String(userId))
+        if (viewerSocket) {
+          const d = entry.createdAt || new Date()
+          const dateKey = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())).toISOString().slice(0,10)
+          io.to(viewerSocket).emit('dailyViewed', { ringUserId: String(entry.user), dateKey })
+        }
+        // Notify owner about new viewer
+        const ownerSocket = onlineUsers.get(String(entry.user))
+        if (ownerSocket) {
+          let viewer = null
+          try { viewer = await require('../models/user.models').findById(userId).select('name profilePic') } catch {}
+          io.to(ownerSocket).emit('dailyViewersUpdate', { entryId: String(entryId), viewsCount: Number(updated?.viewsCount || 0), viewer: { _id: String(userId), name: viewer?.name || 'Someone', profilePic: viewer?.profilePic || '' } })
+        }
+      }
+    } catch {}
+
     res.json({ success: true, viewsCount: updated?.viewsCount || 0 })
   } catch (e) {
     res.status(500).json({ success: false, message: e.message })
