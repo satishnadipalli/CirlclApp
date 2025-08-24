@@ -653,7 +653,7 @@ const putCaptions = async (req, res) => {
 }
 
 // Owner delete an entry
-module.exports.deleteEntry = async (req, res) => {
+const deleteEntry = async (req, res) => {
   try {
     const { entryId } = req.params
     if (!entryId) return res.status(400).json({ success: false, message: 'entryId required' })
@@ -666,7 +666,7 @@ module.exports.deleteEntry = async (req, res) => {
 }
 
 // Use a late pass to forgive today's Daily and preserve streak (max once per 7 days)
-module.exports.useLatePass = async (req, res) => {
+const useLatePass = async (req, res) => {
   try {
     const userId = String(req.user._id)
     const dateKey = formatDateKey(new Date())
@@ -724,17 +724,24 @@ module.exports.useLatePass = async (req, res) => {
   } catch (e) { return res.status(500).json({ success: false, message: e.message }) }
 }
 
-module.exports = { getTodayPrompt, postTodayEntry, getTodayFeed, getMyStreak }
-module.exports.getRings = getRings
-module.exports.getEntryByUser = getEntryByUser
-module.exports.getGroupDailyFeed = getGroupDailyFeed
-module.exports.incrementView = incrementView
-module.exports.reactToEntry = reactToEntry
-module.exports.toggleHighlight = toggleHighlight
-module.exports.getHighlights = getHighlights
-module.exports.getReactionsSummary = getReactionsSummary
-module.exports.listReactors = listReactors
-module.exports.getCaptions = getCaptions
-module.exports.putCaptions = putCaptions
-module.exports.autoCaptions = autoCaptions
+module.exports = {
+  getTodayPrompt,
+  postTodayEntry,
+  getTodayFeed,
+  getMyStreak,
+  getRings,
+  getEntryByUser,
+  getGroupDailyFeed,
+  incrementView,
+  reactToEntry,
+  toggleHighlight,
+  getHighlights,
+  getReactionsSummary,
+  listReactors,
+  getCaptions,
+  putCaptions,
+  autoCaptions,
+  useLatePass,
+  deleteEntry
+};
 
