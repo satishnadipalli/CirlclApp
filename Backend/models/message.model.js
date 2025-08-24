@@ -49,6 +49,13 @@ const messageSchema = new mongoose.Schema(
         duration: { type: Number, default: 0 },
       },
     ],
+    reactions: [
+      {
+        user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        type: { type: String, default: '' },
+        at: { type: Date, default: Date.now },
+      },
+    ],
   },
   { timestamps: true },
 )
