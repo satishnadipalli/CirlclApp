@@ -13,6 +13,7 @@ import {
     TextInput,
     TouchableOpacity
 } from "react-native";
+import socketService from "@/services/socket.service";
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -45,6 +46,12 @@ export default function LoginScreen() {
       await AsyncStorage.setItem("token", data.token);
       if (data?.refreshToken) await AsyncStorage.setItem("refreshToken", data.refreshToken);
       await AsyncStorage.setItem("user", JSON.stringify(data.user));
+
+      // Ensure socket is connected and user is registered for in-app notifications
+      try {
+        await socketService.connect();
+        if (data?.user?.id) socketService.registerUser(data.user.id);
+      } catch {}
 
       // Redirect to home screen
       router.push("/");

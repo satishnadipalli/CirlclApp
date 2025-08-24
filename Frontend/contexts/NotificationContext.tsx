@@ -239,6 +239,13 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const initializeSocket = async () => {
     try {
       await socketService.connect()
+      // Register currently logged-in user id if available
+      try {
+        const raw = await AsyncStorage.getItem("user")
+        const parsed = raw ? JSON.parse(raw) : null
+        const uid = parsed?.id || parsed?._id
+        if (uid) socketService.registerUser(uid)
+      } catch {}
       socketService.onNotification(handleNewNotification)
       // Celebrate streak on daily post or late pass forgiveness
       const cb = (data: any) => {
