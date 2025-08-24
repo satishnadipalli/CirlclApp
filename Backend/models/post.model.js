@@ -54,5 +54,9 @@ const postSchema = new mongoose.Schema(
 
 postSchema.index({ geo: "2dsphere" });
 postSchema.index({ createdAt: -1 });
+postSchema.index({ user: 1, createdAt: -1 });
+postSchema.index({ hashtags: 1, createdAt: -1 });
+postSchema.index({ mentions: 1, createdAt: -1 });
+postSchema.index({ likes: 1 });
 
 module.exports = mongoose.model("Post", postSchema);

@@ -60,6 +60,9 @@ const messageSchema = new mongoose.Schema(
   { timestamps: true },
 )
 
+messageSchema.index({ messageType: 1, to: 1, createdAt: -1 })
+messageSchema.index({ messageType: 1, group: 1, createdAt: -1 })
+
 // Validation: message must have either 'to' or 'group', not both
 messageSchema.pre("save", function (next) {
   if (this.messageType === "direct" && !this.to) {

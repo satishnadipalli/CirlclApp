@@ -74,8 +74,8 @@ const createPost = async (req, res) => {
 const getAllPosts = async (req, res) => {
   try {
     let { page = 1, limit = 10, hashtag, mention, userId } = req.query;
-    page = parseInt(page);
-    limit = parseInt(limit);
+    page = Math.max(1, parseInt(page));
+    limit = Math.min(50, Math.max(1, parseInt(limit)));
 
     const filter = {};
     if (userId) filter.user = userId;
@@ -107,8 +107,8 @@ const getAllPosts = async (req, res) => {
 const getMyPosts = async (req, res) => {
   try {
     let { page = 1, limit = 10, hashtag, mention } = req.query
-    page = Number.parseInt(page)
-    limit = Number.parseInt(limit)
+    page = Math.max(1, Number.parseInt(page))
+    limit = Math.min(50, Math.max(1, Number.parseInt(limit)))
 
     const filter = { user: req.user.id }
 
@@ -166,8 +166,8 @@ const getPostsByUserId = async (req, res) => {
     }
 
     let { page = 1, limit = 10, hashtag, mention } = req.query
-    page = Number.parseInt(page)
-    limit = Number.parseInt(limit)
+    page = Math.max(1, Number.parseInt(page))
+    limit = Math.min(50, Math.max(1, Number.parseInt(limit)))
 
     const filter = { user: id }
 
