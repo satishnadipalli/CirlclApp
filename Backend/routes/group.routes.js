@@ -36,4 +36,10 @@ router.post("/:groupId/admins/:memberId", auth, makeAdmin)
 // Remove admin
 router.delete("/:groupId/admins/:adminId", auth, removeAdmin)
 
+// Leave group
+router.post('/:groupId/leave', auth, require('../controllers/group.controllers').leaveGroup)
+
+// Delete group (creator only)
+router.delete('/:groupId', auth, require('../controllers/group.controllers').deleteGroup)
+
 module.exports = router

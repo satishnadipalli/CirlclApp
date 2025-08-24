@@ -267,7 +267,12 @@ const NotificationsScreen = () => {
       if (uid) { try { (require("expo-router") as any).router.push(`/otherProfile?userId=${uid}`) } catch {} }
       return
     }
-    // TODO: handle mentions without post context
+    if (notification.type === 'mention' && !notification.post) {
+      const uid = typeof notification.sender === 'string' ? notification.sender : (notification.sender as any)?._id
+      if (uid) { try { (require("expo-router") as any).router.push(`/otherProfile?userId=${uid}`) } catch {} }
+      return
+    }
+    // Fallback: no-op
   }
 
   const handleLongPress = (notification: Notification) => {

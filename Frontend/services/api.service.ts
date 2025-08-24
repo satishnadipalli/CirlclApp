@@ -306,6 +306,14 @@ class ApiService {
     })
   }
 
+  async leaveGroup(groupId) {
+    return this.request(`/groups/${groupId}/leave`, { method: 'POST' })
+  }
+
+  async deleteGroup(groupId) {
+    return this.request(`/groups/${groupId}`, { method: 'DELETE' })
+  }
+
   // User Methods
   async getMe() {
     return this.request("/users/me")
@@ -423,12 +431,21 @@ class ApiService {
     return this.request(`/posts/${id}`)
   }
 
+  // Generic home feed (sorted by recency). Falls back if no dedicated following feed.
+  async getFeed(page = 1, limit = 10) {
+    return this.request(`/posts?page=${page}&limit=${limit}`)
+  }
+
   async getSavedPosts() {
     return this.request(`/posts/saved`)
   }
 
   async likePost(postId: string) {
     return this.request(`/posts/${postId}/like`, { method: 'PUT' })
+  }
+
+  async toggleSave(postId: string) {
+    return this.request(`/posts/${postId}/save`, { method: 'PUT' })
   }
   async addComment(postId: string, text: string) {
     return this.request(`/posts/${postId}/comment`, { method: 'POST', body: JSON.stringify({ text }) })
