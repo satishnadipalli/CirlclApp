@@ -32,6 +32,7 @@ export default function ReelsScreen() {
   const likeLocalRef = useRef<Record<string, boolean>>({})
   const likeCountLocalRef = useRef<Record<string, number>>({})
   const progressRef = useRef<Record<string, number>>({}) // 0..1
+  const impressionSentRef = useRef<Record<string, boolean>>({})
 
   // Heart animation for double-tap
   const heartScale = useRef(new Animated.Value(0)).current
@@ -95,7 +96,10 @@ export default function ReelsScreen() {
       // reset progress tracking
       lastReportedMsRef.current[String(current._id)] = 0
       startedRef.current[String(current._id)] = false
-      ;(api as any).postMetric(String(current._id), { event: 'impression' }).catch(() => {})
+      if (!impressionSentRef.current[String(current._id)]) {
+        impressionSentRef.current[String(current._id)] = true
+        ;(api as any).postMetric(String(current._id), { event: 'impression' }).catch(() => {})
+      }
     }
   }, [currentIndex, reels])
 
@@ -244,6 +248,9 @@ export default function ReelsScreen() {
     try {
       const id = String(item?._id || '')
       if (!id) return
+      // only track metrics for currently visible item
+      const current = reels[currentIndex]
+      if (!current || String(current?._id || '') !== id) return
       // progress
       if (typeof status?.positionMillis === 'number' && typeof status?.durationMillis === 'number' && status.durationMillis > 0) {
         const p = Math.max(0, Math.min(1, status.positionMillis / status.durationMillis))
@@ -257,7 +264,7 @@ export default function ReelsScreen() {
       // periodic progress every ~2s
       const last = lastReportedMsRef.current[id] || 0
       const pos = Number(status?.positionMillis || 0)
-      if (pos - last >= 2000) {
+      if (status?.isPlaying && pos - last >= 2000) {
         lastReportedMsRef.current[id] = pos
         ;(api as any).postMetric(id, { event: 'watch_progress', deltaMs: 2000 }).catch(() => {})
       }
