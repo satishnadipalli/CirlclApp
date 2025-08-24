@@ -317,6 +317,12 @@ const NotificationsScreen = () => {
 
   const notifHandlerRef = useRef<((data: any) => void) | null>(null)
 
+  useEffect(() => {
+    fetchNotifications(1, true)
+    fetchUnreadCount()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const renderNotification = ({ item }: { item: Notification }) => (
     <TouchableOpacity
       style={[styles.notificationItem, !item?.isRead && styles.unreadNotification]}
