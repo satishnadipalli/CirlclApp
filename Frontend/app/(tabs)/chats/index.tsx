@@ -214,9 +214,8 @@ export default function ChatsScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      fetchChats()
-      const id = setInterval(fetchChats, 5000) // fallback polling in case socket missed
-      return () => clearInterval(id)
+      fetchChats() // fetch once on focus; rely on socket realtime updates afterward
+      return () => {}
     }, [userId]),
   )
 
