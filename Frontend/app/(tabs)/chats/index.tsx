@@ -78,6 +78,7 @@ export default function ChatsScreen() {
       }
     } catch (e) {
       console.error("fetch chats error", e)
+      setChats([])
     } finally {
       setLoading(false)
     }
@@ -117,7 +118,6 @@ export default function ChatsScreen() {
   }
 
   const setupRealtime = async (uid: string) => {
-    await socketService.connect()
     socketService.registerUser(uid)
 
     const onDirect = (message: any) => {
@@ -163,8 +163,7 @@ export default function ChatsScreen() {
           idx,
           updated: {
             ...chat,
-            lastMessage: { ...(chat.lastMessage || {}), text: message.text, createdAt, from: { name: message.from === uid ? "You" : "" } },
-            unreadCount: (chat.unreadCount || 0) + 1,
+            lastMessage: { ...(chat.lastMessage || {}), text: message.text, createdAt },
           },
         }
       })
@@ -247,6 +246,8 @@ export default function ChatsScreen() {
         <Text style={{ textAlign: "center", marginTop: 20 }}>Loading chats...</Text>
       ) : !userId ? (
         <Text style={{ textAlign: "center", marginTop: 20 }}>Please login to view chats</Text>
+      ) : filtered.length === 0 ? (
+        <Text style={{ textAlign: "center", marginTop: 20 }}>No chats</Text>
       ) : (
         <FlatList data={filtered} keyExtractor={keyExtractor} renderItem={renderItem} ItemSeparatorComponent={() => <View style={styles.separator} />} />
       )}
