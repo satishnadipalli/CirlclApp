@@ -77,6 +77,7 @@ export default function RootLayout() {
         <Stack.Screen name="otherProfile.tsx" />
         <Stack.Screen name="notifications" />
         <Stack.Screen name="highlights" />
+        <Stack.Screen name="settings/notifications" />
 
         {/* Create screens */}
          <Stack.Screen name="create/select-media" />

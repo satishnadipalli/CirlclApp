@@ -120,6 +120,14 @@ class ApiService {
     } catch { return false }
   }
 
+  // Notification preferences
+  async getNotificationPrefs() {
+    return this.request(`/users/me/notification-prefs`)
+  }
+  async updateNotificationPrefs(prefs: Partial<{ like: boolean; comment: boolean; reply: boolean; mention: boolean; follow: boolean; save: boolean; daily: boolean }>) {
+    return this.request(`/users/me/notification-prefs`, { method: 'PUT', body: JSON.stringify(prefs) })
+  }
+
   // Chat Methods
   async getChats() {
     return this.request("/messages/chats")
