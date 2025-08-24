@@ -57,6 +57,7 @@ const createPost = async (req, res) => {
             type: "mention",
             postId: newPost._id,
             text: description,
+            actionLink: `/post/${newPost._id}`,
           })
         }
       }
@@ -249,6 +250,7 @@ const likePost = async (req, res) => {
           senderId: req.user.id, // ✅ correct
           type: "like",
           post: post._id,
+          actionLink: `/post/${post._id}`,
         });
       }
     }
@@ -307,6 +309,7 @@ const addComment = async (req, res) => {
         type: "comment",
         postId: post._id,
         text: req.body.text,
+        actionLink: `/post/${post._id}?focusCommentId=${post.comments[post.comments.length - 1]?._id || ''}`,
       });
     }
 
@@ -335,6 +338,7 @@ const addComment = async (req, res) => {
             type: "mention",
             postId: post._id,
             text: req.body.text,
+            actionLink: `/post/${post._id}`,
           });
         }
       }
@@ -386,6 +390,7 @@ const replyToComment = async (req, res) => {
         postId: post._id,
         commentId: comment._id,
         text, // optional: show reply text
+        actionLink: `/post/${post._id}?focusCommentId=${comment._id}`,
       });
     }
 
@@ -404,6 +409,7 @@ const replyToComment = async (req, res) => {
             postId: post._id,
             commentId: comment._id,
             text, // optional: show mention text
+            actionLink: `/post/${post._id}?focusCommentId=${comment._id}`,
           });
         }
       }
@@ -445,6 +451,7 @@ const likeComment = async (req, res) => {
             postId: post._id,
             commentId: comment._id,
             replyId: reply._id,
+            actionLink: `/post/${post._id}?focusCommentId=${comment._id}`,
           });
         }
       }
@@ -466,6 +473,7 @@ const likeComment = async (req, res) => {
             type: "like", // normalize to supported type
             postId: post._id,
             commentId: comment._id,
+            actionLink: `/post/${post._id}?focusCommentId=${comment._id}`,
           });
         }
       }
@@ -623,6 +631,7 @@ const savePost = async (req, res) => {
           senderId: req.user.id, // ✅ correct
           type: "save",
           postId: post._id,
+          actionLink: `/post/${post._id}`,
         });
       }
     }
