@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react'
 import { Animated, Dimensions, FlatList, Image, StyleSheet, Text, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native'
-import { Modal, TextInput, KeyboardAvoidingView, Platform, Share } from 'react-native'
+import { Modal, TextInput, KeyboardAvoidingView, Platform, Share, Alert } from 'react-native'
 import { useRouter } from 'expo-router'
 import { Video } from 'expo-av'
 import { Ionicons } from '@expo/vector-icons'
@@ -195,6 +195,45 @@ export default function ReelsScreen() {
     } catch {}
   }
 
+  const onNotInterested = async (item: any) => {
+    const id = String(item?._id || '')
+    if (!id) return
+    try {
+      await (api as any).notInterested(id)
+      // Remove from list optimistically
+      setReels((prev) => prev.filter((p) => String(p?._id) !== id))
+    } catch {}
+  }
+
+  const onLongPress = (item: any) => {
+    Alert.alert('Actions', undefined, [
+      { text: 'Not Interested', onPress: () => onNotInterested(item) },
+      { text: 'Copy Link', onPress: () => onShare(item) },
+      { text: 'Report', onPress: () => {
+        try { (api as any).report('post', String(item?._id || ''), 'spam') } catch {}
+      } },
+      { text: 'Cancel', style: 'cancel' },
+    ])
+  }
+
+  const onPressHashtag = (tag: string) => {
+    try { router.push({ pathname: '/(tabs)/search', params: { hashtag: tag.replace(/^#/, '') } }) } catch {}
+  }
+
+  const creatorFollowed = (item: any): boolean => {
+    const me = String(currentUserId || '')
+    const authorId = String(item?.user?._id || '')
+    if (!authorId || authorId === me) return true
+    // naive: treat presence of followers list including me as followed if available; else false and show CTA
+    return false
+  }
+
+  const onFollow = async (item: any) => {
+    const uid = String(item?.user?._id || '')
+    if (!uid) return
+    try { await (api as any).followUser(uid) } catch {}
+  }
+
   const onToggleMute = async () => {
     const next = !isMuted
     setIsMuted(next)
@@ -281,7 +320,20 @@ export default function ReelsScreen() {
           <View style={styles.meta}>
             <Image source={{ uri: item?.user?.profilePic || 'https://i.pravatar.cc/100?img=6' }} style={styles.avatar} />
             <Text style={styles.name}>{item?.user?.name || 'User'}</Text>
-            {!!item?.title && <Text style={styles.caption} numberOfLines={2}>{item.title}</Text>}
+            {!!item?.title && (
+              <Text style={styles.caption} numberOfLines={2}>
+                {String(item.title || '').split(/(#[A-Za-z0-9_]+)/g).map((seg: string, i: number) => (
+                  /^#[A-Za-z0-9_]+$/.test(seg)
+                    ? <Text key={i} style={{ color: '#4ea1ff' }} onPress={() => onPressHashtag(seg)}>{seg}</Text>
+                    : <Text key={i}>{seg}</Text>
+                ))}
+              </Text>
+            )}
+            {!creatorFollowed(item) && (
+              <TouchableOpacity onPress={() => onFollow(item)} style={{ backgroundColor: '#4ea1ff', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6, alignSelf: 'flex-start', marginTop: 6 }}>
+                <Text style={{ color: '#fff', fontWeight: '800' }}>Follow</Text>
+              </TouchableOpacity>
+            )}
           </View>
           <View style={styles.actions}>
             <TouchableOpacity style={styles.action} onPress={() => { try { Haptics.selectionAsync() } catch {} ; toggleLike(item) }}>
@@ -311,7 +363,11 @@ export default function ReelsScreen() {
       <FlatList
         data={reels}
         keyExtractor={(it) => String(it?._id || Math.random())}
-        renderItem={renderItem}
+        renderItem={(props) => (
+          <TouchableWithoutFeedback onLongPress={() => onLongPress(props.item)}>
+            <View>{renderItem(props)}</View>
+          </TouchableWithoutFeedback>
+        )}
         pagingEnabled
         showsVerticalScrollIndicator={false}
         onViewableItemsChanged={onViewableItemsChanged}
@@ -348,7 +404,15 @@ export default function ReelsScreen() {
                         <Text style={{ fontWeight: '800' }}>{item?.name || 'User'} </Text>
                         {String(item?.text || '')}
                       </Text>
-                      {!!(item?.likes?.length) && <Text style={{ color: '#aaa', marginTop: 4 }}>{item.likes.length} likes</Text>}
+                      <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6, gap: 12 }}>
+                        {!!(item?.likes?.length) && <Text style={{ color: '#aaa' }}>{item.likes.length} likes</Text>}
+                        <TouchableOpacity onPress={async () => { try { await (api as any).likeComment(String(commentsOpenForId || ''), String(item?._id || '')) ; const fresh: any = await (api as any).getPostById(String(commentsOpenForId || '')); if (fresh?.success) setCommentsPost(fresh.post) } catch {} }}>
+                          <Text style={{ color: '#fff' }}>Like</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => setCommentText(`@${String(item?.name || '').split(' ')[0]} `)}>
+                          <Text style={{ color: '#fff' }}>Reply</Text>
+                        </TouchableOpacity>
+                      </View>
                     </View>
                   </View>
                 )}

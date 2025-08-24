@@ -13,6 +13,8 @@ class ApiService {
       if (token) {
         this.token = token
       }
+      const rt = await AsyncStorage.getItem('refreshToken')
+      if (rt) (this as any).refreshToken = rt
     } catch (error) {
       console.error("Error loading token:", error)
     }
@@ -74,6 +76,13 @@ class ApiService {
             message: msg || (response.status === 404 ? "Not found" : response.status === 403 ? "Forbidden" : "Too many requests"),
           }
         }
+        // Attempt one refresh on 401
+        if (response.status === 401 && !(options as any)._refreshed) {
+          const ok = await this.tryRefresh()
+          if (ok) {
+            return this.request(endpoint, { ...options, _refreshed: true })
+          }
+        }
         const msg = typeof data === 'string' ? data : data?.message
         throw new Error(msg || "Request failed")
       }
@@ -92,6 +101,23 @@ class ApiService {
         message: error instanceof Error ? error.message : "Unknown error occurred",
       }
     }
+  }
+
+  async tryRefresh() {
+    try {
+      const rt = (this as any).refreshToken || (await AsyncStorage.getItem('refreshToken'))
+      if (!rt) return false
+      const res = await fetch(`${this.baseURL}/users/refresh`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refreshToken: rt }) })
+      if (!res.ok) return false
+      const data = await res.json()
+      if (!data?.token || !data?.refreshToken) return false
+      this.token = data.token
+      ;(this as any).refreshToken = data.refreshToken
+      await AsyncStorage.setItem('token', data.token)
+      await AsyncStorage.setItem('refreshToken', data.refreshToken)
+      if (data?.user) await AsyncStorage.setItem('user', JSON.stringify(data.user))
+      return true
+    } catch { return false }
   }
 
   // Chat Methods
@@ -398,17 +424,29 @@ class ApiService {
 
   // Auth Methods
   async login(email, password) {
-    return this.request("/users/login", {
-      method: "POST",
-      body: JSON.stringify({ email, password }),
-    })
+    const res = await this.request("/users/login", { method: "POST", body: JSON.stringify({ email, password }) })
+    if ((res as any)?.token) {
+      this.token = (res as any).token
+      await AsyncStorage.setItem('token', (res as any).token)
+    }
+    if ((res as any)?.refreshToken) {
+      ;(this as any).refreshToken = (res as any).refreshToken
+      await AsyncStorage.setItem('refreshToken', (res as any).refreshToken)
+    }
+    return res
   }
 
   async register(name, email, password) {
-    return this.request("/users/register", {
-      method: "POST",
-      body: JSON.stringify({ name, email, password }),
-    })
+    const res = await this.request("/users/register", { method: "POST", body: JSON.stringify({ name, email, password }) })
+    if ((res as any)?.token) {
+      this.token = (res as any).token
+      await AsyncStorage.setItem('token', (res as any).token)
+    }
+    if ((res as any)?.refreshToken) {
+      ;(this as any).refreshToken = (res as any).refreshToken
+      await AsyncStorage.setItem('refreshToken', (res as any).refreshToken)
+    }
+    return res
   }
 
   async getNotifications(page = 1, limit = 20) {
@@ -446,6 +484,10 @@ class ApiService {
 
   async likePost(postId: string) {
     return this.request(`/posts/${postId}/like`, { method: 'PUT' })
+  }
+
+  async notInterested(postId: string) {
+    return this.request(`/posts/${postId}/not-interested`, { method: 'POST' })
   }
 
   async postMetric(postId: string, payload: { event: 'impression'|'watch_start'|'watch_progress'|'watch_complete'|'rewatch'; positionMs?: number; durationMs?: number; deltaMs?: number }) {

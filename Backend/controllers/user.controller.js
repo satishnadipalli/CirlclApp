@@ -54,14 +54,18 @@ const login = async (req, res) => {
       return res.status(400).json({ message: "Invalid email or password" });
     }
 
-    // Generate JWT token
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
-      expiresIn: "7d",
-    });
+    // Generate JWT access (15m) and refresh (30d)
+    const accessToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '15m' })
+    const refreshToken = jwt.sign({ id: user._id, type: 'refresh' }, process.env.JWT_SECRET, { expiresIn: '30d' })
+    const crypto = require('crypto')
+    const tokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex')
+    const exp = new Date(Date.now() + 30 * 24 * 3600 * 1000)
+    await User.findByIdAndUpdate(user._id, { $push: { refreshTokens: { tokenHash, expiresAt: exp, userAgent: req.headers['user-agent'] || '', ip: req.ip || '' } } })
 
     // Send back token + user info
     res.json({
-      token,
+      token: accessToken,
+      refreshToken,
       user: {
         id: user._id,
         name: user.name,
@@ -73,6 +77,46 @@ const login = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+// Exchange refresh token for a new access token (and rotate refresh)
+const refresh = async (req, res) => {
+  try {
+    const { refreshToken } = req.body || {}
+    if (!refreshToken) return res.status(400).json({ success: false, message: 'refreshToken required' })
+    let payload
+    try { payload = jwt.verify(refreshToken, process.env.JWT_SECRET) } catch { return res.status(401).json({ success: false, message: 'Invalid refresh token' }) }
+    if (payload?.type !== 'refresh') return res.status(401).json({ success: false, message: 'Invalid token type' })
+    const crypto = require('crypto')
+    const tokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex')
+    const user = await User.findById(payload.id).select('refreshTokens name email profilePic')
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' })
+    const record = (user.refreshTokens || []).find((t) => t.tokenHash === tokenHash)
+    if (!record || (record.expiresAt && new Date(record.expiresAt).getTime() < Date.now())) {
+      return res.status(401).json({ success: false, message: 'Refresh token expired or revoked' })
+    }
+    // Rotate
+    const newAccess = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '15m' })
+    const newRefresh = jwt.sign({ id: user._id, type: 'refresh' }, process.env.JWT_SECRET, { expiresIn: '30d' })
+    const newHash = crypto.createHash('sha256').update(newRefresh).digest('hex')
+    const exp = new Date(Date.now() + 30 * 24 * 3600 * 1000)
+    user.refreshTokens = user.refreshTokens.filter((t) => t.tokenHash !== tokenHash)
+    user.refreshTokens.push({ tokenHash: newHash, expiresAt: exp, userAgent: req.headers['user-agent'] || '', ip: req.ip || '' })
+    await user.save()
+    res.json({ success: true, token: newAccess, refreshToken: newRefresh, user: { id: user._id, name: user.name, email: user.email, profilePic: user.profilePic || null } })
+  } catch (e) { res.status(500).json({ success: false, message: e.message }) }
+}
+
+// Revoke refresh token (logout)
+const logout = async (req, res) => {
+  try {
+    const { refreshToken } = req.body || {}
+    if (!refreshToken) return res.json({ success: true })
+    const crypto = require('crypto')
+    const tokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex')
+    await User.findByIdAndUpdate(req.user?.id || undefined, { $pull: { refreshTokens: { tokenHash } } })
+    res.json({ success: true })
+  } catch (e) { res.status(500).json({ success: false, message: e.message }) }
+}
 
 const getProfile = async (req, res) => {
   try {
@@ -367,6 +411,8 @@ const unblockUser = async (req, res) => {
 module.exports = {
   register,
   login,
+  refresh,
+  logout,
   getProfile,
   updateProfile,
   followUser,

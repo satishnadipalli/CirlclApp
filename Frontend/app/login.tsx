@@ -1,5 +1,6 @@
 // app/login.tsx
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import api from "@/services/api.service";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
@@ -19,8 +20,7 @@ export default function LoginScreen() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Local network backend API
-  const API_URL = require("../constants/Config").API_BASE_URL + "/users/login";
+  // Local network backend API is handled by api service
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -31,16 +31,10 @@ export default function LoginScreen() {
     setLoading(true);
     console.log("hello")
     try {
-      const response = await fetch(API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const data = await response.json();
+      const data: any = await (api as any).login(email, password)
       setLoading(false);
 
-      if (!response.ok) {
+      if (!data?.token) {
         Alert.alert("Login Failed", data.message || "Something went wrong");
         return;
       }
@@ -49,6 +43,7 @@ export default function LoginScreen() {
 
       // Store token and user info locally
       await AsyncStorage.setItem("token", data.token);
+      if (data?.refreshToken) await AsyncStorage.setItem("refreshToken", data.refreshToken);
       await AsyncStorage.setItem("user", JSON.stringify(data.user));
 
       // Redirect to home screen

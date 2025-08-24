@@ -17,6 +17,7 @@ router.get("/explore", protect, postController.getExplorePosts);
 
 // Reels
 router.get("/reels", protect, postController.getReels);
+router.post('/:id/not-interested', protect, postController.markNotInterested);
 // Reels/watch metrics
 router.post("/:id/metrics", protect, postController.recordWatchMetric);
 

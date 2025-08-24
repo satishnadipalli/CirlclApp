@@ -16,7 +16,17 @@ const userSchema = new mongoose.Schema({
   expoPushTokens: [{ type: String }],
   blockedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   bio: { type: String, default: "" },
-  website: { type: String, default: "" }
+  website: { type: String, default: "" },
+  notInterestedPosts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }],
+  refreshTokens: [
+    new mongoose.Schema({
+      tokenHash: { type: String, required: true },
+      expiresAt: { type: Date, required: true },
+      createdAt: { type: Date, default: Date.now },
+      userAgent: { type: String, default: '' },
+      ip: { type: String, default: '' },
+    }, { _id: false })
+  ],
 }, { timestamps: true });
 
 module.exports = mongoose.model("User", userSchema);

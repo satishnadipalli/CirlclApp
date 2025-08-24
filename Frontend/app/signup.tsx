@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import { Alert, Image, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity } from "react-native";
+import api from "@/services/api.service";
 
 export default function SignupScreen() {
   const router = useRouter();
@@ -17,15 +18,11 @@ export default function SignupScreen() {
     }
     setLoading(true);
     try {
-      const res = await fetch(require("../constants/Config").API_BASE_URL + "/users/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.message || "Signup failed");
-      await AsyncStorage.setItem("token", data.token);
-      await AsyncStorage.setItem("user", JSON.stringify(data.user));
+      const data: any = await (api as any).register(name, email, password)
+      if (!data?.token) throw new Error(data?.message || "Signup failed")
+      await AsyncStorage.setItem("token", data.token)
+      if (data?.refreshToken) await AsyncStorage.setItem("refreshToken", data.refreshToken)
+      await AsyncStorage.setItem("user", JSON.stringify(data.user))
       router.replace("/(tabs)");
     } catch (e) {
       Alert.alert("Signup failed", (e as Error).message);

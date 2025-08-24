@@ -751,9 +751,10 @@ const getReels = async (req, res) => {
     page = Number.parseInt(page)
     limit = Math.min(10, Math.max(4, Number.parseInt(limit)))
 
-    const me = await User.findById(req.user.id).select('following savedPosts')
+    const me = await User.findById(req.user.id).select('following savedPosts notInterestedPosts')
     const following = me?.following || []
     const saved = me?.savedPosts || []
+    const notInterested = new Set((me?.notInterestedPosts || []).map((x) => String(x)))
 
     // Pull recent video posts only
     const recent = await Post.find({ mediaUrl: { $regex: /\.(mp4|mov|webm|m4v)$/i } })
@@ -775,6 +776,8 @@ const getReels = async (req, res) => {
       if (saved.some((s) => String(s) === String(p._id))) score += 20
       // Hashtags presence lightly boosts (content richness)
       score += (p.hashtags?.length || 0) * 1
+      // Not interested penalty
+      if (notInterested.has(String(p._id))) score -= 500
       // Watch metrics (completion, avg watch, rewatch)
       const watchCount = Math.max(1, Number(p.watchCount || 0))
       const impressions = Math.max(1, Number(p.impressions || 0))
@@ -839,6 +842,21 @@ const recordWatchMetric = async (req, res) => {
   }
 }
 
+// Mark a post as Not Interested for the current user
+const markNotInterested = async (req, res) => {
+  try {
+    const { id } = req.params
+    const me = await User.findById(req.user.id).select('notInterestedPosts')
+    if (!me) return res.status(404).json({ success: false, message: 'User not found' })
+    const exists = (me.notInterestedPosts || []).some((p) => String(p) === String(id))
+    if (!exists) me.notInterestedPosts.push(id)
+    await me.save()
+    return res.json({ success: true })
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message })
+  }
+}
+
 module.exports = {
   createPost,
   getAllPosts,
@@ -857,5 +875,6 @@ module.exports = {
   getExplorePosts,
   getPostById,
   getReels,
+  markNotInterested,
   recordWatchMetric,
 };
