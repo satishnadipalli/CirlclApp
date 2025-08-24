@@ -17,6 +17,8 @@ router.get("/explore", protect, postController.getExplorePosts);
 
 // Reels
 router.get("/reels", protect, postController.getReels);
+// Reels/watch metrics
+router.post("/:id/metrics", protect, postController.recordWatchMetric);
 
 // My posts (also paginated)
 router.get("/me", protect, postController.getMyPosts);
