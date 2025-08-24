@@ -42,6 +42,7 @@ const Search = () => {
   const [refreshing, setRefreshing] = useState(false)
   const [dailyPage, setDailyPage] = useState(1)
   const [dailyHasMore, setDailyHasMore] = useState(true)
+  const [dailyLocked, setDailyLocked] = useState(false)
   const router = useRouter()
   const params = useLocalSearchParams() as any
   const openHandledRef = useRef(false)
@@ -88,6 +89,7 @@ const Search = () => {
         setDailyFeed([])
         setDailyHasMore(false)
         setDailyPage(1)
+        setDailyLocked(true)
         return
       }
       const entries = (res as any)?.entries || []
@@ -95,6 +97,7 @@ const Search = () => {
       // Server currently returns all for the day; simple hasMore=false
       setDailyHasMore(false)
       setDailyPage(nextPage + 1)
+      setDailyLocked(false)
     } catch (e) {
       if (reset) setDailyFeed([])
     } finally {
@@ -200,6 +203,15 @@ const Search = () => {
     setRefreshing(false)
   }
 
+  const useLatePass = async () => {
+    const r: any = await apiService.useLatePass()
+    if (r?.success) {
+      await loadDaily(true)
+      setTab('daily')
+      setShowDaily(true)
+    }
+  }
+
   return (
     <View style={styles.container}>
       <View style={{ flexDirection: 'row', marginTop: 12, marginHorizontal: 10, borderRadius: 10, backgroundColor: '#f2f2f2', overflow: 'hidden' }}>
@@ -296,6 +308,11 @@ const Search = () => {
               <TouchableOpacity style={styles.cta} onPress={() => setShowComposer(true)}>
                 <Text style={styles.ctaText}>Post now</Text>
               </TouchableOpacity>
+              {dailyLocked && (
+                <TouchableOpacity style={[styles.cta, { marginTop: 10, backgroundColor: '#6c5ce7' }]} onPress={useLatePass}>
+                  <Text style={styles.ctaText}>Use Late Pass</Text>
+                </TouchableOpacity>
+              )}
             </View>
           )}
         />

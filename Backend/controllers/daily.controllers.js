@@ -120,7 +120,13 @@ const getTodayFeed = async (req, res) => {
     const userId = req.user._id
     const dateKey = formatDateKey(new Date())
     const posted = await DailyCircleEntry.exists({ user: userId, dateKey, group: { $exists: false } })
-    if (!posted) return res.status(403).json({ success: false, message: "Post today to unlock your Daily Circle" })
+    // Late Pass forgiveness
+    let forgiven = false
+    if (!posted) {
+      const st = await DailyStreak.findOne({ user: userId }).select('forgivenForDateKeys')
+      forgiven = !!st && Array.isArray(st.forgivenForDateKeys) && st.forgivenForDateKeys.includes(dateKey)
+    }
+    if (!posted && !forgiven) return res.status(403).json({ success: false, message: "Post today to unlock your Daily Circle" })
 
     let { page = 1, limit = 30 } = req.query
     page = parseInt(page)
@@ -175,7 +181,12 @@ const getRings = async (req, res) => {
     const dateKey = formatDateKey(new Date())
     // Require requester to have posted to see rings (server-side gating)
     const requesterPosted = await DailyCircleEntry.exists({ user: userId, dateKey, group: { $exists: false } })
-    if (!requesterPosted) return res.json({ success: true, rings: [] })
+    let forgiven = false
+    if (!requesterPosted) {
+      const st = await DailyStreak.findOne({ user: userId }).select('forgivenForDateKeys')
+      forgiven = !!st && Array.isArray(st.forgivenForDateKeys) && st.forgivenForDateKeys.includes(dateKey)
+    }
+    if (!requesterPosted && !forgiven) return res.json({ success: true, rings: [] })
 
     const me = await User.findById(userId).select('following')
     const followingIds = (me?.following || []).map((id) => String(id))
@@ -196,74 +207,6 @@ const getRings = async (req, res) => {
       createdAt: e.createdAt,
     }))
     res.json({ success: true, rings })
-  } catch (e) {
-    res.status(500).json({ success: false, message: e.message })
-  }
-}
-
-const getEntryByUser = async (req, res) => {
-  try {
-    const requestorId = String(req.user._id)
-    const { userId } = req.params
-    const dateKey = formatDateKey(new Date())
-
-    // Block safety: don't return content if requestor has blocked target
-    const me = await User.findById(requestorId).select('blockedUsers')
-    if ((me?.blockedUsers || []).some((id) => String(id) === String(userId))) {
-      return res.status(404).json({ success: false, message: 'No entry' })
-    }
-
-    // Fetch entries for the day (multiple allowed)
-    const entries = await DailyCircleEntry.find({ user: userId, dateKey, group: { $exists: false } })
-      .sort({ createdAt: -1 })
-      .populate('user', 'name profilePic')
-
-    if (!entries || entries.length === 0) return res.status(404).json({ success: false, message: 'No entry' })
-
-    // If viewing someone else's entries and they're not public, require unlock OR close-friends membership
-    const isOwn = requestorId === String(userId)
-    const anyPublic = entries.some((e) => String(e.visibility) === 'everyone')
-    if (!isOwn && !anyPublic) {
-      const posted = await DailyCircleEntry.exists({ user: requestorId, dateKey, group: { $exists: false } })
-      if (!posted) return res.status(403).json({ success: false, message: 'Post today to unlock your Daily Circle' })
-    }
-
-    // Filter out closeFriends entries if requestor is not in owner's closeFriends
-    if (!isOwn) {
-      const owner = await User.findById(userId).select('closeFriends')
-      const isCF = (owner?.closeFriends || []).some((id) => String(id) === requestorId)
-      if (!isCF) {
-        // Return only non-closeFriends entries
-        const filtered = entries.filter((e) => String(e.visibility) !== 'closeFriends')
-        return res.json({ success: true, entry: filtered[0] || null, entries: filtered })
-      }
-    }
-
-    res.json({ success: true, entry: entries[0] || null, entries })
-  } catch (e) {
-    res.status(500).json({ success: false, message: e.message })
-  }
-}
-
-const getGroupDailyFeed = async (req, res) => {
-  try {
-    const { groupId } = req.params
-    const userId = String(req.user._id)
-    const dateKey = formatDateKey(new Date())
-
-    const grp = await Group.findById(groupId).select('members')
-    if (!grp) return res.status(404).json({ success: false, message: 'Group not found' })
-    if (!grp.members.some((m) => String(m) === userId)) return res.status(403).json({ success: false, message: 'Not a member' })
-
-    const me = await User.findById(userId).select('blockedUsers')
-    const blockedIds = new Set((me?.blockedUsers || []).map((id) => String(id)))
-
-    const entries = await DailyCircleEntry.find({ dateKey, group: groupId })
-      .sort({ createdAt: -1 })
-      .where('user').nin(Array.from(blockedIds))
-      .populate('user', 'name profilePic')
-
-    res.json({ success: true, entries })
   } catch (e) {
     res.status(500).json({ success: false, message: e.message })
   }
@@ -634,6 +577,78 @@ const putCaptions = async (req, res) => {
   } catch (e) { res.status(500).json({ success: false, message: e.message }) }
 }
 
+// Owner delete an entry
+module.exports.deleteEntry = async (req, res) => {
+  try {
+    const { entryId } = req.params
+    if (!entryId) return res.status(400).json({ success: false, message: 'entryId required' })
+    const entry = await DailyCircleEntry.findById(entryId).select('user')
+    if (!entry) return res.status(404).json({ success: false, message: 'Entry not found' })
+    if (String(entry.user) !== String(req.user._id)) return res.status(403).json({ success: false, message: 'Forbidden' })
+    await DailyCircleEntry.deleteOne({ _id: entryId })
+    res.json({ success: true })
+  } catch (e) { res.status(500).json({ success: false, message: e.message }) }
+}
+
+// Use a late pass to forgive today's Daily and preserve streak (max once per 7 days)
+module.exports.useLatePass = async (req, res) => {
+  try {
+    const userId = String(req.user._id)
+    const dateKey = formatDateKey(new Date())
+
+    // Already posted today? No need to use late pass
+    const posted = await DailyCircleEntry.exists({ user: userId, dateKey, group: { $exists: false } })
+    if (posted) return res.status(400).json({ success: false, message: 'Already posted today' })
+
+    const streak = await DailyStreak.findOneAndUpdate(
+      { user: userId },
+      { $setOnInsert: { user: userId, current: 0, longest: 0, lastPostedDateKey: null, latePasses: 1 } },
+      { new: true, upsert: true },
+    )
+
+    // If already forgiven for today
+    if (Array.isArray(streak.forgivenForDateKeys) && streak.forgivenForDateKeys.includes(dateKey)) {
+      return res.json({ success: true, forgiven: true, streak: streak.current })
+    }
+
+    // Enforce once per 7 days if no available passes
+    const now = new Date()
+    const within7 = streak.lastLatePassAt && (now.getTime() - new Date(streak.lastLatePassAt).getTime() < 7 * 24 * 3600 * 1000)
+    const hasBalance = Number(streak.latePasses || 0) > 0
+    if (!hasBalance && within7) {
+      return res.status(429).json({ success: false, message: 'Late Pass already used recently' })
+    }
+
+    // Apply forgiveness: treat as posted for streak continuity
+    const yesterday = new Date(dateKey)
+    yesterday.setUTCDate(yesterday.getUTCDate() - 1)
+    const yKey = yesterday.toISOString().slice(0, 10)
+
+    if (streak.lastPostedDateKey === yKey) streak.current += 1
+    else streak.current = 1
+    if (streak.current > streak.longest) streak.longest = streak.current
+    streak.lastPostedDateKey = dateKey
+
+    // Track forgiveness and usage
+    streak.forgivenForDateKeys = Array.isArray(streak.forgivenForDateKeys) ? streak.forgivenForDateKeys : []
+    streak.forgivenForDateKeys.push(dateKey)
+    streak.lastLatePassAt = now
+    if (hasBalance) streak.latePasses = Math.max(0, Number(streak.latePasses) - 1)
+
+    await streak.save()
+
+    // Emit to self to update banners
+    try {
+      const io = req.app.get('io')
+      const onlineUsers = req.app.get('onlineUsers')
+      const selfSocketId = onlineUsers.get(String(userId))
+      if (selfSocketId) io.to(selfSocketId).emit('dailyPosted', { userId, dateKey, streak: streak.current, forgiven: true })
+    } catch {}
+
+    return res.json({ success: true, forgiven: true, streak: streak.current })
+  } catch (e) { return res.status(500).json({ success: false, message: e.message }) }
+}
+
 module.exports = { getTodayPrompt, postTodayEntry, getTodayFeed, getMyStreak }
 module.exports.getRings = getRings
 module.exports.getEntryByUser = getEntryByUser
@@ -647,17 +662,4 @@ module.exports.listReactors = listReactors
 module.exports.getCaptions = getCaptions
 module.exports.putCaptions = putCaptions
 module.exports.autoCaptions = autoCaptions
-
-// Owner delete an entry
-module.exports.deleteEntry = async (req, res) => {
-  try {
-    const { entryId } = req.params
-    if (!entryId) return res.status(400).json({ success: false, message: 'entryId required' })
-    const entry = await DailyCircleEntry.findById(entryId).select('user')
-    if (!entry) return res.status(404).json({ success: false, message: 'Entry not found' })
-    if (String(entry.user) !== String(req.user._id)) return res.status(403).json({ success: false, message: 'Forbidden' })
-    await DailyCircleEntry.deleteOne({ _id: entryId })
-    res.json({ success: true })
-  } catch (e) { res.status(500).json({ success: false, message: e.message }) }
-}
 

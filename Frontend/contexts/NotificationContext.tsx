@@ -240,10 +240,13 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     try {
       await socketService.connect()
       socketService.onNotification(handleNewNotification)
-      // Celebrate streak on daily post
+      // Celebrate streak on daily post or late pass forgiveness
       const cb = (data: any) => {
         const streak = data?.streak
-        const msg = typeof streak === 'number' && streak > 0 ? `Nice! Streak ${streak}` : 'Daily posted!'
+        const forgiven = !!data?.forgiven
+        const msg = forgiven
+          ? 'Late Pass used — Daily unlocked!'
+          : (typeof streak === 'number' && streak > 0 ? `Nice! Streak ${streak}` : 'Daily posted!')
         try { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success) } catch {}
         showNotification({ type: "save", text: msg })
       }
