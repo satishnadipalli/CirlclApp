@@ -245,6 +245,7 @@ class ApiService {
     const t = type ? `&type=${encodeURIComponent(type)}` : ""
     return this.request(`/daily/${entryId}/reactors?page=${page}&limit=${limit}${t}`)
   }
+  async getDailyViewers(entryId: string) { return this.request(`/daily/${entryId}/viewers`) }
   async getDailyCaptions(entryId: string) { return this.request(`/daily/${entryId}/captions`) }
   async putDailyCaptions(entryId: string, captions: Array<{ start: number; end: number; text: string }>) {
     return this.request(`/daily/${entryId}/captions`, { method: 'PUT', body: JSON.stringify({ captions }) })

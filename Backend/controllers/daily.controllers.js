@@ -490,6 +490,19 @@ const incrementView = async (req, res) => {
   }
 }
 
+// List viewers for an entry
+const listViewers = async (req, res) => {
+  try {
+    const { entryId } = req.params
+    if (!entryId) return res.status(400).json({ success: false, message: 'entryId required' })
+    const entry = await DailyCircleEntry.findById(entryId).select('views')
+    if (!entry) return res.status(404).json({ success: false, message: 'Entry not found' })
+    const ids = Array.isArray(entry.views) ? entry.views : []
+    const users = await require('../models/user.models').find({ _id: { $in: ids } }).select('_id name profilePic')
+    res.json({ success: true, viewers: users })
+  } catch (e) { res.status(500).json({ success: false, message: e.message }) }
+}
+
 // React to an entry
 const reactToEntry = async (req, res) => {
   try {
