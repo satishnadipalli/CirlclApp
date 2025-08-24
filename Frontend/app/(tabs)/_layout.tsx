@@ -78,6 +78,15 @@ export default function TabLayout() {
       />
 
       <Tabs.Screen
+        name="reels/index"
+        options={{
+          tabBarIcon: ({ color }) => (
+            <Ionicons name="play-circle-outline" size={28} color={color} />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
         name="profile"
         options={{
           tabBarIcon: ({ color, focused }) => (
