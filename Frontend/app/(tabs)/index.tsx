@@ -201,7 +201,15 @@ export default function HomeScreen() {
                     marginBottom: 8,
                     overflow: 'hidden',
                   }}
-                  onPress={() => router.push({ pathname: "/(tabs)/search", params: { focusDaily: "1", openComposer: daily?.posted ? "0" : "1" } })}
+                  onPress={() => {
+                    if (daily?.posted) {
+					  // Open stories-like viewer starting with me
+					  router.push({ pathname: "/daily/viewer", params: { userId: currentUserId || "" } })
+					} else {
+					  // Open composer flow
+					  router.push({ pathname: "/(tabs)/search", params: { focusDaily: "1", openComposer: "1" } })
+					}
+				  }}
                 >
                   <View style={{ flexDirection: "row", alignItems: "center" }}>
                     <Image source={{ uri: myDaily?.mediaUrl || currentUserId ? (myDaily?.mediaUrl || 'https://i.pravatar.cc/100?img=12') : 'https://i.pravatar.cc/100?img=12' }} style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: '#eee' }} />
