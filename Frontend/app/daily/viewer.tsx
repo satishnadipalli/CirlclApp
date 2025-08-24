@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from "expo-router"
 import { useEffect, useMemo, useRef, useState } from "react"
-import { ActivityIndicator, Image, StyleSheet, Text, TouchableOpacity, View, Dimensions, PanResponder, TextInput, Alert } from "react-native"
+import { ActivityIndicator, Image, StyleSheet, Text, TouchableOpacity, View, Dimensions, PanResponder, TextInput, Alert, ScrollView } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import { Video } from "expo-av"
 import api from "@/services/api.service"
@@ -62,6 +62,9 @@ export default function DailyViewer() {
   const [reactionState, setReactionState] = useState<Record<string, { counts: Record<string, number>; my: string | null }>>({})
   const timerRef = useRef<any>(null)
 
+  const [groupRings, setGroupRings] = useState<Array<{ _id: string; name: string; profilePic?: string; index: number }>>([])
+  const [promptText, setPromptText] = useState<string | null>(null)
+
   const defaultSegMs = Math.max(1000, Math.min(45000, Number.parseInt(String(dur || "")) || 5000))
   const segMsRef = useRef<number>(defaultSegMs)
   const videoRef = useRef<Video | null>(null)
@@ -103,6 +106,23 @@ export default function DailyViewer() {
         setEntryIndex(0)
         setProgress(Array.from({ length: list.length }, () => 0))
         segMsRef.current = defaultSegMs
+        // Build rings from latest entries per user
+        const seen = new Set<string>()
+        const rings: Array<{ _id: string; name: string; profilePic?: string; index: number }> = []
+        for (let i = 0; i < list.length; i++) {
+          const u = list[i]?.user
+          const uid = String(u?._id || '')
+          if (uid && !seen.has(uid)) {
+            seen.add(uid)
+            rings.push({ _id: uid, name: u?.name || 'User', profilePic: u?.profilePic || '', index: i })
+          }
+        }
+        setGroupRings(rings)
+        // Fetch today's prompt (theme)
+        try {
+          const pr: any = await api.getDailyPrompt()
+          if ((pr as any)?.prompt?.text) setPromptText((pr as any).prompt.text)
+        } catch {}
       } catch {
         setEntries([])
         setError("Failed to load")
@@ -380,6 +400,31 @@ export default function DailyViewer() {
           </View>
         ))}
       </View>
+
+      {groupId && groupRings.length > 0 && (
+        <View style={{ paddingHorizontal: 12, paddingTop: 8, flexDirection: 'row', alignItems: 'center' }}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingRight: 8 }}>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              {groupRings.map((r) => {
+                const active = String(item?.user?._id || '') === r._id
+                return (
+                  <TouchableOpacity key={r._id} onPress={() => setEntryIndex(r.index)}>
+                    <Image
+                      source={{ uri: r.profilePic || 'https://i.pravatar.cc/100?img=12' }}
+                      style={{ width: 38, height: 38, borderRadius: 19, borderWidth: 2, borderColor: active ? '#fff' : 'rgba(255,255,255,0.4)' }}
+                    />
+                  </TouchableOpacity>
+                )
+              })}
+            </View>
+          </ScrollView>
+          {promptText ? (
+            <View style={{ marginLeft: 8, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6, maxWidth: width * 0.5 }}>
+              <Text style={{ color: '#fff', fontSize: 12 }} numberOfLines={1}>Theme: {promptText}</Text>
+            </View>
+          ) : null}
+        </View>
+      )}
 
       <View style={styles.header}>
         <Image source={{ uri: item?.user?.profilePic || "https://i.pravatar.cc/100?img=12" }} style={styles.avatar} />
