@@ -286,7 +286,7 @@ export default function HomeScreen() {
                   <Text numberOfLines={2} ellipsizeMode='tail' style={{ marginTop: 8, color: '#333' }}>{daily?.prompt?.text}</Text>
                   {/* Remove square preview to keep rings in a single row */}
                   {daily?.posted && (
-                    <View style={{ height: 110, marginTop: 8 }}>
+                    <View style={{  marginTop: 18,marginLeft:-25 }}>
                       <FlatList
                         data={daily?.rings || []}
                         horizontal
@@ -420,7 +420,7 @@ const styles = StyleSheet.create({
     paddingTop:40
   },
   notificationButton: { padding: 8, position: 'relative' },
-  storiesContainer: { paddingVertical: 16, backgroundColor: 'white', borderBottomWidth: 0.5, borderBottomColor: '#dbdbdb' },
+  storiesContainer: { paddingVertical: 0, backgroundColor: 'white', borderBottomWidth: 0.5, borderBottomColor: '#dbdbdb' },
   postContainer: { backgroundColor: 'white', marginBottom: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2, elevation: 1 },
   postHeader: { flexDirection: 'row', alignItems: 'center', padding: 12, paddingBottom: 8 },
   userImage: { height: 42, width: 42, borderRadius: 21, marginRight: 12, borderWidth: 0.5, borderColor: '#dbdbdb' },

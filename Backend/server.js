@@ -157,7 +157,11 @@ io.on("connection", (socket) => {
     onlineUsers.delete(userId);
     socketToUser.delete(socket.id);
     io.emit("userStatusChange", { userId, status: "offline" });
+    //here thihs userStatus Chage helps us to chage the status of the user to make the status to noarmal to probable stuff and it eliminates the other user info profiles to a broging stuff
   });
+  // this will make the process simple and clear 
+  // so that the userId with the user can follow the flow of the game though which the game can continue side
+  // the power resides 
 });
 
 // Register error handler after routes and socket
