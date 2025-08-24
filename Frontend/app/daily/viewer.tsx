@@ -62,11 +62,6 @@ export default function DailyViewer() {
   const [highlightIds, setHighlightIds] = useState<Set<string>>(new Set())
   const [reactionState, setReactionState] = useState<Record<string, { counts: Record<string, number>; my: string | null }>>({})
   const timerRef = useRef<any>(null)
-  const [showReactors, setShowReactors] = useState(false)
-  const [reactors, setReactors] = useState<any[]>([])
-  const [reactorFilter, setReactorFilter] = useState<string | undefined>(undefined)
-  const [reactorsLoading, setReactorsLoading] = useState(false)
-  const [showReport, setShowReport] = useState(false)
 
   const [groupRings, setGroupRings] = useState<Array<{ _id: string; name: string; profilePic?: string; index: number }>>([])
   const [promptText, setPromptText] = useState<string | null>(null)
