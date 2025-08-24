@@ -62,6 +62,11 @@ export default function DailyViewer() {
   const [highlightIds, setHighlightIds] = useState<Set<string>>(new Set())
   const [reactionState, setReactionState] = useState<Record<string, { counts: Record<string, number>; my: string | null }>>({})
   const timerRef = useRef<any>(null)
+  const [showReactors, setShowReactors] = useState(false)
+  const [reactors, setReactors] = useState<any[]>([])
+  const [reactorFilter, setReactorFilter] = useState<string | undefined>(undefined)
+  const [reactorsLoading, setReactorsLoading] = useState(false)
+  const [showReport, setShowReport] = useState(false)
 
   const [groupRings, setGroupRings] = useState<Array<{ _id: string; name: string; profilePic?: string; index: number }>>([])
   const [promptText, setPromptText] = useState<string | null>(null)
@@ -213,7 +218,7 @@ export default function DailyViewer() {
     setReactionState(next)
   }, [entries, myId])
 
-  // Progress timer
+  // Progress timer (images/text only). Videos drive progress via playback status for smoothness.
   const clearTimer = () => { if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null } }
   const startTimer = () => {
     clearTimer()
@@ -238,7 +243,9 @@ export default function DailyViewer() {
   }
 
   useEffect(() => {
-    startTimer()
+    const cur = entries[entryIndex]
+    const isVid = !!cur?.mediaUrl && isVideoUrl(cur.mediaUrl)
+    if (!isVid) startTimer(); else clearTimer()
     return clearTimer
   }, [entryIndex, entries, paused, loading])
 
@@ -365,7 +372,18 @@ export default function DailyViewer() {
   }, [entryIndex, entries])
 
   const onPlaybackStatusUpdate = (s: any) => {
-    if (typeof s?.positionMillis === 'number') setCurrentTime(s.positionMillis / 1000)
+    if (typeof s?.positionMillis === 'number') {
+      setCurrentTime(s.positionMillis / 1000)
+      if (typeof s?.durationMillis === 'number' && s.durationMillis > 0) {
+        setProgress((prev) => {
+          const next = prev.slice()
+          next[entryIndex] = Math.max(0, Math.min(1, (s.positionMillis as number) / (s.durationMillis as number)))
+          for (let i = 0; i < entryIndex; i++) next[i] = 1
+          for (let i = entryIndex + 1; i < next.length; i++) next[i] = Math.min(next[i] || 0, 0)
+          return next
+        })
+      }
+    }
     if (s?.didJustFinish) { clearTimer(); goNext() }
   }
 
@@ -548,18 +566,55 @@ export default function DailyViewer() {
           </View>
         )}
       </View>
-      {/* Tap/press zones: pause on press-in, resume on press-out */}
-      <TouchableOpacity style={styles.leftZone} onPress={goPrev} onPressIn={() => setPaused(true)} onPressOut={() => setPaused(false)} activeOpacity={0.2} />
-      <TouchableOpacity style={styles.rightZone} onPress={goNext} onPressIn={() => setPaused(true)} onPressOut={() => setPaused(false)} activeOpacity={0.2} />
+      {/* Tap/press zones: pause on press-in, resume on press-out; disabled when modals open */}
+      {!(showReactors || showReport) && (
+        <>
+          <TouchableOpacity style={styles.leftZone} onPress={goPrev} onPressIn={() => setPaused(true)} onPressOut={() => setPaused(false)} activeOpacity={0.2} />
+          <TouchableOpacity style={styles.rightZone} onPress={goNext} onPressIn={() => setPaused(true)} onPressOut={() => setPaused(false)} activeOpacity={0.2} />
+        </>
+      )}
 
-      {/* Reactions */}
-      <View style={{ position: 'absolute', left: 0, right: 0, bottom: 70, paddingHorizontal: 20 }}>
-        <View style={{ flexDirection: 'row', gap: 16, justifyContent: 'center', alignItems: 'center' }}>
-          <TouchableOpacity onPress={() => setShowCC((v) => !v)} style={{ position: 'absolute', left: 0 }}>
+      {/* Controls: CC, Reactions, People; owner tools on second row */}
+      <View style={{ position: 'absolute', left: 0, right: 0, bottom: 86, paddingHorizontal: 16 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <TouchableOpacity onPress={() => setShowCC((v) => !v)}>
             <Text style={{ color: '#fff', fontWeight: '800' }}>{showCC ? 'CC On' : 'CC Off'}</Text>
           </TouchableOpacity>
-          {/* Auto-captions & editor trigger (owner only) */}
-          {String(item?.user?._id || '') === String(myId || '') && (
+          <View style={{ flexDirection: 'row', gap: 16, alignItems: 'center' }}>
+            {['❤️','😂','🔥','😮','👏'].map((emoji) => {
+              const eid = String(item?._id || "")
+              const state = reactionState[eid] || { counts: {}, my: null }
+              const count = (state.counts && state.counts[emoji]) ? state.counts[emoji] : 0
+              const selected = state.my === emoji
+              return (
+                <TouchableOpacity
+                  key={emoji}
+                  onPress={() => onReactPress(emoji)}
+                  onLongPress={() => { openDrawer() }}
+                  style={{ alignItems: 'center' }}>
+                  <Text style={{ fontSize: selected ? 28 : 24, opacity: selected ? 1 : 0.85 }}>{emoji}</Text>
+                  {count > 0 && <Text style={{ color: '#fff', fontSize: 12, marginTop: 2 }}>{count}</Text>}
+                </TouchableOpacity>
+              )
+            })}
+          </View>
+          <TouchableOpacity onPress={async () => { await loadReactors(); setReactorFilter(undefined); setShowReactors(true) }}>
+            <Ionicons name="people-outline" size={22} color="#fff" />
+          </TouchableOpacity>
+        </View>
+        {drawerOpen && (
+          <View style={{ marginTop: 10, alignSelf: 'center', backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8 }}>
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              {['👍','🎉','😍','😢','😡','🙏','✨','🤩'].map((e) => (
+                <TouchableOpacity key={e} onPress={() => { onReactPress(e); closeDrawerSoon() }}>
+                  <Text style={{ fontSize: 20 }}>{e}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
+        {String(item?.user?._id || '') === String(myId || '') && (
+          <View style={{ marginTop: 8, flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: 14 }}>
             <TouchableOpacity
               onPress={async () => {
                 try {
@@ -568,12 +623,9 @@ export default function DailyViewer() {
                   if (r?.success && Array.isArray(r.captions)) setCaptions(r.captions)
                 } catch {}
               }}
-              style={{ position: 'absolute', right: 0 }}
             >
               <Text style={{ color: '#fff', fontWeight: '800' }}>Auto CC</Text>
             </TouchableOpacity>
-          )}
-          {String(item?.user?._id || '') === String(myId || '') && (
             <TouchableOpacity
               onPress={async () => {
                 try {
@@ -587,46 +639,14 @@ export default function DailyViewer() {
                   const eid = String(item._id)
                   const resp: any = await (api as any).request(`/daily/${eid}`, { method: 'DELETE' })
                   if (resp && resp.success !== false) {
-                    // remove from current list
                     setEntries((prev) => prev.filter((e) => String(e._id) !== eid))
                     setEntryIndex((i) => Math.max(0, i - 1))
                   }
                 } catch {}
               }}
-              style={{ position: 'absolute', right: 60 }}
             >
               <Text style={{ color: '#f55', fontWeight: '800' }}>Delete</Text>
             </TouchableOpacity>
-          )}
-          {['❤️','😂','🔥','😮','👏'].map((emoji) => {
-            const eid = String(item?._id || "")
-            const state = reactionState[eid] || { counts: {}, my: null }
-            const count = (state.counts && state.counts[emoji]) ? state.counts[emoji] : 0
-            const selected = state.my === emoji
-            return (
-              <TouchableOpacity
-                key={emoji}
-                onPress={() => onReactPress(emoji)}
-                onLongPress={() => { openDrawer() }}
-                style={{ alignItems: 'center' }}>
-                <Text style={{ fontSize: selected ? 28 : 24, opacity: selected ? 1 : 0.85 }}>{emoji}</Text>
-                {count > 0 && <Text style={{ color: '#fff', fontSize: 12, marginTop: 2 }}>{count}</Text>}
-              </TouchableOpacity>
-            )
-          })}
-          <TouchableOpacity onPress={async () => { await loadReactors(); setReactorFilter(undefined); setShowReactors(true) }} style={{ marginLeft: 8 }}>
-            <Ionicons name="people-outline" size={22} color="#fff" />
-          </TouchableOpacity>
-        </View>
-        {drawerOpen && (
-          <View style={{ marginTop: 10, alignSelf: 'center', backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8 }}>
-            <View style={{ flexDirection: 'row', gap: 12 }}>
-              {['👍','🎉','😍','😢','😡','🙏','✨','🤩'].map((e) => (
-                <TouchableOpacity key={e} onPress={() => { onReactPress(e); closeDrawerSoon() }}>
-                  <Text style={{ fontSize: 20 }}>{e}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
           </View>
         )}
       </View>
