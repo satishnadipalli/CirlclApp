@@ -11,6 +11,7 @@ import { Dimensions, FlatList, Image, StyleSheet, Text, TouchableOpacity, View }
 import DailyRing from "@/components/DailyRing"
 import logo from "../../assets/images/circle-full.png"
 import * as Haptics from "expo-haptics"
+import { Video } from "expo-av"
 
 const { width } = Dimensions.get("window")
 
@@ -305,7 +306,7 @@ export default function HomeScreen() {
                         contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: 10 }}
                         renderItem={({ item, index }) => (
                           <DailyRing
-                            imageUrl={item?.user?.profilePic || 'https://i.pravatar.cc/100?img=11'}
+                            imageUrl={item?.mediaUrl || item?.user?.profilePic || 'https://i.pravatar.cc/100?img=11'}
                             label={item?.user?.name || 'Friend'}
                             onPress={() => {
                               const ids = (daily?.rings || []).map((r: any) => r?.user?._id).filter(Boolean)
@@ -341,7 +342,18 @@ export default function HomeScreen() {
                 </TouchableOpacity>
               </View>
               <TouchableOpacity style={styles.postImageWrapper} onPress={() => router.push(`/post/${item._id}`)}>
-                <Image source={{ uri: item?.mediaUrl || 'https://i.pravatar.cc/500?img=21' }} style={styles.postImage} />
+                {/(\.mp4|\.mov|\.m4v|\.webm)$/i.test(String(item?.mediaUrl || '')) ? (
+                  <Video
+                    source={{ uri: item.mediaUrl }}
+                    style={styles.postImage}
+                    resizeMode="cover"
+                    shouldPlay={false}
+                    useNativeControls={false}
+                    isLooping
+                  />
+                ) : (
+                  <Image source={{ uri: item?.mediaUrl || 'https://i.pravatar.cc/500?img=21' }} style={styles.postImage} />
+                )}
               </TouchableOpacity>
               <View style={styles.actions}>
                 <View style={styles.leftActions}>

@@ -211,6 +211,7 @@ const getRings = async (req, res) => {
     const rings = populated.map((e) => ({
       user: e.user,
       createdAt: e.createdAt,
+      mediaUrl: e.mediaUrl,
     }))
     res.json({ success: true, rings })
   } catch (e) {

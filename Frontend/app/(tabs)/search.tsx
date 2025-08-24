@@ -469,10 +469,17 @@ const Search = () => {
           data={explore}
           keyExtractor={(item, idx) => item._id || String(idx)}
           renderItem={({ item }) => (
-            <Image
-              source={{ uri: item.mediaUrl || "https://i.pravatar.cc/500?img=21" }}
-              style={styles.image}
-            />
+            <View style={{ position: 'relative' }}>
+              <Image
+                source={{ uri: item.mediaUrl || "https://i.pravatar.cc/500?img=21" }}
+                style={styles.image}
+              />
+              {/(\.mp4|\.mov|\.m4v|\.webm)$/i.test(String(item?.mediaUrl || '')) && (
+                <View style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
+                  <Ionicons name="play-circle" size={26} color="#fff" />
+                </View>
+              )}
+            </View>
           )}
           numColumns={3}
           onEndReached={onEndReached}
