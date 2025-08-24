@@ -2,6 +2,8 @@
 
 import React, { useEffect, useRef, useState } from 'react'
 import { Animated, Dimensions, FlatList, Image, StyleSheet, Text, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native'
+import { Modal, TextInput, KeyboardAvoidingView, Platform, Share } from 'react-native'
+import { useRouter } from 'expo-router'
 import { Video } from 'expo-av'
 import { Ionicons } from '@expo/vector-icons'
 import api from '@/services/api.service'
@@ -11,6 +13,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 const { height, width } = Dimensions.get('window')
 
 export default function ReelsScreen() {
+  const router = useRouter()
   const [reels, setReels] = useState<any[]>([])
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(true)
@@ -18,6 +21,12 @@ export default function ReelsScreen() {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isMuted, setIsMuted] = useState<boolean>(false)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [dailyPosted, setDailyPosted] = useState<boolean>(false)
+  const [commentsOpenForId, setCommentsOpenForId] = useState<string | null>(null)
+  const [commentsPost, setCommentsPost] = useState<any | null>(null)
+  const [commentsLoading, setCommentsLoading] = useState<boolean>(false)
+  const [commentText, setCommentText] = useState<string>('')
+  const savedLocalRef = useRef<Record<string, boolean>>({})
 
   const videoRefs = useRef<Map<string, Video>>(new Map())
   const likeLocalRef = useRef<Record<string, boolean>>({})
@@ -58,6 +67,10 @@ export default function ReelsScreen() {
       try {
         const m = await AsyncStorage.getItem('reels_muted')
         setIsMuted(m === '1')
+      } catch {}
+      try {
+        const p: any = await (api as any).getDailyPrompt()
+        setDailyPosted(!!p?.posted)
       } catch {}
     })()
   }, [])
@@ -138,6 +151,50 @@ export default function ReelsScreen() {
     }
   }
 
+  const onToggleSave = async (item: any) => {
+    const id = String(item?._id || '')
+    if (!id) return
+    const current = !!savedLocalRef.current[id]
+    savedLocalRef.current[id] = !current
+    setReels((prev) => [...prev])
+    try { await (api as any).toggleSave(id) } catch { savedLocalRef.current[id] = current; setReels((prev) => [...prev]) }
+  }
+
+  const openComments = async (item: any) => {
+    const id = String(item?._id || '')
+    if (!id) return
+    setCommentsOpenForId(id)
+    setCommentsLoading(true)
+    try {
+      const res: any = await (api as any).getPostById(id)
+      if (res?.success) setCommentsPost(res.post)
+    } catch {}
+    setCommentsLoading(false)
+  }
+
+  const submitComment = async () => {
+    const id = String(commentsOpenForId || '')
+    if (!id || !commentText.trim()) return
+    const text = commentText.trim()
+    setCommentText('')
+    try {
+      const res: any = await (api as any).addComment(id, text)
+      if (res && (res._id || res?.success)) {
+        try {
+          const fresh: any = await (api as any).getPostById(id)
+          if (fresh?.success) setCommentsPost(fresh.post)
+        } catch {}
+      }
+    } catch {}
+  }
+
+  const onShare = async (item: any) => {
+    try {
+      const url = `${require('@/constants/Config').API_BASE_URL.replace(/\/api$/, '')}/post/${String(item?._id || '')}`
+      await Share.share({ message: url })
+    } catch {}
+  }
+
   const onToggleMute = async () => {
     const next = !isMuted
     setIsMuted(next)
@@ -180,6 +237,7 @@ export default function ReelsScreen() {
     const liked = isLiked(item)
     const likes = likeCount(item)
     const prog = progressRef.current[String(item?._id || '')] || 0
+    const saved = !!savedLocalRef.current[String(item?._id || '')]
     return (
       <View style={styles.item}>
         <TouchableWithoutFeedback onPress={() => onDoubleTap(item)}>
@@ -210,6 +268,15 @@ export default function ReelsScreen() {
           </View>
         </TouchableWithoutFeedback>
         <View style={styles.overlay}>
+          {/* Daily Circle chip */}
+          <View style={{ position: 'absolute', top: 44, left: 12 }}>
+            <TouchableOpacity onPress={() => {
+              if (dailyPosted) router.push({ pathname: '/daily/viewer', params: { userId: currentUserId || '' } })
+              else router.push({ pathname: '/(tabs)/search', params: { focusDaily: '1', openComposer: '1' } })
+            }} style={{ backgroundColor: 'rgba(0,0,0,0.4)', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 }}>
+              <Text style={{ color: '#fff', fontWeight: '800' }}>Daily</Text>
+            </TouchableOpacity>
+          </View>
           <View style={{ flex: 1 }} />
           <View style={styles.meta}>
             <Image source={{ uri: item?.user?.profilePic || 'https://i.pravatar.cc/100?img=6' }} style={styles.avatar} />
@@ -221,8 +288,15 @@ export default function ReelsScreen() {
               <Ionicons name={liked ? 'heart' : 'heart-outline'} size={28} color={liked ? '#FF3040' : '#fff'} />
             </TouchableOpacity>
             <Text style={{ color: '#fff', fontWeight: '700' }}>{likes}</Text>
-            <TouchableOpacity style={styles.action}><Ionicons name="chatbubble-outline" size={28} color="#fff" /></TouchableOpacity>
-            <TouchableOpacity style={styles.action}><Ionicons name="paper-plane-outline" size={28} color="#fff" /></TouchableOpacity>
+            <TouchableOpacity style={styles.action} onPress={() => openComments(item)}>
+              <Ionicons name="chatbubble-outline" size={28} color="#fff" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.action} onPress={() => onShare(item)}>
+              <Ionicons name="paper-plane-outline" size={28} color="#fff" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.action} onPress={() => onToggleSave(item)}>
+              <Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={26} color="#fff" />
+            </TouchableOpacity>
             <TouchableOpacity style={[styles.action, { marginTop: 10 }]} onPress={onToggleMute}>
               <Ionicons name={isMuted ? 'volume-mute-outline' : 'volume-high-outline'} size={24} color="#fff" />
             </TouchableOpacity>
@@ -248,6 +322,56 @@ export default function ReelsScreen() {
         windowSize={5}
         removeClippedSubviews={false}
       />
+
+      {/* Comments Modal */}
+      <Modal visible={!!commentsOpenForId} animationType='slide' onRequestClose={() => setCommentsOpenForId(null)} transparent>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' }}>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+            <View style={{ maxHeight: height * 0.7, backgroundColor: '#111', borderTopLeftRadius: 16, borderTopRightRadius: 16, paddingBottom: 12 }}>
+              <View style={{ height: 48, alignItems: 'center', justifyContent: 'center' }}>
+                <View style={{ width: 42, height: 5, borderRadius: 3, backgroundColor: '#444' }} />
+              </View>
+              <View style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
+                <Text style={{ color: '#fff', fontWeight: '800', fontSize: 16 }}>Comments</Text>
+              </View>
+              <FlatList
+                data={Array.isArray(commentsPost?.comments) ? commentsPost.comments : []}
+                keyExtractor={(c: any) => String(c?._id || Math.random())}
+                style={{ maxHeight: height * 0.5 }}
+                contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 12 }}
+                ListEmptyComponent={!commentsLoading ? (<Text style={{ color: '#ccc', paddingHorizontal: 16, paddingVertical: 8 }}>No comments yet</Text>) : null}
+                renderItem={({ item }) => (
+                  <View style={{ flexDirection: 'row', gap: 10, paddingVertical: 10 }}>
+                    <Image source={{ uri: item?.profilePic || 'https://i.pravatar.cc/80?img=5' }} style={{ width: 34, height: 34, borderRadius: 17 }} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: '#fff' }}>
+                        <Text style={{ fontWeight: '800' }}>{item?.name || 'User'} </Text>
+                        {String(item?.text || '')}
+                      </Text>
+                      {!!(item?.likes?.length) && <Text style={{ color: '#aaa', marginTop: 4 }}>{item.likes.length} likes</Text>}
+                    </View>
+                  </View>
+                )}
+              />
+              <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingTop: 8, gap: 8 }}>
+                <TextInput
+                  placeholder='Add a comment...'
+                  placeholderTextColor={'#888'}
+                  style={{ flex: 1, backgroundColor: '#1a1a1a', color: '#fff', borderRadius: 999, paddingHorizontal: 14, paddingVertical: 10 }}
+                  value={commentText}
+                  onChangeText={setCommentText}
+                />
+                <TouchableOpacity onPress={submitComment} style={{ paddingHorizontal: 12, paddingVertical: 8 }}>
+                  <Text style={{ color: '#4ea1ff', fontWeight: '800' }}>Send</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setCommentsOpenForId(null)} style={{ paddingHorizontal: 12, paddingVertical: 8 }}>
+                  <Text style={{ color: '#fff', fontWeight: '800' }}>Close</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
     </View>
   )
 }
