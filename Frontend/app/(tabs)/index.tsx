@@ -284,23 +284,7 @@ export default function HomeScreen() {
                     </View>
                   </View>
                   <Text numberOfLines={2} ellipsizeMode='tail' style={{ marginTop: 8, color: '#333' }}>{daily?.prompt?.text}</Text>
-                  {!!daily?.posted && (
-                    <View style={{ paddingHorizontal: 16, marginTop: 8 }}>
-                      <Text style={{ color: '#666', marginBottom: 6, fontWeight: '600' }}>Your Daily</Text>
-                      <View style={{ height: 70 }}>
-                        <View style={{ width: 70, alignItems: 'center', marginRight: 8 }}>
-                          {myDaily?.mediaUrl ? (
-                            <Image source={{ uri: myDaily.mediaUrl }} style={{ width: 66, height: 66, borderRadius: 8, backgroundColor: '#eee' }} />
-                          ) : (
-                            <View style={{ width: 66, height: 66, borderRadius: 8, backgroundColor: '#eee', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 6 }}>
-                              <Text numberOfLines={3} style={{ color: '#444', fontSize: 10, textAlign: 'center' }}>{myDaily?.text || 'Posted'}</Text>
-                            </View>
-                          )}
-                        </View>
-                        <TouchableOpacity onPress={() => router.push({ pathname: "/daily/viewer", params: { userId: currentUserId || '' } })} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
-                      </View>
-                    </View>
-                  )}
+                  {/* Remove square preview to keep rings in a single row */}
                   {daily?.posted && (
                     <View style={{ height: 110, marginTop: 8 }}>
                       <FlatList
@@ -319,6 +303,7 @@ export default function HomeScreen() {
                               label={item?.user?.name || 'Friend'}
                               viewed={viewed}
                               isVideo={isVideo}
+                              size={96}
                               onPress={() => {
                                 const ids = (daily?.rings || []).map((r: any) => r?.user?._id).filter(Boolean)
                                 const start = index
