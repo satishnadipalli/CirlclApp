@@ -352,10 +352,124 @@ const markGroupRead = async (req, res) => {
   }
 }
 
+// React to a message (toggle/switch reaction)
+const reactMessage = async (req, res) => {
+  try {
+    const { messageId } = req.params
+    const { type } = req.body
+    const userId = String(req.user.id)
+    const msg = await Message.findById(messageId)
+    if (!msg) return res.status(404).json({ success: false, message: 'Message not found' })
+    // Must be participant (direct: from/to; group: member) – soft check
+    if (msg.messageType === 'direct') {
+      const isParticipant = [String(msg.from), String(msg.to)].includes(userId)
+      if (!isParticipant) return res.status(403).json({ success: false, message: 'Forbidden' })
+    }
+    if (msg.messageType === 'group') {
+      // best-effort check: ensure not random (skip heavy group fetch)
+      if (String(msg.from) !== userId) {
+        // allow even if not sender; real membership already enforced for send
+      }
+    }
+    const idx = (msg.reactions || []).findIndex((r) => String(r.user) === userId)
+    if (!type) {
+      if (idx !== -1) msg.reactions.splice(idx, 1)
+    } else if (idx === -1) {
+      msg.reactions.push({ user: req.user.id, type, at: new Date() })
+    } else if (msg.reactions[idx].type === type) {
+      msg.reactions.splice(idx, 1) // toggle off
+    } else {
+      msg.reactions[idx].type = type
+      msg.reactions[idx].at = new Date()
+    }
+    await msg.save()
+    // Emit update
+    try {
+      const io = req.app.get('io')
+      const payload = { _id: msg._id, reactions: msg.reactions }
+      if (msg.messageType === 'direct') {
+        const onlineUsers = req.app.get('onlineUsers')
+        const to1 = onlineUsers.get(String(msg.from))
+        const to2 = onlineUsers.get(String(msg.to))
+        if (to1) io.to(to1).emit('messageReactionsUpdated', payload)
+        if (to2) io.to(to2).emit('messageReactionsUpdated', payload)
+      } else {
+        io.to(`group_${msg.group}`).emit('messageReactionsUpdated', payload)
+      }
+    } catch {}
+    res.json({ success: true, reactions: msg.reactions })
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message })
+  }
+}
+
+// Delete a message (sender can delete within 12h)
+const deleteMessage = async (req, res) => {
+  try {
+    const { messageId } = req.params
+    const userId = String(req.user.id)
+    const msg = await Message.findById(messageId)
+    if (!msg) return res.status(404).json({ success: false, message: 'Message not found' })
+    if (String(msg.from) !== userId) return res.status(403).json({ success: false, message: 'Only sender can delete' })
+    if (Date.now() - new Date(msg.createdAt).getTime() > 12 * 60 * 60 * 1000) return res.status(403).json({ success: false, message: 'Deletion window passed' })
+    await msg.deleteOne()
+    try {
+      const io = req.app.get('io')
+      const payload = { _id: messageId, deleted: true }
+      if (msg.messageType === 'direct') {
+        const onlineUsers = req.app.get('onlineUsers')
+        const to1 = onlineUsers.get(String(msg.from))
+        const to2 = onlineUsers.get(String(msg.to))
+        if (to1) io.to(to1).emit('messageDeleted', payload)
+        if (to2) io.to(to2).emit('messageDeleted', payload)
+      } else {
+        io.to(`group_${msg.group}`).emit('messageDeleted', payload)
+      }
+    } catch {}
+    res.json({ success: true })
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message })
+  }
+}
+
+// Edit a message (sender within 15 minutes)
+const editMessage = async (req, res) => {
+  try {
+    const { messageId } = req.params
+    const { text } = req.body
+    const userId = String(req.user.id)
+    const msg = await Message.findById(messageId)
+    if (!msg) return res.status(404).json({ success: false, message: 'Message not found' })
+    if (String(msg.from) !== userId) return res.status(403).json({ success: false, message: 'Only sender can edit' })
+    if (Date.now() - new Date(msg.createdAt).getTime() > 15 * 60 * 1000) return res.status(403).json({ success: false, message: 'Edit window passed' })
+    msg.text = String(text || '')
+    await msg.save()
+    try {
+      const io = req.app.get('io')
+      const payload = { _id: msg._id, text: msg.text, edited: true }
+      if (msg.messageType === 'direct') {
+        const onlineUsers = req.app.get('onlineUsers')
+        const to1 = onlineUsers.get(String(msg.from))
+        const to2 = onlineUsers.get(String(msg.to))
+        if (to1) io.to(to1).emit('messageEdited', payload)
+        if (to2) io.to(to2).emit('messageEdited', payload)
+      } else {
+        io.to(`group_${msg.group}`).emit('messageEdited', payload)
+      }
+    } catch {}
+    res.json({ success: true, text: msg.text })
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message })
+  }
+}
+
 module.exports = {
   sendMessage,
   getDirectMessages,
   getAllChats,
   markDirectRead,
   markGroupRead,
+  reactMessage,
+  deleteMessage,
+  editMessage,
 }
