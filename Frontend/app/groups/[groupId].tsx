@@ -131,14 +131,48 @@ export default function GroupDetailsScreen() {
           <Text style={styles.back}>{"‹"}</Text>
         </TouchableOpacity>
         <Text style={styles.title}>{group.name}</Text>
-        {meIsAdmin ? (
-          <TouchableOpacity onPress={() => searchInputRef.current?.focus()}>
-            <Icon name="person-add" size={22} color="#0095f6" />
-            <Text>Add</Text>
-          </TouchableOpacity>
-        ) : (
-          <View style={{ width: 24 }} />
-        )}
+        {(() => {
+          const meId = currentUserIdRef.current
+          const creatorId = typeof group.creator === 'string' ? group.creator : (group.creator as any)?._id
+          const amCreator = String(creatorId || '') === String(meId || '')
+          if (amCreator) {
+            return (
+              <TouchableOpacity onPress={async () => {
+                try {
+                  const ok = await new Promise<boolean>((resolve) => {
+                    Alert.alert('Delete group', 'Are you sure? This disables the group for all members.', [
+                      { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+                      { text: 'Delete', style: 'destructive', onPress: () => resolve(true) },
+                    ])
+                  })
+                  if (!ok) return
+                  const r: any = await apiService.deleteGroup(String(groupId))
+                  if (r?.success) { Alert.alert('Deleted', 'Group deleted'); router.back() } else { Alert.alert('Failed', r?.message || 'Could not delete') }
+                } catch (e) { Alert.alert('Error', (e as Error).message) }
+              }}>
+                <Text style={[styles.actionDanger]}>Delete</Text>
+              </TouchableOpacity>
+            )
+          }
+          // member-only
+          return (
+            <TouchableOpacity onPress={async () => {
+              try {
+                const ok = await new Promise<boolean>((resolve) => {
+                  Alert.alert('Leave group', 'Leave this group?', [
+                    { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+                    { text: 'Leave', style: 'destructive', onPress: () => resolve(true) },
+                  ])
+                })
+                if (!ok) return
+                const r: any = await apiService.leaveGroup(String(groupId))
+                if (r?.success) { Alert.alert('Left group', 'You left the group'); router.back() } else { Alert.alert('Failed', r?.message || 'Could not leave') }
+              } catch (e) { Alert.alert('Error', (e as Error).message) }
+            }}>
+              <Text style={[styles.actionDanger]}>Leave</Text>
+            </TouchableOpacity>
+          )
+        })()}
       </View>
 
       <View style={styles.groupHero}>

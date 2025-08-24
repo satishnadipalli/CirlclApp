@@ -306,6 +306,14 @@ class ApiService {
     })
   }
 
+  async leaveGroup(groupId) {
+    return this.request(`/groups/${groupId}/leave`, { method: 'POST' })
+  }
+
+  async deleteGroup(groupId) {
+    return this.request(`/groups/${groupId}`, { method: 'DELETE' })
+  }
+
   // User Methods
   async getMe() {
     return this.request("/users/me")
