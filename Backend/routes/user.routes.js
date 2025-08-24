@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const auth = require("../middlewares/auth.middleware"); // JWT protect
-const { register, login, getProfile, updateProfile, followUser, unfollowUser, searchuser, getUserById, getFollowers, getFollowing, listCloseFriends, addCloseFriend, removeCloseFriend, registerPushToken, blockUser, unblockUser, refresh, logout } = require("../controllers/user.controller");
+const { register, login, getProfile, updateProfile, followUser, unfollowUser, searchuser, getUserById, getFollowers, getFollowing, listCloseFriends, addCloseFriend, removeCloseFriend, registerPushToken, blockUser, unblockUser, refresh, logout, getNotificationPrefs, updateNotificationPrefs } = require("../controllers/user.controller");
 
 // Public routes
 router.post("/register", register);
@@ -25,6 +25,9 @@ router.post("/me/push-token", auth, registerPushToken)
 // Safety
 router.post("/:id/block", auth, blockUser)
 router.post("/:id/unblock", auth, unblockUser)
+// Notification preferences
+router.get('/me/notification-prefs', auth, getNotificationPrefs)
+router.put('/me/notification-prefs', auth, updateNotificationPrefs)
 // Place more specific routes before the generic /:id route
 router.get("/:id/followers", auth, getFollowers)
 router.get("/:id/following", auth, getFollowing)

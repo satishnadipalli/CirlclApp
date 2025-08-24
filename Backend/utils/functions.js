@@ -35,16 +35,14 @@ const createNotification = async ({
   const io = req.app.get("io");
   const onlineUsers = req.app.get("onlineUsers");
 
-  // Avoid duplicate notifications (optional, uncomment if needed)
-  // const exists = await Notification.findOne({
-  //   receiver: receiverId,
-  //   sender: senderId,
-  //   type,
-  //   post: postId,
-  //   comment: commentId,
-  //   reply: replyId
-  // });
-  // if (exists) return;
+  // Read receiver preferences
+  let allowType = true
+  try {
+    const prefUser = await User.findById(receiverId).select('notificationPrefs')
+    const prefs = prefUser?.notificationPrefs || {}
+    allowType = prefs?.[String(type)] !== false // default true
+  } catch { allowType = true }
+  if (!allowType) return null
 
   const newNotif = await Notification.create({
     receiver: receiverId,
@@ -89,11 +87,12 @@ const createNotification = async ({
     });
   }
 
-  // Best-effort Expo push
+  // Best-effort Expo push (also respect prefs for the type)
   try {
-    const receiver = await User.findById(receiverId).select('expoPushTokens')
+    const receiver = await User.findById(receiverId).select('expoPushTokens notificationPrefs')
     const tokens = receiver?.expoPushTokens || []
-    if (tokens?.length) {
+    const prefs = receiver?.notificationPrefs || {}
+    if (tokens?.length && (prefs?.[String(type)] !== false)) {
       const title = sender?.name || 'Someone'
       const body = type === 'mention' && text ? `mentioned you: "${text}"` :
         type === 'like' ? 'liked your post' :

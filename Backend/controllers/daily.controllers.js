@@ -98,11 +98,17 @@ const postTodayEntry = async (req, res) => {
       // Notify followers to update rings if online (only non-group)
       if (!groupId) {
         const me = await User.findById(userId).select("name profilePic followers")
+        const followers = Array.isArray(me?.followers) ? me.followers : []
+        // fetch preferences of followers in batch
+        const followerDocs = await User.find({ _id: { $in: followers } }).select('notificationPrefs')
+        const prefsById = new Map(followerDocs.map((u) => [String(u._id), u.notificationPrefs || {}]))
         const ringPayload = {
           user: { _id: String(userId), name: me?.name || "User", profilePic: me?.profilePic || "" },
           createdAt: entry.createdAt,
         }
-        for (const followerId of me?.followers || []) {
+        for (const followerId of followers) {
+          const pref = prefsById.get(String(followerId)) || {}
+          if (pref?.daily === false) continue
           const followerSocketId = onlineUsers.get(String(followerId))
           if (followerSocketId) io.to(followerSocketId).emit("dailyRing", ringPayload)
         }
