@@ -132,7 +132,7 @@ export default function ChatsScreen() {
             insert: {
               chatType: "direct",
               user: { _id: peerId, name: "", profilePic: "" },
-              lastMessage: { text: message.text, createdAt, from: { name: fromName } },
+              lastMessage: { text: message.text, createdAt, from: { name: fromName }, attachments: message.attachments || [] },
               unreadCount: message.from !== uid ? 1 : 0,
             },
           }
@@ -142,7 +142,7 @@ export default function ChatsScreen() {
           idx,
           updated: {
             ...chat,
-            lastMessage: { ...(chat.lastMessage || {}), text: message.text, createdAt, from: { name: fromName } },
+            lastMessage: { ...(chat.lastMessage || {}), text: message.text, createdAt, from: { name: fromName }, attachments: message.attachments || [] },
             unreadCount: message.from !== uid ? (chat.unreadCount || 0) + 1 : chat.unreadCount || 0,
           },
         }
@@ -163,7 +163,7 @@ export default function ChatsScreen() {
           idx,
           updated: {
             ...chat,
-            lastMessage: { ...(chat.lastMessage || {}), text: message.text, createdAt },
+            lastMessage: { ...(chat.lastMessage || {}), text: message.text, createdAt, attachments: message.attachments || [] },
           },
         }
       })
