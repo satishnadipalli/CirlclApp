@@ -9,7 +9,6 @@ import { Animated, Dimensions, StyleSheet, Text, TouchableOpacity, View } from "
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { type Socket } from "socket.io-client"
 import socketService from "@/services/socket.service"
-import { usePathname } from "expo-router"
 import { useRouter } from "expo-router"
 
 const { width } = Dimensions.get("window")
@@ -228,7 +227,6 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [unreadCount, setUnreadCount] = useState(0)
   const [socket, setSocket] = useState<Socket | null>(null)
   const [currentNotification, setCurrentNotification] = useState<NotificationData | null>(null)
-  const pathname = usePathname()
 
   const BASE_URL = require("../constants/Config").API_ORIGIN
 
@@ -262,6 +260,10 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         if (uid) socketService.registerUser(uid)
       } catch {}
       socketService.onNotification(handleNewNotification)
+      socketService.onFollowEvent((evt: any) => {
+        // normalize to notification-like payload
+        showNotification({ type: evt?.type === 'unfollow' ? 'follow' : 'follow', senderName: evt?.data?.followerName || evt?.data?.unfollowerName || 'Someone', text: evt?.type === 'unfollow' ? 'unfollowed you' : 'started following you' })
+      })
       // Celebrate streak on daily post or late pass forgiveness
       const cb = (data: any) => {
         const streak = data?.streak
@@ -295,12 +297,6 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     console.log("[v0] ===== SHOW NOTIFICATION CALLED =====")
     console.log("[v0] Notification data:", JSON.stringify(notification, null, 2))
     console.log("[v0] Current notification state before update:", currentNotification)
-
-    // Suppress toast overlay while on notifications screen to avoid duplicate UX
-    try {
-      const p = String(pathname || '')
-      if (p.startsWith('/notifications')) return
-    } catch {}
 
     setCurrentNotification(null)
 
