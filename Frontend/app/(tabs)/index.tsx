@@ -302,24 +302,32 @@ export default function HomeScreen() {
                     </View>
                   )}
                   {daily?.posted && (
-                    <View style={{ height: 120, marginTop: 8 }}>
+                    <View style={{ height: 110, marginTop: 8 }}>
                       <FlatList
                         data={daily?.rings || []}
                         horizontal
                         showsHorizontalScrollIndicator={false}
                         keyExtractor={(_, idx) => String(idx)}
-                        contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: 10 }}
-                        renderItem={({ item, index }) => (
-                          <DailyRing
-                            imageUrl={item?.mediaUrl || item?.user?.profilePic || 'https://i.pravatar.cc/100?img=11'}
-                            label={item?.user?.name || 'Friend'}
-                            onPress={() => {
-                              const ids = (daily?.rings || []).map((r: any) => r?.user?._id).filter(Boolean)
-                              const start = index
-                              router.push({ pathname: '/daily/viewer', params: { userIds: ids.join(','), start: String(start) } })
-                            }}
-                          />
-                        )}
+                        contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: 10, alignItems: 'center' }}
+                        renderItem={({ item, index }) => {
+                          const viewed = !!item?.viewed // backend can set, else compute client-side later
+                          const mediaUrl = String(item?.mediaUrl || '')
+                          const isVideo = /\.(mp4|mov|m4v|webm)$/i.test(mediaUrl)
+                          return (
+                            <DailyRing
+                              imageUrl={mediaUrl || item?.user?.profilePic || 'https://i.pravatar.cc/100?img=11'}
+                              label={item?.user?.name || 'Friend'}
+                              viewed={viewed}
+                              isVideo={isVideo}
+                              onPress={() => {
+                                const ids = (daily?.rings || []).map((r: any) => r?.user?._id).filter(Boolean)
+                                const start = index
+                                // navigate immediately; viewer handles loading with its own spinner
+                                router.push({ pathname: '/daily/viewer', params: { userIds: ids.join(','), start: String(start) } })
+                              }}
+                            />
+                          )
+                        }}
                       />
                     </View>
                   )}
