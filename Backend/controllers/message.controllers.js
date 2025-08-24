@@ -331,6 +331,15 @@ const markDirectRead = async (req, res) => {
       { messageType: "direct", from: peerId, to: userId, isRead: false },
       { $set: { isRead: true }, $addToSet: { readBy: userId } },
     )
+    try {
+      const io = req.app.get('io')
+      const onlineUsers = req.app.get('onlineUsers')
+      const to1 = onlineUsers.get(String(userId))
+      const to2 = onlineUsers.get(String(peerId))
+      const payload = { chatType: 'direct', readerId: String(userId), peerId: String(peerId), at: new Date().toISOString() }
+      if (to1) io.to(to1).emit('messagesRead', payload)
+      if (to2) io.to(to2).emit('messagesRead', payload)
+    } catch {}
     res.json({ success: true })
   } catch (e) {
     res.status(500).json({ success: false, message: e.message })
@@ -346,6 +355,10 @@ const markGroupRead = async (req, res) => {
       { messageType: "group", group: groupId, from: { $ne: userId } },
       { $addToSet: { readBy: userId } },
     )
+    try {
+      const io = req.app.get('io')
+      io.to(`group_${groupId}`).emit('messagesRead', { chatType: 'group', groupId: String(groupId), readerId: String(userId), at: new Date().toISOString() })
+    } catch {}
     res.json({ success: true })
   } catch (e) {
     res.status(500).json({ success: false, message: e.message })
