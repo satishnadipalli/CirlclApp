@@ -27,6 +27,15 @@ const userSchema = new mongoose.Schema({
       ip: { type: String, default: '' },
     }, { _id: false })
   ],
+  notificationPrefs: new mongoose.Schema({
+    like: { type: Boolean, default: true },
+    comment: { type: Boolean, default: true },
+    reply: { type: Boolean, default: true },
+    mention: { type: Boolean, default: true },
+    follow: { type: Boolean, default: true },
+    save: { type: Boolean, default: true },
+    daily: { type: Boolean, default: true },
+  }, { _id: false }),
 }, { timestamps: true });
 
 module.exports = mongoose.model("User", userSchema);

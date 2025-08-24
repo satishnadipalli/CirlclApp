@@ -389,6 +389,28 @@ const registerPushToken = async (req, res) => {
   }
 }
 
+// Preferences
+const getNotificationPrefs = async (req, res) => {
+  try {
+    const me = await User.findById(req.user.id).select('notificationPrefs')
+    const prefs = me?.notificationPrefs || { like: true, comment: true, reply: true, mention: true, follow: true, save: true, daily: true }
+    res.json({ success: true, prefs })
+  } catch (e) { res.status(500).json({ success: false, message: e.message }) }
+}
+
+const updateNotificationPrefs = async (req, res) => {
+  try {
+    const body = req.body || {}
+    const allowed = ['like','comment','reply','mention','follow','save','daily']
+    const set = {}
+    for (const k of allowed) {
+      if (typeof body[k] === 'boolean') set[`notificationPrefs.${k}`] = body[k]
+    }
+    const me = await User.findByIdAndUpdate(req.user.id, { $set: set }, { new: true }).select('notificationPrefs')
+    res.json({ success: true, prefs: me?.notificationPrefs })
+  } catch (e) { res.status(500).json({ success: false, message: e.message }) }
+}
+
 // Block / Unblock
 const blockUser = async (req, res) => {
   try {
@@ -427,4 +449,6 @@ module.exports = {
   registerPushToken,
   blockUser,
   unblockUser,
+  getNotificationPrefs,
+  updateNotificationPrefs,
 };
