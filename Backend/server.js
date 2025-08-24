@@ -23,10 +23,14 @@ app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 app.use(
   cors({
     origin: (origin, cb) => {
-      const allowed = process.env.ALLOWED_ORIGIN || "*"
-      if (allowed === "*") return cb(null, true)
+      const raw = process.env.ALLOWED_ORIGIN || process.env.ALLOWED_ORIGINS || "*"
+      if (raw === "*") return cb(null, true)
+      const allowlist = String(raw)
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
       if (!origin) return cb(null, true)
-      if (String(origin).startsWith(allowed)) return cb(null, true)
+      if (allowlist.includes(origin)) return cb(null, true)
       return cb(new Error("Not allowed by CORS"))
     },
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
@@ -35,8 +39,17 @@ app.use(
   })
 );
 
+// Global and route-specific rate limits
 const apiLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 300 });
 app.use("/api", apiLimiter);
+
+const authTightLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 30 });
+app.use("/api/users/login", authTightLimiter);
+app.use("/api/users/refresh", authTightLimiter);
+const uploadLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 60 });
+app.use("/api/upload", uploadLimiter);
+const msgLimiter = rateLimit({ windowMs: 1 * 60 * 1000, max: 300 });
+app.use("/api/messages", msgLimiter);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

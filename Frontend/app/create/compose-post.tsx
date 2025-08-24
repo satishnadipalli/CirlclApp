@@ -4,7 +4,7 @@ import { Ionicons } from "@expo/vector-icons"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import { Video } from "expo-av"
 import { useLocalSearchParams, useRouter } from "expo-router"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import * as Location from "expo-location"
 import {
     Alert,
@@ -46,6 +46,9 @@ export default function ComposePostScreen() {
     }
   })
 
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const abortRef = useRef<AbortController | null>(null)
+
   const currentMedia = mediaList[0] // Show first media in preview
 
   const getAuthToken = async () => {
@@ -60,12 +63,32 @@ export default function ComposePostScreen() {
 
   const createPost = async (formData, token) => {
     try {
+      // Use XMLHttpRequest to track upload progress
+      const url = `${API_BASE_URL}/posts`
+      await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest()
+        abortRef.current = new AbortController()
+        xhr.open("POST", url)
+        xhr.setRequestHeader("Authorization", `Bearer ${token}`)
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) {
+            const pct = Math.round((event.loaded / event.total) * 100)
+            setUploadProgress(pct)
+          }
+        }
+        xhr.onerror = () => reject(new Error("Network error"))
+        xhr.onabort = () => reject(new Error("Upload cancelled"))
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) resolve(true)
+          else reject(new Error((() => { try { return JSON.parse(xhr.responseText)?.message } catch { return "Failed to create post" } })()))
+        }
+        xhr.send(formData)
+      })
+
+      // Fallback fetch to read response body
       const response = await fetch(`${API_BASE_URL}/posts`, {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          // Note: Don't set Content-Type for FormData, let the browser set it
-        },
+        headers: { Authorization: `Bearer ${token}` },
         body: formData,
       })
 
@@ -136,6 +159,7 @@ export default function ComposePostScreen() {
         setLocation({ lat: loc.coords.latitude, lng: loc.coords.longitude })
       } catch {}
     })()
+    return () => { abortRef.current?.abort?.() }
   }, [])
 
   const handleAddLocation = async () => {
@@ -164,6 +188,7 @@ export default function ComposePostScreen() {
     }
 
     setIsPosting(true)
+    setUploadProgress(0)
 
     try {
       const token = await getAuthToken()
@@ -209,9 +234,23 @@ export default function ComposePostScreen() {
 
       console.log("[v0] Creating post with FormData...")
 
-      const createdPost = await createPost(formData, token)
+      // Try up to 2 attempts
+      let lastErr: any = null
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          await createPost(formData, token)
+          lastErr = null
+          break
+        } catch (e) {
+          lastErr = e
+          if (attempt < 2) {
+            await new Promise((r) => setTimeout(r, 800))
+          }
+        }
+      }
+      if (lastErr) throw lastErr
 
-      console.log("[v0] Post created successfully:", createdPost)
+      console.log("[v0] Post created successfully")
 
       Alert.alert("Success", "Your post has been shared!", [
         {
@@ -223,9 +262,10 @@ export default function ComposePostScreen() {
       ])
     } catch (error) {
       console.error("[v0] Error sharing post:", error)
-      Alert.alert("Error", error.message || "Failed to share your post. Please try again.")
+      Alert.alert("Error", (error as any)?.message || "Failed to share your post. Please try again.")
     } finally {
       setIsPosting(false)
+      setUploadProgress(0)
     }
   }
 
@@ -260,234 +300,95 @@ export default function ComposePostScreen() {
               <Image source={{ uri: currentMedia.uri }} style={styles.previewMedia} resizeMode="cover" />
             )
           ) : (
-            <View style={styles.noMediaPreview}>
-              <Ionicons name="image-outline" size={40} color="#ccc" />
-            </View>
-          )}
-
-          {mediaList.length > 1 && (
-            <View style={styles.mediaCount}>
-              <Text style={styles.mediaCountText}>1/{mediaList.length}</Text>
+            <View style={styles.previewPlaceholder}>
+              <Ionicons name="image-outline" size={40} color="#aaa" />
+              <Text style={{ color: "#777", marginTop: 6 }}>No media selected</Text>
             </View>
           )}
         </View>
 
-        <View style={styles.captionContainer}>
+        {!!isPosting && (
+          <View style={{ marginHorizontal: 16, marginTop: 8, backgroundColor: "#f1f5f9", height: 8, borderRadius: 999 }}>
+            <View
+              style={{ height: 8, borderRadius: 999, width: `${Math.min(100, Math.max(0, uploadProgress))}%`, backgroundColor: "#0ea5e9" }}
+            />
+          </View>
+        )}
+
+        <View style={styles.form}>
           <TextInput
             style={styles.captionInput}
-            placeholder="Add a caption..."
+            placeholder="Write a caption..."
             placeholderTextColor="#999"
             value={caption}
             onChangeText={setCaption}
             multiline
-            maxLength={2200}
-            textAlignVertical="top"
           />
-          <Text style={styles.characterCount}>{caption.length}/2200</Text>
-        </View>
 
-        <View style={styles.optionsContainer}>
-          {compositionOptions.map((option) => (
-            <TouchableOpacity key={option.id} style={styles.optionRow} onPress={option.onPress}>
-              <View style={styles.optionLeft}>
-                <Ionicons name={option.icon} size={24} color="#000" />
-                <Text style={styles.optionLabel}>{option.label}</Text>
-              </View>
-              <View style={styles.optionRight}>
-                {option.value && <Text style={styles.optionValue}>{option.value}</Text>}
-                <Ionicons name="chevron-forward" size={20} color="#999" />
-              </View>
-            </TouchableOpacity>
-          ))}
-
-          <View style={styles.optionRow}>
-            <View style={styles.optionLeft}>
-              <Ionicons name="sparkles-outline" size={24} color="#000" />
-              <View style={styles.aiLabelContainer}>
-                <Text style={styles.optionLabel}>Add AI label</Text>
-                <Text style={styles.aiLabelDescription}>
-                  We require you to label certain realistic content that's made with AI. Learn more
-                </Text>
-              </View>
-            </View>
-            <Switch
-              value={aiLabelEnabled}
-              onValueChange={setAiLabelEnabled}
-              trackColor={{ false: "#e0e0e0", true: "#007AFF" }}
-              thumbColor="#fff"
-            />
+          <View style={styles.optionsSection}>
+            {compositionOptions.map((opt) => (
+              <TouchableOpacity key={opt.id} style={styles.optionItem} onPress={opt.onPress} activeOpacity={0.7}>
+                <Ionicons name={opt.icon as any} size={20} color="#333" />
+                <Text style={styles.optionText}>{opt.label}</Text>
+                <Text style={styles.optionValue}>{opt.value || ""}</Text>
+              </TouchableOpacity>
+            ))}
           </View>
 
-          <TouchableOpacity style={styles.optionRow} onPress={handleAudiencePress}>
-            <View style={styles.optionLeft}>
-              <Ionicons name="people-outline" size={24} color="#000" />
-              <Text style={styles.optionLabel}>Audience</Text>
-            </View>
-            <View style={styles.optionRight}>
-              <Text style={styles.optionValue}>{audience}</Text>
-              <Ionicons name="chevron-forward" size={20} color="#999" />
-            </View>
-          </TouchableOpacity>
+          <View style={styles.switchRow}>
+            <Text style={styles.switchLabel}>AI labels</Text>
+            <Switch value={aiLabelEnabled} onValueChange={setAiLabelEnabled} />
+          </View>
 
-          <TouchableOpacity style={styles.optionRow} onPress={handleShareOnPress}>
-            <View style={styles.optionLeft}>
-              <Ionicons name="share-outline" size={24} color="#000" />
-              <Text style={styles.optionLabel}>Also share on...</Text>
-            </View>
-            <View style={styles.optionRight}>
-              <Text style={styles.optionValue}>Satish Nadipalli</Text>
-              <Ionicons name="chevron-forward" size={20} color="#999" />
-            </View>
+          <View style={styles.row}>
+            <TouchableOpacity onPress={handleAudiencePress} style={styles.rowButton}>
+              <Ionicons name="people-outline" size={18} color="#555" />
+              <Text style={styles.rowButtonText}>Audience: {audience}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={handleShareOnPress} style={styles.rowButton}>
+              <Ionicons name="share-social-outline" size={18} color="#555" />
+              <Text style={styles.rowButtonText}>Share on</Text>
+            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity style={[styles.shareButton, isPosting && { opacity: 0.7 }]} disabled={isPosting} onPress={handleShare}>
+            <Text style={styles.shareButtonText}>{isPosting ? `Uploading ${uploadProgress}%` : "Share"}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
-
-      <View style={styles.shareContainer}>
-        <TouchableOpacity
-          style={[styles.shareButton, isPosting && styles.shareButtonDisabled]}
-          onPress={handleShare}
-          disabled={isPosting}
-        >
-          <Text style={styles.shareButtonText}>{isPosting ? "Sharing..." : "Share"}</Text>
-        </TouchableOpacity>
-      </View>
     </SafeAreaView>
   )
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#fff",
-  },
+  container: { flex: 1, backgroundColor: "#fff" },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    paddingTop: 50,
-    borderBottomWidth: 0.5,
-    borderBottomColor: "#e0e0e0",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
   },
-  headerButton: {
-    minWidth: 50,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#000",
-  },
-  content: {
-    flex: 1,
-  },
-  mediaPreview: {
-    width: 120,
-    height: 120,
-    margin: 16,
-    borderRadius: 8,
-    overflow: "hidden",
-    position: "relative",
-  },
-  previewMedia: {
-    width: "100%",
-    height: "100%",
-  },
-  noMediaPreview: {
-    width: "100%",
-    height: "100%",
-    backgroundColor: "#f5f5f5",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  mediaCount: {
-    position: "absolute",
-    top: 8,
-    right: 8,
-    backgroundColor: "rgba(0,0,0,0.7)",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 12,
-  },
-  mediaCountText: {
-    color: "#fff",
-    fontSize: 12,
-    fontWeight: "500",
-  },
-  captionContainer: {
-    paddingHorizontal: 16,
-    marginBottom: 24,
-  },
-  captionInput: {
-    fontSize: 16,
-    color: "#000",
-    minHeight: 80,
-    textAlignVertical: "top",
-    paddingVertical: 0,
-  },
-  characterCount: {
-    fontSize: 12,
-    color: "#999",
-    textAlign: "right",
-    marginTop: 8,
-  },
-  optionsContainer: {
-    paddingHorizontal: 16,
-  },
-  optionRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 16,
-    borderBottomWidth: 0.5,
-    borderBottomColor: "#f0f0f0",
-  },
-  optionLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-  },
-  optionLabel: {
-    fontSize: 16,
-    color: "#000",
-    marginLeft: 12,
-  },
-  optionRight: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  optionValue: {
-    fontSize: 16,
-    color: "#999",
-    marginRight: 8,
-  },
-  aiLabelContainer: {
-    marginLeft: 12,
-    flex: 1,
-  },
-  aiLabelDescription: {
-    fontSize: 12,
-    color: "#999",
-    marginTop: 2,
-    lineHeight: 16,
-  },
-  shareContainer: {
-    padding: 16,
-    borderTopWidth: 0.5,
-    borderTopColor: "#e0e0e0",
-  },
-  shareButton: {
-    backgroundColor: "#007AFF",
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: "center",
-  },
-  shareButtonDisabled: {
-    backgroundColor: "#ccc",
-  },
-  shareButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
+  headerButton: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
+  headerTitle: { fontSize: 18, fontWeight: "700" },
+  content: { flex: 1 },
+  mediaPreview: { height: height * 0.45, backgroundColor: "#f5f5f5" },
+  previewMedia: { width: "100%", height: "100%" },
+  previewPlaceholder: { flex: 1, justifyContent: "center", alignItems: "center" },
+  form: { padding: 16 },
+  captionInput: { minHeight: 80, borderWidth: 1, borderColor: "#eee", borderRadius: 10, padding: 12, fontSize: 16, textAlignVertical: "top" },
+  optionsSection: { marginTop: 10, borderTopWidth: 1, borderTopColor: "#eee" },
+  optionItem: { flexDirection: "row", alignItems: "center", paddingVertical: 12, gap: 10 },
+  optionText: { fontSize: 16, color: "#333", flex: 1 },
+  optionValue: { fontSize: 14, color: "#666" },
+  switchRow: { marginTop: 8, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  switchLabel: { fontSize: 16, color: "#333" },
+  row: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 10 },
+  rowButton: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "#f5f5f5", paddingHorizontal: 10, paddingVertical: 8, borderRadius: 8 },
+  rowButtonText: { fontSize: 14, color: "#333" },
+  shareButton: { marginTop: 16, backgroundColor: "#007AFF", paddingVertical: 12, borderRadius: 10, alignItems: "center" },
+  shareButtonText: { color: "#fff", fontWeight: "800" },
 })
