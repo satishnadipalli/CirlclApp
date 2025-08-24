@@ -399,6 +399,44 @@ const getGroupMessages = async (req, res) => {
     })
   }
 }
+
+// Leave group (non-creator)
+const leaveGroup = async (req, res) => {
+  try {
+    const { groupId } = req.params
+    const userId = String(req.user.id)
+    const group = await Group.findById(groupId)
+    if (!group) return res.status(404).json({ success: false, message: 'Group not found' })
+    const creatorId = String(group.creator)
+    if (creatorId === userId) return res.status(400).json({ success: false, message: 'Creator cannot leave the group' })
+    const isMember = (group.members || []).some((m) => String(m) === userId)
+    if (!isMember) return res.status(400).json({ success: false, message: 'Not a member' })
+    group.members = (group.members || []).filter((m) => String(m) !== userId)
+    group.admins = (group.admins || []).filter((m) => String(m) !== userId)
+    await group.save()
+    return res.json({ success: true, message: 'Left group' })
+  } catch (e) {
+    return res.status(500).json({ success: false, message: e.message })
+  }
+}
+
+// Delete group (creator only) — soft delete by deactivating
+const deleteGroup = async (req, res) => {
+  try {
+    const { groupId } = req.params
+    const userId = String(req.user.id)
+    const group = await Group.findById(groupId)
+    if (!group) return res.status(404).json({ success: false, message: 'Group not found' })
+    const creatorId = String(group.creator)
+    if (creatorId !== userId) return res.status(403).json({ success: false, message: 'Only creator can delete group' })
+    group.isActive = false
+    await group.save()
+    // Optionally, later: cascade or archive messages
+    return res.json({ success: true, message: 'Group deleted' })
+  } catch (e) {
+    return res.status(500).json({ success: false, message: e.message })
+  }
+}
 module.exports = {
   createGroup,
   getUserGroups,
@@ -408,4 +446,6 @@ module.exports = {
   makeAdmin,
   removeAdmin,
   getGroupMessages,
+  leaveGroup,
+  deleteGroup,
 }
