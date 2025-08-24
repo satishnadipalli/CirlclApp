@@ -204,7 +204,7 @@ export default function ChatsScreen() {
     return () => {
       if (directListenerRef.current) socketService.removeDirectMessageListener(directListenerRef.current)
       if (groupListenerRef.current) socketService.removeGroupMessageListener(groupListenerRef.current)
-      socketService.disconnect()
+      // socketService.disconnect() // Do not disconnect global socket here; managed in Root layout
     }
   }, [])
 
