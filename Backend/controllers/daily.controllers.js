@@ -648,3 +648,16 @@ module.exports.getCaptions = getCaptions
 module.exports.putCaptions = putCaptions
 module.exports.autoCaptions = autoCaptions
 
+// Owner delete an entry
+module.exports.deleteEntry = async (req, res) => {
+  try {
+    const { entryId } = req.params
+    if (!entryId) return res.status(400).json({ success: false, message: 'entryId required' })
+    const entry = await DailyCircleEntry.findById(entryId).select('user')
+    if (!entry) return res.status(404).json({ success: false, message: 'Entry not found' })
+    if (String(entry.user) !== String(req.user._id)) return res.status(403).json({ success: false, message: 'Forbidden' })
+    await DailyCircleEntry.deleteOne({ _id: entryId })
+    res.json({ success: true })
+  } catch (e) { res.status(500).json({ success: false, message: e.message }) }
+}
+

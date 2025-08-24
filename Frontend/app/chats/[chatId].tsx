@@ -102,6 +102,8 @@ export default function ChatScreen() {
   const dot2Opacity = useRef(new Animated.Value(0.3)).current
   const dot3Opacity = useRef(new Animated.Value(0.3)).current
 
+  const [mediaViewer, setMediaViewer] = useState<{ visible: boolean; url: string; type: 'image' | 'video' | 'file' }>({ visible: false, url: '', type: 'image' })
+
   console.log("params",params);
 
 
@@ -878,11 +880,15 @@ export default function ChatScreen() {
               {(message as any).attachments.map((att: any, idx: number) => (
                 <View key={String(idx)}>
                   {att.type === 'image' ? (
-                    <Image source={{ uri: att.url }} style={{ width: 220, height: 220, borderRadius: 10, backgroundColor: '#eee' }} />
+                    <TouchableOpacity onPress={() => setMediaViewer({ visible: true, url: att.url, type: 'image' })}>
+                      <Image source={{ uri: att.url }} style={{ width: 220, height: 220, borderRadius: 10, backgroundColor: '#eee' }} />
+                    </TouchableOpacity>
                   ) : att.type === 'video' ? (
-                    <ExpoVideo source={{ uri: att.url }} style={{ width: 220, height: 220, borderRadius: 10, backgroundColor: '#000' }} useNativeControls resizeMode={'cover' as any} />
+                    <TouchableOpacity onPress={() => setMediaViewer({ visible: true, url: att.url, type: 'video' })}>
+                      <ExpoVideo source={{ uri: att.url }} style={{ width: 220, height: 220, borderRadius: 10, backgroundColor: '#000' }} useNativeControls resizeMode={'cover' as any} />
+                    </TouchableOpacity>
                   ) : (
-                    <TouchableOpacity onPress={() => { try { (require('expo-web-browser') as any).openBrowserAsync(att.url) } catch {} }}>
+                    <TouchableOpacity onPress={() => setMediaViewer({ visible: true, url: att.url, type: 'file' })}>
                       <Text style={{ color: '#fff', textDecorationLine: 'underline' }}>{att.name || 'file'}</Text>
                     </TouchableOpacity>
                   )}
@@ -1133,6 +1139,24 @@ export default function ChatScreen() {
           </TouchableOpacity>
         </View>
         {params.chatType === "group" && <GroupInfoModal />}
+        {mediaViewer.visible && (
+          <Modal visible transparent animationType="fade" onRequestClose={() => setMediaViewer({ visible: false, url: '', type: 'image' })}>
+            <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' }}>
+              <TouchableOpacity onPress={() => setMediaViewer({ visible: false, url: '', type: 'image' })} style={{ position: 'absolute', top: 40, right: 20 }}>
+                <Icon name="close" size={28} color="#fff" />
+              </TouchableOpacity>
+              {mediaViewer.type === 'image' ? (
+                <Image source={{ uri: mediaViewer.url }} style={{ width: '92%', height: '70%', resizeMode: 'contain' as any }} />
+              ) : mediaViewer.type === 'video' ? (
+                <ExpoVideo source={{ uri: mediaViewer.url }} style={{ width: '92%', height: '70%' }} useNativeControls resizeMode={'contain' as any} shouldPlay={false} isLooping={false} />
+              ) : (
+                <TouchableOpacity onPress={() => { try { (require('expo-web-browser') as any).openBrowserAsync(mediaViewer.url) } catch {} }}>
+                  <Text style={{ color: '#fff', textDecorationLine: 'underline' }}>Open file</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </Modal>
+        )}
       </KeyboardAvoidingView>
     
   )

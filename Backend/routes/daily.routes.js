@@ -45,5 +45,8 @@ router.get("/:entryId/captions", auth, getCaptions)
 router.put("/:entryId/captions", auth, putCaptions)
 router.post("/:entryId/captions/auto", auth, autoCaptions)
 
+// Delete own entry
+router.delete('/:entryId', auth, require('../controllers/daily.controllers').deleteEntry)
+
 module.exports = router
 
