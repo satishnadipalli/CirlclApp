@@ -448,6 +448,10 @@ class ApiService {
     return this.request(`/posts/${postId}/like`, { method: 'PUT' })
   }
 
+  async notInterested(postId: string) {
+    return this.request(`/posts/${postId}/not-interested`, { method: 'POST' })
+  }
+
   async postMetric(postId: string, payload: { event: 'impression'|'watch_start'|'watch_progress'|'watch_complete'|'rewatch'; positionMs?: number; durationMs?: number; deltaMs?: number }) {
     return this.request(`/posts/${postId}/metrics`, { method: 'POST', body: JSON.stringify(payload) })
   }

@@ -16,7 +16,8 @@ const userSchema = new mongoose.Schema({
   expoPushTokens: [{ type: String }],
   blockedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   bio: { type: String, default: "" },
-  website: { type: String, default: "" }
+  website: { type: String, default: "" },
+  notInterestedPosts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }],
 }, { timestamps: true });
 
 module.exports = mongoose.model("User", userSchema);
