@@ -515,6 +515,14 @@ class ApiService {
   async likeComment(postId: string, commentId: string, replyId?: string) {
     return this.request(`/posts/${postId}/comment/like`, { method: 'PUT', body: JSON.stringify({ commentId, ...(replyId ? { replyId } : {}) }) })
   }
+
+  // Profile-specific helpers
+  async getMyPosts(page = 1, limit = 10) {
+    return this.request(`/posts/me?page=${page}&limit=${limit}`)
+  }
+  async getUserPosts(userId: string, page = 1, limit = 10) {
+    return this.request(`/posts?userId=${encodeURIComponent(userId)}&page=${page}&limit=${limit}`)
+  }
 }
 
 const apiService = new ApiService()

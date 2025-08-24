@@ -194,8 +194,8 @@ export default function ProfileScreen() {
 
       const api = (await import("@/services/api.service")).apiService
       const data: any = (userId && userId !== (currentUser?._id))
-        ? await api.request(`/posts?userId=${userId}&page=${page}&limit=10`)
-        : await api.getFeed(page, 10)
+        ? await (api as any).getUserPosts?.(String(userId), page, 10)
+        : await (api as any).getMyPosts?.(page, 10)
 
       console.log("[v0] API response data:", data)
       console.log("[v0] Posts count:", data.posts?.length || 0)

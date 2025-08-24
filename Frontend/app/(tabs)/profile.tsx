@@ -214,7 +214,7 @@ export default function ProfileScreen() {
       }
 
       const api = (await import("@/services/api.service")).apiService
-      const data: any = await api.getFeed(page, 10)
+      const data: any = await (api as any).getMyPosts?.(page, 10)
       const userPosts = data.posts || []
 
       const formattedPosts = userPosts.map((post) => ({
