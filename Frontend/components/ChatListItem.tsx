@@ -28,10 +28,14 @@ export const ChatListItem: React.FC<ChatListItemProps> = ({ chat, currentUserId,
         }
       }
 
+      const hasAttachment = Array.isArray(chat.lastMessage?.attachments) && chat.lastMessage.attachments.length > 0
+      const preview = chat.lastMessage?.text && chat.lastMessage.text.trim().length > 0
+        ? chat.lastMessage.text
+        : (hasAttachment ? (/(video)/i.test(String(chat.lastMessage?.attachments?.[0]?.type || '')) ? 'Video' : 'Photo') : 'No messages yet')
       return {
         name: participant.name || "Unknown User",
         avatar: participant.profilePic || `https://i.pravatar.cc/150?u=${participant._id}`,
-        lastMessage: chat.lastMessage?.text || "No messages yet",
+        lastMessage: preview,
         chatId: participant._id,
         chatType: "direct" as const,
       }
@@ -46,13 +50,17 @@ export const ChatListItem: React.FC<ChatListItemProps> = ({ chat, currentUserId,
         }
       }
 
+      const hasAttachment = Array.isArray(chat.lastMessage?.attachments) && chat.lastMessage.attachments.length > 0
+      const senderName = (chat.lastMessage?.from && (chat.lastMessage.from as any)?.name)
+        || (chat.lastMessageFromName || '')
+        || 'Unknown'
+      const content = chat.lastMessage?.text && chat.lastMessage.text.trim().length > 0
+        ? chat.lastMessage.text
+        : (hasAttachment ? (/(video)/i.test(String(chat.lastMessage?.attachments?.[0]?.type || '')) ? 'Video' : 'Photo') : 'No messages yet')
       return {
         name: chat.group.name || "Unknown Group",
         avatar: chat.group.groupPic || `https://i.pravatar.cc/150?u=${chat.group._id}`,
-        lastMessage:
-          chat.lastMessage && chat.lastMessage.from
-            ? `${chat.lastMessage.from.name || "Unknown"}: ${chat.lastMessage.text}`
-            : "No messages yet",
+        lastMessage: chat.lastMessage ? `${senderName}: ${content}` : 'No messages yet',
         chatId: chat.group._id,
         chatType: "group" as const,
       }

@@ -261,6 +261,7 @@ const getAllChats = async (req, res) => {
             to: "$lastMessage.to",
             text: "$lastMessage.text",
             createdAt: "$lastMessage.createdAt",
+            attachments: "$lastMessage.attachments",
           },
           unreadCount: "$unread",
           chatType: "direct",
@@ -307,6 +308,16 @@ const getAllChats = async (req, res) => {
           chatType: "group",
         },
       },
+      {
+        $lookup: {
+          from: "users",
+          localField: "lastMessage.from",
+          foreignField: "_id",
+          as: "lastSender",
+        },
+      },
+      { $addFields: { lastMessageFromName: { $ifNull: [ { $arrayElemAt: ["$lastSender.name", 0] }, "" ] } } },
+      { $project: { lastSender: 0 } },
     ])
 
     res.status(200).json({
