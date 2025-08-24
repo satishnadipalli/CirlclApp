@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons"
 import { Video } from "expo-av"
 import api from "@/services/api.service"
 import AsyncStorage from "@react-native-async-storage/async-storage"
+import socketService from "@/services/socket.service"
 
 const { width, height } = Dimensions.get('window')
 
@@ -64,6 +65,7 @@ export default function DailyViewer() {
 
   const [groupRings, setGroupRings] = useState<Array<{ _id: string; name: string; profilePic?: string; index: number }>>([])
   const [promptText, setPromptText] = useState<string | null>(null)
+  const [typingUsers, setTypingUsers] = useState<Array<{ from: string; name?: string }>>([])
 
   const defaultSegMs = Math.max(1000, Math.min(45000, Number.parseInt(String(dur || "")) || 5000))
   const segMsRef = useRef<number>(defaultSegMs)
@@ -367,6 +369,35 @@ export default function DailyViewer() {
     if (s?.didJustFinish) { clearTimer(); goNext() }
   }
 
+  useEffect(() => {
+    if (!groupId) return
+    ;(async () => {
+      try {
+        await socketService.connect()
+        socketService.joinGroup(String(groupId))
+        const handler = (data: any) => {
+          if (String(data?.groupId || '') !== String(groupId)) return
+          setTypingUsers((prev) => {
+            const exists = prev.some((t) => String(t.from) === String(data.from))
+            if (exists) return prev
+            return [...prev, { from: String(data.from), name: data?.name }]
+          })
+        }
+        const stopHandler = (data: any) => {
+          if (String(data?.groupId || '') !== String(groupId)) return
+          setTypingUsers((prev) => prev.filter((t) => String(t.from) !== String(data.from)))
+        }
+        socketService.onGroupTyping(handler)
+        socketService.onGroupStopTyping(stopHandler)
+        return () => {
+          socketService.removeTypingListener(handler as any)
+          socketService.removeStopTypingListener(stopHandler as any)
+          socketService.leaveGroup(String(groupId))
+        }
+      } catch {}
+    })()
+  }, [groupId])
+
   if (loading) return (
     <View style={styles.container}><ActivityIndicator /></View>
   )
@@ -506,6 +537,13 @@ export default function DailyViewer() {
                   return seg?.text || ''
                 })()}
               </Text>
+            </View>
+          </View>
+        )}
+        {groupId && typingUsers.length > 0 && (
+          <View style={{ position: 'absolute', left: 12, right: 12, bottom: 160, alignItems: 'center' }}>
+            <View style={{ backgroundColor: 'rgba(0,0,0,0.4)', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 }}>
+              <Text style={{ color: '#fff', fontSize: 12 }}>{typingUsers.slice(0, 3).map((t) => t.name || 'Someone').join(', ')} typing…</Text>
             </View>
           </View>
         )}

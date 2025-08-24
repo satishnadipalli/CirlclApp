@@ -438,7 +438,17 @@ const Search = () => {
               <Image source={{ uri: item.groupPic || "https://i.pravatar.cc/100?img=18" }} style={styles.userAvatar} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.userName}>{item.name}</Text>
-                <Text style={{ color: '#666', fontSize: 12 }}>{(groupCounts[String(item._id)] || 0)} posted today</Text>
+                <Text style={{ color: '#666', fontSize: 12 }}>
+                  {(() => {
+                    const posted = groupCounts[String(item._id)] || 0
+                    const total = Array.isArray(item?.members) ? item.members.length : undefined
+                    if (typeof total === 'number' && total > 0) {
+                      const pct = Math.round((posted / total) * 100)
+                      return `${posted}/${total} posted today (${pct}%)`
+                    }
+                    return `${posted} posted today`
+                  })()}
+                </Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color="#999" />
             </TouchableOpacity>
