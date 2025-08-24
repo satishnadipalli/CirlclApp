@@ -219,14 +219,12 @@ export default function ChatScreen() {
 
           setMessages((prev) => {
             let newMessage = baseMessage
-            const exists = prev.some((m) => m.id === newMessage.id)
-            if (exists) {
-              const idx = prev.findIndex((m) => m.id === newMessage.id)
-              if (idx > -1) {
-                const next = [...prev]
-                next[idx] = newMessage
-                return next
-              }
+            // If server-sent id already exists, replace in-place
+            const byId = prev.findIndex((m) => m.id === newMessage.id)
+            if (byId > -1) {
+              const next = [...prev]
+              next[byId] = newMessage
+              return next
             }
 
             // Link reply if present and known
@@ -235,6 +233,25 @@ export default function ChatScreen() {
               const replied = prev.find((m) => m.id === replyId)
               if (replied) {
                 newMessage = { ...newMessage, replyTo: replied as any }
+              }
+            }
+
+            // If this is my own message, replace a matching temp message instead of appending
+            if (fromUserId === user._id) {
+              const revIdx = [...prev].reverse().findIndex((m) =>
+                m.sender === "me" &&
+                String(m.id || "").startsWith("temp-") &&
+                m.text === newMessage.text &&
+                m.messageType === newMessage.messageType &&
+                (newMessage.group ? m.group === newMessage.group : true) &&
+                (newMessage.to ? ((m.to as any)?._id === (newMessage.to as any)?._id) : true) &&
+                Math.abs(new Date(m.createdAt || 0).getTime() - new Date(newMessage.createdAt || 0).getTime()) < 15000
+              )
+              if (revIdx > -1) {
+                const idx = prev.length - 1 - revIdx
+                const next = [...prev]
+                next[idx] = newMessage
+                return next
               }
             }
 
