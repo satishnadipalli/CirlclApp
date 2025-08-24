@@ -244,6 +244,7 @@ class ApiService {
   async autoDailyCaptions(entryId: string) {
     return this.request(`/daily/${entryId}/captions/auto`, { method: 'POST' })
   }
+  async useLatePass() { return this.request(`/daily/late-pass`, { method: 'POST' }) }
 
   async getDirectMessages(withUserId) {
     return this.request(`/messages/direct/${withUserId}`)

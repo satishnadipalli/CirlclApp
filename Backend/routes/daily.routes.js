@@ -16,6 +16,9 @@ router.get("/prompt", auth, getTodayPrompt)
 // Post today's entry (multipart supported)
 router.post("/entry", auth, upload.single("file"), postTodayEntry)
 
+// Use a late pass to unlock today
+router.post('/late-pass', auth, require('../controllers/daily.controllers').useLatePass)
+
 // Get today's unlocked feed (requires user posted)
 router.get("/feed", auth, getTodayFeed)
 
