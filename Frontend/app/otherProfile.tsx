@@ -38,7 +38,6 @@ export default function ProfileScreen() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [isFollowing, setIsFollowing] = useState(false)
-  const [socket, setSocket] = useState(null)
   const [activeTab, setActiveTab] = useState("posts")
   const router = useRouter()
   const { userId } = useLocalSearchParams()
@@ -65,11 +64,7 @@ export default function ProfileScreen() {
   useEffect(() => {
     initializeProfile()
 
-    return () => {
-      if (socket) {
-        socket.disconnect()
-      }
-    }
+    return () => {}
   }, [userId])
 
   useEffect(() => {
@@ -108,10 +103,10 @@ export default function ProfileScreen() {
 
   const setupSocket = async (userId) => {
     try {
-      await socketService.connect()
+      // No connect here; rely on global
       socketService.registerUser(userId)
 
-      socketService.onFollowEvent((evt: any) => {
+      const onFollow = (evt: any) => {
         if (evt.type !== "follow") return
         const data = evt.data
         if (data.followedId === userId) {
@@ -124,9 +119,8 @@ export default function ProfileScreen() {
               : null,
           )
         }
-      })
-
-      socketService.onFollowEvent((evt: any) => {
+      }
+      const onUnfollow = (evt: any) => {
         if (evt.type !== "unfollow") return
         const data = evt.data
         if (data.unfollowedId === userId) {
@@ -139,10 +133,15 @@ export default function ProfileScreen() {
               : null,
           )
         }
-      })
-    } catch (error) {
-      console.error("Socket setup error:", error)
-    }
+      }
+      socketService.onFollowEvent(onFollow)
+      socketService.onFollowEvent(onUnfollow)
+
+      return () => {
+        socketService.removeFollowEventListener(onFollow)
+        socketService.removeFollowEventListener(onUnfollow)
+      }
+    } catch {}
   }
 
   const fetchCurrentUser = async () => {
@@ -150,18 +149,10 @@ export default function ProfileScreen() {
       const token = await AsyncStorage.getItem("token")
       if (!token) return null
 
-      const response = await fetch(require("../constants/Config").API_BASE_URL + "/users/me", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        setCurrentUser(data)
-        return data
-      }
+      const api = (await import("@/services/api.service")).apiService
+      const me = await api.getMe()
+      const data: any = me
+      if (data) { setCurrentUser(data.user || data); return (data.user || data) }
     } catch (error) {
       console.error("Error fetching current user:", error)
     }
@@ -176,23 +167,10 @@ export default function ProfileScreen() {
         return
       }
 
-      const endpoint = targetUserId
-        ? (require("../constants/Config").API_BASE_URL + `/users/${targetUserId}`)
-        : (require("../constants/Config").API_BASE_URL + "/users/me")
-
-      const response = await fetch(endpoint, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      })
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-
-      const data = await response.json()
-      setUser(data.user || data)
+      const api = (await import("@/services/api.service")).apiService
+      const data = targetUserId ? await api.getUserProfile(String(targetUserId)) : await api.getMe()
+      const payload: any = data
+      setUser(payload.user || payload)
 
       const currentUserToCheck = currentUserData || currentUser
       if (targetUserId && currentUserToCheck) {
@@ -214,30 +192,10 @@ export default function ProfileScreen() {
         return
       }
 
-      let endpoint
-      if (userId && userId !== currentUser?._id) {
-        endpoint = require("../constants/Config").API_BASE_URL + `/posts?userId=${userId}&page=${page}&limit=10&t=${Date.now()}`
-      } else {
-        endpoint = require("../constants/Config").API_BASE_URL + `/posts/me?page=${page}&limit=10&t=${Date.now()}`
-      }
-
-      console.log("[v0] Fetching posts from:", endpoint)
-
-      const response = await fetch(endpoint, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-          "Cache-Control": "no-cache, no-store, must-revalidate",
-          Pragma: "no-cache",
-          Expires: "0",
-        },
-      })
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-
-      const data = await response.json()
+      const api = (await import("@/services/api.service")).apiService
+      const data: any = (userId && userId !== (currentUser?._id))
+        ? await api.request(`/posts?userId=${userId}&page=${page}&limit=10`)
+        : await api.getFeed(page, 10)
 
       console.log("[v0] API response data:", data)
       console.log("[v0] Posts count:", data.posts?.length || 0)
@@ -288,25 +246,8 @@ export default function ProfileScreen() {
       const token = await AsyncStorage.getItem("token")
       if (!token || !currentUser) return
 
-      const endpoint = require("../constants/Config").API_BASE_URL + `/posts/me?page=1&limit=100&t=${Date.now()}`
-
-      console.log("[v0] Fetching mentioned posts from:", endpoint)
-
-      const response = await fetch(endpoint, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-          "Cache-Control": "no-cache, no-store, must-revalidate",
-          Pragma: "no-cache",
-          Expires: "0",
-        },
-      })
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-
-      const data = await response.json()
+      const api = (await import("@/services/api.service")).apiService
+      const data: any = await api.getMyPosts ? await (api as any).getMyPosts?.(1, 100) : await api.request(`/posts/me?page=1&limit=100`)
       const mentionedPostsData = data.mentionedPosts || []
 
       const formattedMentionedPosts = mentionedPostsData.map((post) => ({

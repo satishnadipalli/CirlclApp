@@ -598,7 +598,7 @@ export default function ChatScreen() {
   const sendAttachment = async (assets: Array<{ uri: string; type?: string; name?: string }>) => {
     try {
       if (!currentUser || assets.length === 0) return
-      const authToken = authToken || (await AsyncStorage.getItem('token'))
+      const token = await AsyncStorage.getItem('token')
       const form = new FormData()
       form.append('messageType', params.chatType as any)
       if (params.chatType === 'direct') form.append('to', String(params.chatId))
@@ -609,15 +609,33 @@ export default function ChatScreen() {
         const mime = a.type || (isVid ? 'video/mp4' : 'image/jpeg')
         form.append('files', { uri: a.uri as any, name: a.name || (isVid ? 'video.mp4' : 'image.jpg'), type: mime } as any)
       }
-      const resp = await fetch(require("@/constants/Config").API_BASE_URL + '/messages', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${await AsyncStorage.getItem('token')}` },
-        body: form as any,
-      })
-      const data = await resp.json()
-      if (!resp.ok || data?.success === false) {
-        throw new Error(data?.message || 'Failed to send attachment')
+
+      // Track progress
+      try {
+        await new Promise((resolve, reject) => {
+          const xhr = new XMLHttpRequest()
+          xhr.open('POST', require('@/constants/Config').API_BASE_URL + '/messages')
+          xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+          xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) {
+              const pct = Math.round((e.loaded / e.total) * 100)
+              // Optionally update some local UI state if desired
+            }
+          }
+          xhr.onerror = () => reject(new Error('Network error'))
+          xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) resolve(true)
+            else {
+              try { reject(new Error(JSON.parse(xhr.responseText)?.message || 'Failed to send attachment')) }
+              catch { reject(new Error('Failed to send attachment')) }
+            }
+          }
+          xhr.send(form)
+        })
+      } catch (e) {
+        throw e
       }
+
       setReplyingTo(null)
     } catch (e) {
       Alert.alert('Send failed', (e as Error).message)

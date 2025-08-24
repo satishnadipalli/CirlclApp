@@ -290,29 +290,22 @@ const NotificationsScreen = () => {
     ])
   }
 
-  const initializeSocket = async () => {
-    try {
-      await socketService.connect()
-      socketService.onNotification((notificationData: any) => {
-        setNotifications((prev) => [notificationData, ...prev])
-        setUnreadCount((prev) => prev + 1)
-      })
-    } catch (error) {
-      console.error("[v0] Error initializing socket:", error)
-    }
-  }
-
   useEffect(() => {
-    const initApp = async () => {
-      await fetchNotifications()
-      await fetchUnreadCount()
-      await initializeSocket()
+    (async () => {
+      try {
+        const token = await AsyncStorage.getItem("token")
+        if (!token) return
+        socketService.onNotification((notificationData: any) => {
+          setUnreadCount((prev) => prev + 1)
+          setTimeout(() => {
+            // toasts handled by provider; this screen just bumps badge
+          }, 50)
+        })
+      } catch {}
+    })()
+    return () => {
+      socketService.removeNotificationListener?.(() => {})
     }
-
-    initApp()
-
-    // Cleanup socket on unmount
-    return () => {}
   }, [])
 
   const renderNotification = ({ item }: { item: Notification }) => (

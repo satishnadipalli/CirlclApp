@@ -9,6 +9,7 @@ import { Animated, Dimensions, StyleSheet, Text, TouchableOpacity, View } from "
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { type Socket } from "socket.io-client"
 import socketService from "@/services/socket.service"
+import { useRouter } from "expo-router"
 
 const { width } = Dimensions.get("window")
 
@@ -61,6 +62,7 @@ const AnimatedNotification: React.FC<{
   const slideAnim = useRef(new Animated.Value(-100)).current
   const opacityAnim = useRef(new Animated.Value(0)).current
   const insets = useSafeAreaInsets()
+  const router = useRouter()
 
   useEffect(() => {
     console.log("[v0] AnimatedNotification: notification prop changed:", notification ? "EXISTS" : "NULL")
@@ -113,6 +115,17 @@ const AnimatedNotification: React.FC<{
       console.log("[v0] AnimatedNotification: Dismiss animation completed")
       onDismiss()
     })
+  }
+
+  const handlePress = () => {
+    try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light) } catch {}
+    const link = (notification as any)?.actionLink
+    if (link && typeof link === 'string') {
+      try { router.push(link) } catch { router.push('/notifications') }
+    } else {
+      router.push('/notifications')
+    }
+    dismissNotification()
   }
 
   const getNotificationIcon = (type: string) => {
@@ -192,7 +205,7 @@ const AnimatedNotification: React.FC<{
       ]}
     >
       <View style={styles.notificationContainerOverlay}>
-        <TouchableOpacity style={styles.notificationContent} onPress={dismissNotification} activeOpacity={0.9}>
+        <TouchableOpacity style={styles.notificationContent} onPress={handlePress} activeOpacity={0.9}>
           <View style={[styles.iconContainer, { backgroundColor: iconConfig.color + "15" }]}>
             <Ionicons name={iconConfig.name as any} size={22} color={iconConfig.color} />
           </View>
