@@ -212,6 +212,81 @@ const getRings = async (req, res) => {
   }
 }
 
+// Fetch today's entries for a specific user (respect unlock/forgiveness and close-friends)
+const getEntryByUser = async (req, res) => {
+  try {
+    const requestorId = String(req.user._id)
+    const { userId } = req.params
+    const dateKey = formatDateKey(new Date())
+
+    // Block safety: don't return content if requestor has blocked target
+    const me = await User.findById(requestorId).select('blockedUsers')
+    if ((me?.blockedUsers || []).some((id) => String(id) === String(userId))) {
+      return res.status(404).json({ success: false, message: 'No entry' })
+    }
+
+    // Fetch entries for the day (multiple allowed)
+    const entries = await DailyCircleEntry.find({ user: userId, dateKey, group: { $exists: false } })
+      .sort({ createdAt: -1 })
+      .populate('user', 'name profilePic')
+
+    if (!entries || entries.length === 0) return res.status(404).json({ success: false, message: 'No entry' })
+
+    // If viewing someone else's entries and they're not public, require unlock OR close-friends membership
+    const isOwn = requestorId === String(userId)
+    const anyPublic = entries.some((e) => String(e.visibility) === 'everyone')
+    if (!isOwn && !anyPublic) {
+      const posted = await DailyCircleEntry.exists({ user: requestorId, dateKey, group: { $exists: false } })
+      let forgiven = false
+      if (!posted) {
+        const st = await DailyStreak.findOne({ user: requestorId }).select('forgivenForDateKeys')
+        forgiven = !!st && Array.isArray(st.forgivenForDateKeys) && st.forgivenForDateKeys.includes(dateKey)
+      }
+      if (!posted && !forgiven) return res.status(403).json({ success: false, message: 'Post today to unlock your Daily Circle' })
+    }
+
+    // Filter out closeFriends entries if requestor is not in owner's closeFriends
+    if (!isOwn) {
+      const owner = await User.findById(userId).select('closeFriends')
+      const isCF = (owner?.closeFriends || []).some((id) => String(id) === requestorId)
+      if (!isCF) {
+        // Return only non-closeFriends entries
+        const filtered = entries.filter((e) => String(e.visibility) !== 'closeFriends')
+        return res.json({ success: true, entry: filtered[0] || null, entries: filtered })
+      }
+    }
+
+    res.json({ success: true, entry: entries[0] || null, entries })
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message })
+  }
+}
+
+// Group-specific Daily feed for today (requires membership)
+const getGroupDailyFeed = async (req, res) => {
+  try {
+    const { groupId } = req.params
+    const userId = String(req.user._id)
+    const dateKey = formatDateKey(new Date())
+
+    const grp = await Group.findById(groupId).select('members')
+    if (!grp) return res.status(404).json({ success: false, message: 'Group not found' })
+    if (!grp.members.some((m) => String(m) === userId)) return res.status(403).json({ success: false, message: 'Not a member' })
+
+    const me = await User.findById(userId).select('blockedUsers')
+    const blockedIds = new Set((me?.blockedUsers || []).map((id) => String(id)))
+
+    const entries = await DailyCircleEntry.find({ dateKey, group: groupId })
+      .sort({ createdAt: -1 })
+      .where('user').nin(Array.from(blockedIds))
+      .populate('user', 'name profilePic')
+
+    res.json({ success: true, entries })
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message })
+  }
+}
+
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 // Auto-generate captions using AssemblyAI (requires ASSEMBLYAI_API_KEY)
