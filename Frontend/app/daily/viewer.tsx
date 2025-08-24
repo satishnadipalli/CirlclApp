@@ -423,6 +423,32 @@ export default function DailyViewer() {
     })()
   }, [groupId])
 
+  // Live update viewers count/list when owner modal open
+  useEffect(() => {
+    const handler = (evt: any) => {
+      try {
+        const eId = String(evt?.entryId || '')
+        const cur = entries[entryIndex]
+        if (!cur || String(cur?._id || '') !== eId) return
+        if (typeof evt?.viewsCount === 'number') {
+          setEntries((prev) => {
+            const next = prev.slice()
+            next[entryIndex] = { ...next[entryIndex], viewsCount: evt.viewsCount }
+            return next
+          })
+        }
+        if (showViewers && evt?.viewer) {
+          setViewers((prev) => {
+            if (prev.some((u) => String(u?._id) === String(evt.viewer?._id))) return prev
+            return [evt.viewer, ...prev]
+          })
+        }
+      } catch {}
+    }
+    try { socketService.onDailyViewed(handler) } catch {}
+    return () => { try { socketService.dailyViewedListeners = [] as any } catch {} }
+  }, [entries, entryIndex, showViewers])
+
   if (loading) return (
     <View style={styles.container}><ActivityIndicator /></View>
   )
