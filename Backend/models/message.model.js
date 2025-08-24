@@ -19,7 +19,7 @@ const messageSchema = new mongoose.Schema(
     },
     text: {
       type: String,
-      required: true,
+      default: "",
       trim: true,
     },
     messageType: {
@@ -37,6 +37,18 @@ const messageSchema = new mongoose.Schema(
     },
     // For group read tracking
     readBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    // Attachments (images/videos/files)
+    attachments: [
+      {
+        url: { type: String, required: true },
+        type: { type: String, enum: ["image", "video", "file"], default: "image" },
+        name: { type: String, default: "" },
+        size: { type: Number, default: 0 },
+        width: { type: Number, default: 0 },
+        height: { type: Number, default: 0 },
+        duration: { type: Number, default: 0 },
+      },
+    ],
   },
   { timestamps: true },
 )

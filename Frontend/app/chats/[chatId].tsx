@@ -21,6 +21,9 @@ import {
   TouchableOpacity,
   View,
 } from "react-native"
+import * as ImagePicker from 'expo-image-picker'
+import * as DocumentPicker from 'expo-document-picker'
+import { Video as ExpoVideo } from 'expo-av'
 
 import { Avatar } from "react-native-paper"
 import Icon from "react-native-vector-icons/MaterialIcons"
@@ -36,6 +39,7 @@ interface ChatMessage {
   createdAt?: string
   replyTo?: ChatMessage
   system?: boolean
+  attachments?: Array<{ url: string; type: 'image' | 'video' | 'file'; name?: string }>
 }
 
 interface DateHeader {
@@ -206,6 +210,7 @@ export default function ChatScreen() {
             messageType: params.chatType,
             createdAt: msg.createdAt || new Date().toISOString(),
             system: /\badded\b/i.test(String(msg.text || "")),
+            attachments: msg.attachments,
           }
 
           // Mark as read immediately when a new incoming message arrives while viewing this conversation
@@ -387,6 +392,7 @@ export default function ChatScreen() {
             to: msg.to,
             messageType: "direct",
             createdAt: msg.createdAt,
+            attachments: msg.attachments,
           }))
           console.log("[v0] Loaded direct messages:", formattedMessages.length)
           setMessages(formattedMessages)
@@ -416,6 +422,7 @@ export default function ChatScreen() {
             messageType: "group",
             createdAt: msg.createdAt,
             system: /\badded\b/i.test(String(msg.text || "")),
+            attachments: msg.attachments,
           }))
           console.log("[v0] Loaded group messages:", formattedMessages.length)
           setMessages(formattedMessages)
@@ -547,6 +554,62 @@ export default function ChatScreen() {
       Alert.alert("Error", "Failed to send message. Please try again.")
     }
     setReplyingTo(null)
+  }
+
+  const sendAttachment = async (assets: Array<{ uri: string; type?: string; name?: string }>) => {
+    try {
+      if (!currentUser || assets.length === 0) return
+      const authToken = authToken || (await AsyncStorage.getItem('token'))
+      const form = new FormData()
+      form.append('messageType', params.chatType as any)
+      if (params.chatType === 'direct') form.append('to', String(params.chatId))
+      else form.append('group', String(params.chatId))
+      if (replyingTo?.id) form.append('replyTo', String(replyingTo.id))
+      for (const a of assets) {
+        const isVid = /\.(mp4|mov|m4v|webm)$/i.test(a.name || a.uri)
+        const mime = a.type || (isVid ? 'video/mp4' : 'image/jpeg')
+        form.append('files', { uri: a.uri as any, name: a.name || (isVid ? 'video.mp4' : 'image.jpg'), type: mime } as any)
+      }
+      const resp = await fetch(require("@/constants/Config").API_BASE_URL + '/messages', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${await AsyncStorage.getItem('token')}` },
+        body: form as any,
+      })
+      const data = await resp.json()
+      if (!resp.ok || data?.success === false) {
+        throw new Error(data?.message || 'Failed to send attachment')
+      }
+      setReplyingTo(null)
+    } catch (e) {
+      Alert.alert('Send failed', (e as Error).message)
+    }
+  }
+
+  const onAttachPress = async () => {
+    try {
+      const choice = await new Promise<'gallery'|'file'|'cancel'>((resolve) => {
+        Alert.alert('Attach', 'Choose source', [
+          { text: 'Gallery', onPress: () => resolve('gallery') },
+          { text: 'File', onPress: () => resolve('file') },
+          { text: 'Cancel', style: 'cancel', onPress: () => resolve('cancel') },
+        ])
+      })
+      if (choice === 'gallery') {
+        const perm = await ImagePicker.requestMediaLibraryPermissionsAsync()
+        if (!perm.granted) return
+        const picked = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.All, allowsMultipleSelection: true, quality: 0.85 })
+        if (!picked.canceled) {
+          const assets = (picked.assets || []).slice(0, 8).map((a) => ({ uri: a.uri, name: a.fileName || a.uri.split('/').pop() || 'media' }))
+          await sendAttachment(assets)
+        }
+      } else if (choice === 'file') {
+        const picked = await DocumentPicker.getDocumentAsync({ multiple: true, copyToCacheDirectory: true })
+        if (picked.type === 'success') {
+          const assets = [{ uri: picked.uri, name: picked.name }]
+          await sendAttachment(assets)
+        }
+      }
+    } catch {}
   }
 
   const isToday = (date: Date): boolean => {
@@ -747,6 +810,25 @@ export default function ChatScreen() {
         >
           {params.chatType === "group" && !isMyMessage && (
             <Text style={[styles.senderName, { color: getUserColor(message.from._id) }]}>{message.from.name}</Text>
+          )}
+
+          {/* Attachments */}
+          {Array.isArray((message as any).attachments) && (message as any).attachments.length > 0 && (
+            <View style={{ gap: 8 }}>
+              {(message as any).attachments.map((att: any, idx: number) => (
+                <View key={String(idx)}>
+                  {att.type === 'image' ? (
+                    <Image source={{ uri: att.url }} style={{ width: 220, height: 220, borderRadius: 10, backgroundColor: '#eee' }} />
+                  ) : att.type === 'video' ? (
+                    <ExpoVideo source={{ uri: att.url }} style={{ width: 220, height: 220, borderRadius: 10, backgroundColor: '#000' }} useNativeControls resizeMode={'cover' as any} />
+                  ) : (
+                    <TouchableOpacity onPress={() => { try { (require('expo-web-browser') as any).openBrowserAsync(att.url) } catch {} }}>
+                      <Text style={{ color: '#fff', textDecorationLine: 'underline' }}>{att.name || 'file'}</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              ))}
+            </View>
           )}
 
           {"replyTo" in (message as any) && (message as any).replyTo && (
@@ -965,6 +1047,9 @@ export default function ChatScreen() {
             multiline
             maxLength={500}
           />
+          <TouchableOpacity onPress={onAttachPress} style={[styles.attachButton]}>
+            <Icon name="attach-file" size={22} color="#333" />
+          </TouchableOpacity>
           <TouchableOpacity
             onPress={sendMessage}
             style={[
@@ -1216,17 +1301,10 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    padding: 10,
+    borderTopWidth: 1,
+    borderTopColor: "#ddd",
     backgroundColor: "#fff",
-    borderRadius: 25,
-    marginHorizontal: 10,
-    marginBottom: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
   },
   replyPreview: {
     position: "absolute",
@@ -1269,19 +1347,28 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 15,
-    fontSize: 16,
-    color: "#000",
-    maxHeight: 100, // limits multiline expansion
+    padding: 10,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 20,
+    marginRight: 10,
+    minHeight: 40,
+    maxHeight: 120,
+    backgroundColor: "#fff",
+  },
+  attachButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f2f2f2',
+    marginRight: 8,
   },
   sendButton: {
-    backgroundColor: "#0095f6", // Instagram blue
-    borderRadius: 25,
-    width: 40,
-    height: 40,
-    justifyContent: "center",
-    alignItems: "center",
-    marginLeft: 8,
+    backgroundColor: "#007AFF",
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 20,
   },
 })

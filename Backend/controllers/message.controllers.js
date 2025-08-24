@@ -9,8 +9,9 @@ const sendMessage = async (req, res) => {
     const { text, to, group, messageType, replyTo } = req.body
     const from = req.user.id
 
-    if (typeof text !== 'string' || text.trim().length === 0 || text.length > 2000) {
-      return res.status(400).json({ success: false, message: 'Invalid text' })
+    const txt = typeof text === 'string' ? text : ''
+    if (txt.length > 2000) {
+      return res.status(400).json({ success: false, message: 'Text too long' })
     }
 
     // Validate message type
@@ -44,7 +45,7 @@ const sendMessage = async (req, res) => {
       message = new Message({
         from,
         to,
-        text,
+        text: txt,
         messageType: "direct",
         readBy: [from],
       })
@@ -76,7 +77,7 @@ const sendMessage = async (req, res) => {
       message = new Message({
         from,
         group,
-        text,
+        text: txt,
         messageType: "group",
         readBy: [from],
       })
@@ -85,6 +86,20 @@ const sendMessage = async (req, res) => {
     // Optional replyTo association
     if (replyTo && mongoose.Types.ObjectId.isValid(replyTo)) {
       message.replyTo = replyTo
+    }
+
+    // Map multer uploads to attachments
+    if (Array.isArray(req.files) && req.files.length > 0) {
+      message.attachments = (req.files || []).map((f) => ({
+        url: f?.path || f?.location || f?.secure_url || f?.filename || '',
+        type: /^video\//.test(f?.mimetype || '') ? 'video' : (/^image\//.test(f?.mimetype || '') ? 'image' : 'file'),
+        name: f?.originalname || '',
+        size: Number(f?.size || 0),
+        width: 0,
+        height: 0,
+        duration: 0,
+      })).filter((a) => a.url)
+      if (!message.text) message.text = ''
     }
 
     await message.save()
@@ -114,6 +129,7 @@ const sendMessage = async (req, res) => {
           createdAt: message.createdAt,
           messageType: "direct",
           replyTo: message.replyTo?._id || null,
+          attachments: message.attachments || [],
           _id: message._id,
         }
         if (recipientSocketId) io.to(recipientSocketId).emit("receiveDirectMessage", payload)
@@ -127,6 +143,7 @@ const sendMessage = async (req, res) => {
           createdAt: message.createdAt,
           messageType: "group",
           replyTo: message.replyTo?._id || null,
+          attachments: message.attachments || [],
           _id: message._id,
         }
         io.to(`group_${message.group?._id || message.group}`).emit("receiveGroupMessage", payload)
