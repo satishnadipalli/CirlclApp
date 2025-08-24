@@ -213,31 +213,9 @@ export default function ProfileScreen() {
         return
       }
 
-      const endpoint = require("../../constants/Config").API_BASE_URL + `/posts/me?page=${page}&limit=10&t=${Date.now()}`
-
-      console.log("[v0] Fetching posts from:", endpoint)
-
-      const response = await fetch(endpoint, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-          "Cache-Control": "no-cache, no-store, must-revalidate",
-          Pragma: "no-cache",
-          Expires: "0",
-        },
-      })
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-
-      const data = await response.json()
+      const api = (await import("@/services/api.service")).apiService
+      const data: any = await api.getFeed(page, 10)
       const userPosts = data.posts || []
-      const mentionedPostsData = data.mentionedPosts || []
-
-      console.log("[v0] API response data:", data)
-      console.log("[v0] Posts count:", userPosts.length)
-      console.log("[v0] Mentioned posts count:", mentionedPostsData.length)
 
       const formattedPosts = userPosts.map((post) => ({
         _id: post._id,
@@ -247,34 +225,31 @@ export default function ProfileScreen() {
         likes: post.likes || [],
         comments: post.comments || [],
         createdAt: post.createdAt,
-        author: post.author || post.user,
+        user: post.user,
       }))
 
-      const formattedMentionedPosts = mentionedPostsData.map((post) => ({
-        _id: post._id,
-        image: post.mediaUrl || "https://i.pravatar.cc/500?img=21",
-        title: post.title,
-        description: post.description,
-        likes: post.likes || [],
-        comments: post.comments || [],
-        createdAt: post.createdAt,
-        author: post.author || post.user,
-      }))
+      if (!append) {
+        await fetchMentionedPosts()
+      }
 
       if (append) {
         setPosts((prev) => [...prev, ...formattedPosts])
       } else {
         setPosts(formattedPosts)
-        setMentionedPosts(formattedMentionedPosts)
       }
 
-      setCurrentPage(data.currentPage || page)
+      setCurrentPage(data.currentPage || 1)
       setTotalPages(data.totalPages || 1)
-      setHasMorePosts(page < (data.totalPages || 1))
+      setHasMorePosts((data.currentPage || 1) < (data.totalPages || 1))
     } catch (error) {
       console.error("Error fetching posts:", error)
       if (!append) {
-        setPosts([])
+        const placeholderPosts = [
+          { _id: "1", image: "https://i.pravatar.cc/500?img=21", createdAt: new Date().toISOString() },
+          { _id: "2", image: "https://i.pravatar.cc/500?img=22", createdAt: new Date().toISOString() },
+          { _id: "3", image: "https://i.pravatar.cc/500?img=23", createdAt: new Date().toISOString() },
+        ]
+        setPosts(placeholderPosts)
         setMentionedPosts([])
       }
     }
