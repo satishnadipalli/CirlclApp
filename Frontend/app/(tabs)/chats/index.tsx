@@ -63,7 +63,7 @@ export default function ChatsScreen() {
     arr.map((c) =>
       c.chatType === "direct"
         ? { chatType: "direct", user: c.user || c.participant, lastMessage: c.lastMessage, unreadCount: c.unreadCount || 0 }
-        : { chatType: "group", group: c.group, lastMessage: c.lastMessage, unreadCount: c.unreadCount || 0 },
+        : { chatType: "group", group: c.group, lastMessage: c.lastMessage, unreadCount: c.unreadCount || 0, lastMessageFromName: c.lastMessageFromName },
     )
 
   const fetchChats = async () => {
@@ -159,11 +159,16 @@ export default function ChatsScreen() {
           return null // avoid flicker unknown group
         }
         const chat = list[idx]
+        const senderId = typeof message.from === 'object' ? message.from?._id : message.from
+        const senderName = senderId === uid
+          ? 'You'
+          : (Array.isArray(chat?.group?.members) ? (chat.group.members.find((m: any) => String(m?._id) === String(senderId))?.name || '') : '')
         return {
           idx,
           updated: {
             ...chat,
-            lastMessage: { ...(chat.lastMessage || {}), text: message.text, createdAt, attachments: message.attachments || [] },
+            lastMessage: { ...(chat.lastMessage || {}), text: message.text, createdAt, attachments: message.attachments || [], from: { name: senderName } },
+            lastMessageFromName: senderName || chat.lastMessageFromName,
           },
         }
       })

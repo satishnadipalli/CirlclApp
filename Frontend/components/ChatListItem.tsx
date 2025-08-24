@@ -51,8 +51,8 @@ export const ChatListItem: React.FC<ChatListItemProps> = ({ chat, currentUserId,
       }
 
       const hasAttachment = Array.isArray(chat.lastMessage?.attachments) && chat.lastMessage.attachments.length > 0
-      const senderName = (chat.lastMessage?.from && (chat.lastMessage.from as any)?.name)
-        || (chat.lastMessageFromName || '')
+      const senderName = (chat.lastMessageFromName && String(chat.lastMessageFromName).trim())
+        || ((chat.lastMessage?.from && (chat.lastMessage.from as any)?.name) ? (chat.lastMessage.from as any).name : '')
         || 'Unknown'
       const content = chat.lastMessage?.text && chat.lastMessage.text.trim().length > 0
         ? chat.lastMessage.text
