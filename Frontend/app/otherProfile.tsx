@@ -38,7 +38,6 @@ export default function ProfileScreen() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [isFollowing, setIsFollowing] = useState(false)
-  const [socket, setSocket] = useState(null)
   const [activeTab, setActiveTab] = useState("posts")
   const router = useRouter()
   const { userId } = useLocalSearchParams()
@@ -65,11 +64,7 @@ export default function ProfileScreen() {
   useEffect(() => {
     initializeProfile()
 
-    return () => {
-      if (socket) {
-        socket.disconnect()
-      }
-    }
+    return () => {}
   }, [userId])
 
   useEffect(() => {
@@ -108,10 +103,10 @@ export default function ProfileScreen() {
 
   const setupSocket = async (userId) => {
     try {
-      await socketService.connect()
+      // No connect here; rely on global
       socketService.registerUser(userId)
 
-      socketService.onFollowEvent((evt: any) => {
+      const onFollow = (evt: any) => {
         if (evt.type !== "follow") return
         const data = evt.data
         if (data.followedId === userId) {
@@ -124,9 +119,8 @@ export default function ProfileScreen() {
               : null,
           )
         }
-      })
-
-      socketService.onFollowEvent((evt: any) => {
+      }
+      const onUnfollow = (evt: any) => {
         if (evt.type !== "unfollow") return
         const data = evt.data
         if (data.unfollowedId === userId) {
@@ -139,10 +133,15 @@ export default function ProfileScreen() {
               : null,
           )
         }
-      })
-    } catch (error) {
-      console.error("Socket setup error:", error)
-    }
+      }
+      socketService.onFollowEvent(onFollow)
+      socketService.onFollowEvent(onUnfollow)
+
+      return () => {
+        socketService.removeFollowEventListener(onFollow)
+        socketService.removeFollowEventListener(onUnfollow)
+      }
+    } catch {}
   }
 
   const fetchCurrentUser = async () => {

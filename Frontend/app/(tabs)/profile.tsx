@@ -162,8 +162,7 @@ export default function ProfileScreen() {
 
   const setupSocket = async (userId: string) => {
     try {
-      await socketService.connect()
-      socketService.onFollowEvent((evt: any) => {
+      const onFollow = (evt: any) => {
         if (evt.type !== "follow") return
         const data = evt.data
         console.log("[v0] New follower received:", data)
@@ -178,8 +177,8 @@ export default function ProfileScreen() {
           )
           console.log("[v0] Updated followers count after new follower")
         }
-      })
-      socketService.onFollowEvent((evt: any) => {
+      }
+      const onUnfollow = (evt: any) => {
         if (evt.type !== "unfollow") return
         const data = evt.data
         console.log("[v0] Unfollowed received:", data)
@@ -194,7 +193,13 @@ export default function ProfileScreen() {
           )
           console.log("[v0] Updated followers count after unfollowed")
         }
-      })
+      }
+      socketService.onFollowEvent(onFollow)
+      socketService.onFollowEvent(onUnfollow)
+      return () => {
+        socketService.removeFollowEventListener(onFollow)
+        socketService.removeFollowEventListener(onUnfollow)
+      }
     } catch (error) {
       console.error("Socket setup error:", error)
     }

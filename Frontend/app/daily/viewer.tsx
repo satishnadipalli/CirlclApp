@@ -373,8 +373,8 @@ export default function DailyViewer() {
     if (!groupId) return
     ;(async () => {
       try {
-        await socketService.connect()
-        socketService.joinGroup(String(groupId))
+        // Join rooms for friends with entries if needed later
+        // socketService.joinGroup(String(groupId))
         const handler = (data: any) => {
           if (String(data?.groupId || '') !== String(groupId)) return
           setTypingUsers((prev) => {
@@ -585,8 +585,8 @@ export default function DailyViewer() {
                   })
                   if (!ok) return
                   const eid = String(item._id)
-                  const res = await fetch(`${(require('@/services/api.service') as any).default.baseURL}/daily/${eid}`, { method: 'DELETE', headers: await (api as any).getHeaders?.() })
-                  if (res.ok) {
+                  const resp: any = await (api as any).request(`/daily/${eid}`, { method: 'DELETE' })
+                  if (resp && resp.success !== false) {
                     // remove from current list
                     setEntries((prev) => prev.filter((e) => String(e._id) !== eid))
                     setEntryIndex((i) => Math.max(0, i - 1))
