@@ -54,27 +54,21 @@ const Search = () => {
   const router = useRouter()
   const params = useLocalSearchParams() as any
   const openHandledRef = useRef(false)
+  const focusDailyHandledRef = useRef(false)
 
   useEffect(() => {
     loadExplore(1, true)
   }, [])
 
   useEffect(() => {
-    if (params?.focusDaily === "1") {
+    if (params?.focusDaily === "1" && !focusDailyHandledRef.current) {
+      focusDailyHandledRef.current = true
       setShowDaily(true)
       setTab('daily')
       loadDaily(true)
       loadStreak()
     }
-    if (!openHandledRef.current && params?.openComposer === "1") {
-      openHandledRef.current = true
-      setShowComposer(true)
-    }
-    if (!openHandledRef.current && params?.openComposer === "0") {
-      openHandledRef.current = true
-      setShowComposer(false)
-    }
-  }, [params])
+  }, [params?.focusDaily])
 
   // Seed composer from params
   useEffect(() => {
@@ -112,7 +106,6 @@ const Search = () => {
       setDailyHasMore(false)
       setDailyPage(nextPage + 1)
       setDailyLocked(false)
-      loadStreak()
     } catch (e) {
       if (reset) setDailyFeed([])
     } finally {

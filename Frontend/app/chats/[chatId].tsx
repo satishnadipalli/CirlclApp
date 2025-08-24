@@ -253,15 +253,21 @@ export default function ChatScreen() {
 
             // If this is my own message, replace a matching temp message instead of appending
             if (fromUserId === user._id) {
-              const revIdx = [...prev].reverse().findIndex((m) =>
-                m.sender === "me" &&
-                String(m.id || "").startsWith("temp-") &&
-                m.text === newMessage.text &&
-                m.messageType === newMessage.messageType &&
-                (newMessage.group ? m.group === newMessage.group : true) &&
-                (newMessage.to ? ((m.to as any)?._id === (newMessage.to as any)?._id) : true) &&
-                Math.abs(new Date(m.createdAt || 0).getTime() - new Date(newMessage.createdAt || 0).getTime()) < 15000
-              )
+              const newToId = typeof (newMessage as any).to === 'object' ? (newMessage as any).to?._id : (newMessage as any).to
+              const newGroupId = typeof (newMessage as any).group === 'object' ? (newMessage as any).group?._id : (newMessage as any).group
+              const revIdx = [...prev].reverse().findIndex((m) => {
+                const mToId = typeof (m as any).to === 'object' ? (m as any).to?._id : (m as any).to
+                const mGroupId = typeof (m as any).group === 'object' ? (m as any).group?._id : (m as any).group
+                return (
+                  m.sender === 'me' &&
+                  String((m as any).id || '').startsWith('temp-') &&
+                  (m as any).text === (newMessage as any).text &&
+                  (m as any).messageType === (newMessage as any).messageType &&
+                  (newGroupId ? mGroupId === newGroupId : true) &&
+                  (newToId ? mToId === newToId : true) &&
+                  Math.abs(new Date((m as any).createdAt || 0).getTime() - new Date((newMessage as any).createdAt || 0).getTime()) < 15000
+                )
+              })
               if (revIdx > -1) {
                 const idx = prev.length - 1 - revIdx
                 const next = [...prev]
