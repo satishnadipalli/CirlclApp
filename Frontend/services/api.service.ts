@@ -215,6 +215,9 @@ class ApiService {
   async putDailyCaptions(entryId: string, captions: Array<{ start: number; end: number; text: string }>) {
     return this.request(`/daily/${entryId}/captions`, { method: 'PUT', body: JSON.stringify({ captions }) })
   }
+  async autoDailyCaptions(entryId: string) {
+    return this.request(`/daily/${entryId}/captions/auto`, { method: 'POST' })
+  }
 
   async getDirectMessages(withUserId) {
     return this.request(`/messages/direct/${withUserId}`)
