@@ -775,6 +775,14 @@ const getReels = async (req, res) => {
       if (saved.some((s) => String(s) === String(p._id))) score += 20
       // Hashtags presence lightly boosts (content richness)
       score += (p.hashtags?.length || 0) * 1
+      // Watch metrics (completion, avg watch, rewatch)
+      const watchCount = Math.max(1, Number(p.watchCount || 0))
+      const impressions = Math.max(1, Number(p.impressions || 0))
+      const completionRate = Math.min(1, Number(p.completeCount || 0) / watchCount)
+      const avgWatchSeconds = Math.min(60, Number(p.watchMsTotal || 0) / impressions / 1000)
+      score += completionRate * 200
+      score += avgWatchSeconds * 2
+      score += Math.min(1, Number(p.rewatchCount || 0) / watchCount) * 80
       return score
     }
 
@@ -788,6 +796,44 @@ const getReels = async (req, res) => {
     const hasMore = start + limit < scored.length
 
     res.json({ success: true, page, limit, hasMore, posts: data })
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message })
+  }
+}
+
+// Record aggregated watch metrics for reels/posts
+const recordWatchMetric = async (req, res) => {
+  try {
+    const { id } = req.params
+    const { event, positionMs, durationMs, deltaMs } = req.body || {}
+    if (!id || !event) return res.status(400).json({ success: false, message: 'id and event are required' })
+    const post = await Post.findById(id).select('impressions watchCount completeCount rewatchCount watchMsTotal')
+    if (!post) return res.status(404).json({ success: false, message: 'Post not found' })
+    switch (String(event)) {
+      case 'impression':
+        post.impressions = (post.impressions || 0) + 1
+        break
+      case 'watch_start':
+        post.watchCount = (post.watchCount || 0) + 1
+        break
+      case 'watch_progress': {
+        const inc = Number.isFinite(deltaMs) ? Number(deltaMs) : (Number(positionMs) || 0)
+        if (inc > 0) post.watchMsTotal = (post.watchMsTotal || 0) + inc
+        break
+      }
+      case 'watch_complete':
+        post.completeCount = (post.completeCount || 0) + 1
+        // If we have duration, add it to total
+        if (Number.isFinite(durationMs) && durationMs > 0) post.watchMsTotal = (post.watchMsTotal || 0) + Number(durationMs)
+        break
+      case 'rewatch':
+        post.rewatchCount = (post.rewatchCount || 0) + 1
+        break
+      default:
+        return res.status(400).json({ success: false, message: 'Unknown event' })
+    }
+    await post.save()
+    res.json({ success: true })
   } catch (err) {
     res.status(500).json({ success: false, message: err.message })
   }
@@ -811,4 +857,5 @@ module.exports = {
   getExplorePosts,
   getPostById,
   getReels,
+  recordWatchMetric,
 };

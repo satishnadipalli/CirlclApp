@@ -42,10 +42,17 @@ const postSchema = new mongoose.Schema(
       type: { type: String, enum: ["Point"] },
       coordinates: { type: [Number] }, // [lng, lat]
     },
+    // Reels/watch metrics (aggregated)
+    impressions: { type: Number, default: 0 },
+    watchCount: { type: Number, default: 0 },
+    completeCount: { type: Number, default: 0 },
+    rewatchCount: { type: Number, default: 0 },
+    watchMsTotal: { type: Number, default: 0 },
   },
   { timestamps: true } // ✅ createdAt/updatedAt
 );
 
 postSchema.index({ geo: "2dsphere" });
+postSchema.index({ createdAt: -1 });
 
 module.exports = mongoose.model("Post", postSchema);
