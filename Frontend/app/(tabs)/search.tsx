@@ -12,6 +12,7 @@ import {
   Dimensions,
   ScrollView,
   Modal,
+  Share,
 } from "react-native"
 import * as ImagePicker from "expo-image-picker"
 import * as Camera from "expo-camera"
@@ -48,6 +49,8 @@ const Search = () => {
   const [groupCounts, setGroupCounts] = useState<Record<string, number>>({})
   const [postToGroup, setPostToGroup] = useState(false)
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null)
+  const [streak, setStreak] = useState<{ current?: number; longest?: number; nextMilestone?: number | null; hitMilestone?: boolean } | null>(null)
+  const [showMilestone, setShowMilestone] = useState(false)
   const router = useRouter()
   const params = useLocalSearchParams() as any
   const openHandledRef = useRef(false)
@@ -61,6 +64,7 @@ const Search = () => {
       setShowDaily(true)
       setTab('daily')
       loadDaily(true)
+      loadStreak()
     }
     if (!openHandledRef.current && params?.openComposer === "1") {
       openHandledRef.current = true
@@ -86,6 +90,7 @@ const Search = () => {
 
   useEffect(() => {
     if (tab === 'groups') loadGroups()
+    if (tab === 'daily') { loadStreak() }
   }, [tab])
 
   const loadDaily = async (reset = false) => {
@@ -107,11 +112,31 @@ const Search = () => {
       setDailyHasMore(false)
       setDailyPage(nextPage + 1)
       setDailyLocked(false)
+      loadStreak()
     } catch (e) {
       if (reset) setDailyFeed([])
     } finally {
       loadingMoreRef.current = false
     }
+  }
+
+  const loadStreak = async () => {
+    try {
+      const res: any = await apiService.getDailyStreak()
+      if (res?.success && res?.streak) {
+        setStreak(res.streak)
+        const cur = Number(res.streak.current || 0)
+        const hit = Boolean(res.streak.hitMilestone)
+        if (hit && cur > 0) {
+          try {
+            const last = Number(await AsyncStorage.getItem('daily_last_milestone') || '0')
+            if (cur > last) setShowMilestone(true)
+          } catch { setShowMilestone(true) }
+        } else {
+          setShowMilestone(false)
+        }
+      }
+    } catch {}
   }
 
   const onDailyEndReached = () => {
@@ -249,13 +274,59 @@ const Search = () => {
     }
   }
 
+  const shareMilestone = async () => {
+    try {
+      const cur = streak?.current || 0
+      await Share.share({ message: `I just hit a ${cur}-day Daily streak on CirclApp!` })
+    } catch {}
+    try { await AsyncStorage.setItem('daily_last_milestone', String(streak?.current || 0)) } catch {}
+    setShowMilestone(false)
+  }
+
+  const StreakHeader = () => {
+    if (!streak) return null
+    return (
+      <View style={{ paddingHorizontal: 12, paddingTop: 8, paddingBottom: 4 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Ionicons name="flame" size={18} color="#ff7a00" />
+            <Text style={{ fontWeight: '800', color: '#000' }}>Streak</Text>
+          </View>
+          <Text style={{ color: '#666', fontSize: 12 }}>Longest {streak.longest || 0}</Text>
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6, gap: 8 }}>
+          <Text style={{ fontSize: 28, fontWeight: '900', color: '#000' }}>{streak.current || 0}</Text>
+          {!!streak.nextMilestone && (
+            <View style={{ backgroundColor: '#f2f2f2', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 }}>
+              <Text style={{ color: '#666', fontWeight: '700' }}>Next: {streak.nextMilestone}</Text>
+            </View>
+          )}
+        </View>
+        {showMilestone && (
+          <View style={{ marginTop: 8, backgroundColor: '#f6f7ff', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: '#eef0ff' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Text style={{ fontWeight: '800', color: '#000' }}>🎉 Milestone unlocked!</Text>
+              <TouchableOpacity onPress={() => setShowMilestone(false)}>
+                <Ionicons name="close" size={18} color="#999" />
+              </TouchableOpacity>
+            </View>
+            <Text style={{ color: '#444', marginTop: 6 }}>You hit a {streak.current}-day streak. Keep it going!</Text>
+            <TouchableOpacity onPress={shareMilestone} style={{ alignSelf: 'flex-start', marginTop: 10, backgroundColor: '#0095f6', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 }}>
+              <Text style={{ color: '#fff', fontWeight: '800' }}>Share</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
+    )
+  }
+
   return (
     <View style={styles.container}>
       <View style={{ flexDirection: 'row', marginTop: 12, marginHorizontal: 10, borderRadius: 10, backgroundColor: '#f2f2f2', overflow: 'hidden' }}>
         <TouchableOpacity style={{ flex: 1, paddingVertical: 10, alignItems: 'center', backgroundColor: tab === 'explore' ? '#fff' : 'transparent' }} onPress={() => setTab('explore')}>
           <Text style={{ fontWeight: '700', color: tab === 'explore' ? '#000' : '#666' }}>Explore</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={{ flex: 1, paddingVertical: 10, alignItems: 'center', backgroundColor: tab === 'daily' ? '#fff' : 'transparent' }} onPress={() => { setTab('daily'); setShowDaily(true); loadDaily(true) }}>
+        <TouchableOpacity style={{ flex: 1, paddingVertical: 10, alignItems: 'center', backgroundColor: tab === 'daily' ? '#fff' : 'transparent' }} onPress={() => { setTab('daily'); setShowDaily(true); loadDaily(true); loadStreak() }}>
           <Text style={{ fontWeight: '700', color: tab === 'daily' ? '#000' : '#666' }}>Daily</Text>
         </TouchableOpacity>
         <TouchableOpacity style={{ flex: 1, paddingVertical: 10, alignItems: 'center', backgroundColor: tab === 'groups' ? '#fff' : 'transparent' }} onPress={() => { setTab('groups') }}>
@@ -337,11 +408,12 @@ const Search = () => {
             </TouchableOpacity>
           )}
           ItemSeparatorComponent={() => <View style={styles.sep} />}
-          onRefresh={() => loadDaily(true)}
+          onRefresh={() => { loadDaily(true); loadStreak() }}
           refreshing={false}
           onEndReached={onDailyEndReached}
           onEndReachedThreshold={0.4}
           contentContainerStyle={{ paddingBottom: 20 }}
+          ListHeaderComponent={<StreakHeader />}
           ListEmptyComponent={() => (
             <View style={{ padding: 20, alignItems: "center" }}>
               <Text style={{ color: "#666", marginBottom: 12 }}>Post today to unlock your Daily Circle</Text>
