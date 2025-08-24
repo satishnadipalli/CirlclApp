@@ -21,6 +21,7 @@ import {
   TouchableOpacity,
   View,
   Image,
+  StatusBar,
 } from "react-native"
 import * as ImagePicker from 'expo-image-picker'
 import * as DocumentPicker from 'expo-document-picker'
@@ -1190,7 +1191,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#fff",
-    paddingTop:40
+    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
   },
   loadingContainer: {
     justifyContent: "center",

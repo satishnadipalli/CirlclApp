@@ -6,7 +6,7 @@ import { socketService } from "@/services/socket.service"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import { useRouter } from "expo-router"
 import React, { useCallback, useEffect, useRef, useState } from "react"
-import { Alert, FlatList, LayoutAnimation, Platform, StyleSheet, Text, TextInput, UIManager, View, TouchableOpacity } from "react-native"
+import { Alert, FlatList, LayoutAnimation, Platform, StyleSheet, Text, TextInput, UIManager, View, TouchableOpacity, StatusBar } from "react-native"
 import { useFocusEffect } from "@react-navigation/native"
 
 type AnyChat = any
@@ -257,7 +257,7 @@ export default function ChatsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff" },
-  headerRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 10, paddingTop: 50, gap: 8 },
+  headerRow: { flexDirection: "row", alignItems: "center",paddingVertical:10,marginTop:15,paddingHorizontal:10,  paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0, gap: 8 },
   searchBar: { height: 40, paddingLeft: 16, borderRadius: 10, backgroundColor: "#f2f2f2", fontSize: 16 },
   createBtn: { backgroundColor: "#0095f6", height: 40, borderRadius: 10, paddingHorizontal: 12, justifyContent: "center" },
   createBtnText: { color: "#fff", fontWeight: "700" },
