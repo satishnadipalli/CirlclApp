@@ -40,6 +40,9 @@ interface ChatMessage {
   replyTo?: ChatMessage
   system?: boolean
   attachments?: Array<{ url: string; type: 'image' | 'video' | 'file'; name?: string }>
+  reactions?: Array<{ type: string; userId: string }>
+  readBy?: string[]
+  edited?: boolean
 }
 
 interface DateHeader {
@@ -86,6 +89,10 @@ export default function ChatScreen() {
   const typingListenerRef = useRef<((data: any) => void) | null>(null)
   const stopTypingListenerRef = useRef<((data: any) => void) | null>(null)
   const userStatusListenerRef = useRef<((data: any) => void) | null>(null)
+  const reactionListenerRef = useRef<((payload: any) => void) | null>(null)
+  const deleteListenerRef = useRef<((payload: any) => void) | null>(null)
+  const editListenerRef = useRef<((payload: any) => void) | null>(null)
+  const readListenerRef = useRef<((payload: any) => void) | null>(null)
   const isUserAtBottomRef = useRef<boolean>(true)
   const router = useRouter()
   const params = useLocalSearchParams() as unknown as ChatParams
@@ -275,6 +282,35 @@ export default function ChatScreen() {
       }
       socketService.onMessage(onMessageCb)
       messageListenerRef.current = onMessageCb
+
+      const onReactions = (payload: any) => {
+        setMessages((prev) => prev.map((m) => (m.id === String(payload?._id) ? ({ ...(m as any), reactions: payload.reactions } as any) : m)))
+      }
+      socketService.onMessageReactionsUpdated(onReactions)
+      reactionListenerRef.current = onReactions
+
+      const onDeleted = (payload: any) => {
+        setMessages((prev) => prev.filter((m) => m.id !== String(payload?._id)))
+      }
+      socketService.onMessageDeleted(onDeleted)
+      deleteListenerRef.current = onDeleted
+
+      const onEdited = (payload: any) => {
+        setMessages((prev) => prev.map((m) => (m.id === String(payload?._id) ? ({ ...(m as any), text: payload.text, edited: true } as any) : m)))
+      }
+      socketService.onMessageEdited(onEdited)
+      editListenerRef.current = onEdited
+
+      const onRead = (payload: any) => {
+        if (params.chatType === 'direct' && payload?.chatType === 'direct') {
+          // mark all messages from me to peer as read
+          setMessages((prev) => prev.map((m) => (m.sender === 'me' ? ({ ...(m as any), readBy: [currentUser?._id, payload?.peerId].filter(Boolean) } as any) : m)))
+        } else if (params.chatType === 'group' && payload?.chatType === 'group' && String(payload?.groupId) === String(params.chatId)) {
+          setMessages((prev) => prev.map((m) => ({ ...(m as any), readBy: Array.isArray((m as any).readBy) ? Array.from(new Set([...(m as any).readBy, payload.readerId])) : [payload.readerId] } as any)))
+        }
+      }
+      socketService.onMessagesRead(onRead)
+      readListenerRef.current = onRead
 
       if (params.chatType === "direct") {
         const onTypingCb = (data: { from: string; name: string }) => {
@@ -698,6 +734,10 @@ export default function ChatScreen() {
       if (typingListenerRef.current) socketService.removeTypingListener(typingListenerRef.current)
       if (stopTypingListenerRef.current) socketService.removeStopTypingListener(stopTypingListenerRef.current)
       if (userStatusListenerRef.current) socketService.removeUserStatusListener(userStatusListenerRef.current)
+      if (reactionListenerRef.current) socketService.removeMessageReactionsUpdated(reactionListenerRef.current)
+      if (deleteListenerRef.current) socketService.removeMessageDeleted(deleteListenerRef.current)
+      if (editListenerRef.current) socketService.removeMessageEdited(editListenerRef.current)
+      if (readListenerRef.current) socketService.removeMessagesRead(readListenerRef.current)
 
       // DO NOT disconnect socket here
       // socketService.disconnect()  // keep this commented
@@ -786,7 +826,26 @@ export default function ChatScreen() {
     return (
       <TouchableOpacity
         activeOpacity={0.7}
-        onLongPress={() => setReplyingTo(message)}
+        onLongPress={() => {
+          const opts: any[] = [
+            { text: '❤️', onPress: async () => { try { await apiService.request('/messages/'+message.id+'/react', { method:'POST', body: JSON.stringify({ type: '❤️' }) }) } catch {} } },
+            { text: '😂', onPress: async () => { try { await apiService.request('/messages/'+message.id+'/react', { method:'POST', body: JSON.stringify({ type: '😂' }) }) } catch {} } },
+            { text: '🔥', onPress: async () => { try { await apiService.request('/messages/'+message.id+'/react', { method:'POST', body: JSON.stringify({ type: '🔥' }) }) } catch {} } },
+            { text: 'Reply', onPress: () => setReplyingTo(message) },
+          ]
+          if (isMyMessage) {
+            opts.push({ text: 'Edit', onPress: async () => {
+              try {
+                const prompt = (global as any).prompt || (()=>null)
+                const t = prompt ? prompt('Edit message', message.text || '') : ''
+                if (typeof t === 'string') await apiService.request('/messages/'+message.id, { method:'PUT', body: JSON.stringify({ text: t }) })
+              } catch {}
+            } })
+            opts.push({ text: 'Delete', style: 'destructive', onPress: async () => { try { await apiService.request('/messages/'+message.id, { method:'DELETE' }) } catch {} } })
+          }
+          opts.push({ text: 'Cancel', style: 'cancel' })
+          Alert.alert('Message', 'Choose action', opts)
+        }}
         style={[styles.messageRow, isMyMessage ? styles.myMessageRow : styles.otherMessageRow]}
       >
         {params.chatType === "group" && !isMyMessage && (
@@ -848,6 +907,17 @@ export default function ChatScreen() {
           <Text style={[styles.messageText, isMyMessage ? styles.myMessageText : styles.otherMessageText]}>
             {message.text}
           </Text>
+
+          {/* Reactions bar */}
+          {Array.isArray((message as any).reactions) && (message as any).reactions.length > 0 && (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+              {Array.from(Object.entries(((message as any).reactions as any[]).reduce((acc: any, r: any) => { acc[r.type] = (acc[r.type]||0)+1; return acc }, {}))).map(([emoji, count]: any) => (
+                <View key={emoji} style={{ backgroundColor: isMyMessage ? '#e6f2ff' : '#f2f2f2', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 }}>
+                  <Text style={{ color: '#333' }}>{emoji} {count > 1 ? count : ''}</Text>
+                </View>
+              ))}
+            </View>
+          )}
 
           {messageTime && (
             <Text style={[styles.timeText, isMyMessage ? styles.myTimeText : styles.otherTimeText]}>{messageTime}</Text>
