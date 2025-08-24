@@ -32,6 +32,7 @@ export default function HomeScreen() {
   const likeCountLocalRef = React.useRef<Record<string, number>>({})
 
   const router = useRouter()
+  const notifHandlerRef = React.useRef<((data: any)=>void)|null>(null)
 
   useEffect(() => {
     ;(async () => {
@@ -60,6 +61,8 @@ export default function HomeScreen() {
     socketService.onDailyPosted(onPosted)
     socketService.onDailyRing(onRing)
     return () => {
+      const h = (notifHandlerRef as any).current
+      if (h) socketService.removeNotificationListener(h)
       socketService.removeDailyPostedListener(onPosted)
       socketService.removeDailyRingListener(onRing)
     }
@@ -77,7 +80,9 @@ export default function HomeScreen() {
   const initializeSocket = async () => {
     try {
       await socketService.connect()
-      socketService.onNotification(() => setUnreadCount((prev) => prev + 1))
+      const handler = () => setUnreadCount((prev) => prev + 1)
+      socketService.onNotification(handler)
+      ;(notifHandlerRef as any).current = handler
     } catch {}
   }
 
