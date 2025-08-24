@@ -269,6 +269,103 @@ const getGroupDailyFeed = async (req, res) => {
   }
 }
 
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+
+// Auto-generate captions using AssemblyAI (requires ASSEMBLYAI_API_KEY)
+const autoCaptions = async (req, res) => {
+  try {
+    const { entryId } = req.params
+    if (!entryId) return res.status(400).json({ success: false, message: 'entryId required' })
+
+    const entry = await DailyCircleEntry.findById(entryId).select('user mediaUrl')
+    if (!entry) return res.status(404).json({ success: false, message: 'Entry not found' })
+    if (String(entry.user) !== String(req.user._id)) return res.status(403).json({ success: false, message: 'Forbidden' })
+
+    const mediaUrl = entry.mediaUrl || ''
+    const isAudioVideo = /\.(mp3|m4a|wav|aac|flac|ogg|mp4|mov|m4v|webm)$/i.test(mediaUrl)
+    if (!isAudioVideo) return res.status(400).json({ success: false, message: 'Media must be audio/video for auto-captions' })
+
+    const apiKey = process.env.ASSEMBLYAI_API_KEY
+    if (!apiKey) return res.status(501).json({ success: false, message: 'ASR not configured. Set ASSEMBLYAI_API_KEY.' })
+
+    // Create transcription job
+    const createResp = await fetch('https://api.assemblyai.com/v2/transcript', {
+      method: 'POST',
+      headers: { 'authorization': apiKey, 'content-type': 'application/json' },
+      body: JSON.stringify({ audio_url: mediaUrl, speaker_labels: false, punctuate: true, format_text: true })
+    })
+    if (!createResp.ok) {
+      const t = await createResp.text().catch(() => '')
+      return res.status(502).json({ success: false, message: 'Failed to create transcription job', details: t })
+    }
+    const createData = await createResp.json()
+    const jobId = createData.id
+    if (!jobId) return res.status(502).json({ success: false, message: 'No transcription id returned' })
+
+    // Poll for completion (up to ~30s)
+    let result = null
+    for (let i = 0; i < 12; i++) {
+      await sleep(2500)
+      const jobResp = await fetch(`https://api.assemblyai.com/v2/transcript/${jobId}`, {
+        headers: { 'authorization': apiKey }
+      })
+      if (!jobResp.ok) continue
+      const job = await jobResp.json()
+      if (job.status === 'completed') { result = job; break }
+      if (job.status === 'error') return res.status(502).json({ success: false, message: job.error || 'Transcription failed' })
+    }
+
+    if (!result) return res.status(202).json({ success: false, message: 'Transcription in progress, try again shortly' })
+
+    // Build caption segments from words (fallback to text)
+    const words = Array.isArray(result.words) ? result.words : []
+    let segments = []
+    if (words.length > 0) {
+      const segmentMs = 3500
+      let curStart = words[0].start || 0
+      let curEnd = curStart
+      let buf = []
+      for (const w of words) {
+        const wStart = Number(w.start || 0)
+        const wEnd = Number(w.end || wStart)
+        if ((wEnd - curStart) > segmentMs) {
+          segments.push({ start: Math.max(0, curStart) / 1000, end: Math.max(curStart, curEnd) / 1000, text: buf.join(' ').trim() })
+          buf = []
+          curStart = wStart
+        }
+        buf.push(String(w.text || w.text?.content || ''))
+        curEnd = wEnd
+      }
+      if (buf.length > 0) segments.push({ start: Math.max(0, curStart) / 1000, end: Math.max(curStart, curEnd) / 1000, text: buf.join(' ').trim() })
+      segments = segments.filter((s) => s.text)
+    } else if (typeof result.text === 'string' && result.text.trim().length > 0) {
+      const t = result.text.trim()
+      const chunks = t.match(/(?:[^.!?\n]+[.!?]?)/g) || [t]
+      let time = 0
+      segments = chunks.map((c) => {
+        const len = Math.min(4, Math.max(1.5, c.split(/\s+/).length / 2)) // rough seconds estimate
+        const s = { start: time, end: time + len, text: c.trim() }
+        time += len
+        return s
+      })
+    } else {
+      return res.status(204).json({ success: false, message: 'No transcribed content' })
+    }
+
+    // Save to entry
+    const norm = segments
+      .map((c) => ({ start: Math.max(0, Number(c.start) || 0), end: Math.max(0, Number(c.end) || 0), text: String(c.text || '') }))
+      .filter((c) => c.text)
+      .sort((a, b) => a.start - b.start)
+
+    await DailyCircleEntry.findByIdAndUpdate(entryId, { $set: { captions: norm } })
+
+    res.json({ success: true, captions: norm })
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message })
+  }
+}
+
 // Increment view for an entry (id in body)
 const incrementView = async (req, res) => {
   try {
@@ -485,4 +582,5 @@ module.exports.getReactionsSummary = getReactionsSummary
 module.exports.listReactors = listReactors
 module.exports.getCaptions = getCaptions
 module.exports.putCaptions = putCaptions
+module.exports.autoCaptions = autoCaptions
 

@@ -8,6 +8,7 @@ const { incrementView, reactToEntry, toggleHighlight } = require("../controllers
 const { getHighlights } = require("../controllers/daily.controllers")
 const { getReactionsSummary, listReactors } = require("../controllers/daily.controllers")
 const { getCaptions, putCaptions } = require("../controllers/daily.controllers")
+const { autoCaptions } = require("../controllers/daily.controllers")
 
 // Get today prompt and whether user has posted
 router.get("/prompt", auth, getTodayPrompt)
@@ -42,6 +43,7 @@ router.get("/:entryId/reactors", auth, listReactors)
 // Captions
 router.get("/:entryId/captions", auth, getCaptions)
 router.put("/:entryId/captions", auth, putCaptions)
+router.post("/:entryId/captions/auto", auth, autoCaptions)
 
 module.exports = router
 

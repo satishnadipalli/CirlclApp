@@ -475,6 +475,21 @@ export default function DailyViewer() {
           <TouchableOpacity onPress={() => setShowCC((v) => !v)} style={{ position: 'absolute', left: 0 }}>
             <Text style={{ color: '#fff', fontWeight: '800' }}>{showCC ? 'CC On' : 'CC Off'}</Text>
           </TouchableOpacity>
+          {/* Auto-captions & editor trigger (owner only) */}
+          {String(item?.user?._id || '') === String(myId || '') && (
+            <TouchableOpacity
+              onPress={async () => {
+                try {
+                  const eid = String(item._id)
+                  const r: any = await api.autoDailyCaptions(eid)
+                  if (r?.success && Array.isArray(r.captions)) setCaptions(r.captions)
+                } catch {}
+              }}
+              style={{ position: 'absolute', right: 0 }}
+            >
+              <Text style={{ color: '#fff', fontWeight: '800' }}>Auto CC</Text>
+            </TouchableOpacity>
+          )}
           {['❤️','😂','🔥','😮','👏'].map((emoji) => {
             const eid = String(item?._id || "")
             const state = reactionState[eid] || { counts: {}, my: null }
@@ -527,6 +542,40 @@ export default function DailyViewer() {
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Simple captions editor for owner */}
+      {String(item?.user?._id || '') === String(myId || '') && (
+        <View style={{ position: 'absolute', left: 0, right: 0, bottom: 130, alignItems: 'center' }}>
+          <TouchableOpacity onPress={() => setShowCC(true)} style={{ backgroundColor: 'rgba(0,0,0,0.4)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 }}>
+            <Text style={{ color: '#fff', fontWeight: '800' }}>Show CC</Text>
+          </TouchableOpacity>
+          {showCC && captions.length > 0 && (
+            <View style={{ marginTop: 8, backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 12, padding: 10, width: '94%' }}>
+              {captions.slice(0, 5).map((c, idx) => (
+                <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                  <Text style={{ color: '#aaa', width: 64 }}>{c.start.toFixed(1)}–{c.end.toFixed(1)}</Text>
+                  <TextInput
+                    style={{ flex: 1, color: '#fff', borderBottomWidth: 1, borderBottomColor: '#333', paddingVertical: 4 }}
+                    value={c.text}
+                    onChangeText={(t) => {
+                      setCaptions((prev) => {
+                        const next = prev.slice()
+                        next[idx] = { ...next[idx], text: t }
+                        return next
+                      })
+                    }}
+                  />
+                </View>
+              ))}
+              <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 6 }}>
+                <TouchableOpacity onPress={async () => { try { const eid = String(item._id); const r: any = await api.putDailyCaptions(eid, captions); if (r?.success) {} } catch {} }}>
+                  <Text style={{ color: '#fff', fontWeight: '800' }}>Save</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+        </View>
+      )}
 
       {/* Reactors modal */}
       {showReactors && (
