@@ -10,6 +10,7 @@ import React, { useEffect, useState } from "react"
 import { Dimensions, FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from "react-native"
 import DailyRing from "@/components/DailyRing"
 import logo from "../../assets/images/circle-full.png"
+import * as Haptics from "expo-haptics"
 
 const { width } = Dimensions.get("window")
 
@@ -26,6 +27,8 @@ export default function HomeScreen() {
   const [feedHasMore, setFeedHasMore] = useState(true)
   const [feedLoadingMore, setFeedLoadingMore] = useState(false)
   const [feedRefreshing, setFeedRefreshing] = useState(false)
+  const likeLocalRef = React.useRef<Record<string, boolean>>({})
+  const likeCountLocalRef = React.useRef<Record<string, number>>({})
 
   const router = useRouter()
 
@@ -197,6 +200,17 @@ export default function HomeScreen() {
     const me = String(currentUserId || '')
     return item.likes.some((u: any) => String(u?._id || u) === me)
   }
+  const likedOptimistic = (item: any) => {
+    const id = String(item?._id || '')
+    if (likeLocalRef.current[id] != null) return likeLocalRef.current[id]
+    return likedByMe(item)
+  }
+  const likesCountOptimistic = (item: any) => {
+    const id = String(item?._id || '')
+    const base = Array.isArray(item?.likes) ? item.likes.length : 0
+    const adj = likeCountLocalRef.current[id]
+    return adj != null ? adj : base
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: "#fafafa" }}>
@@ -312,8 +326,8 @@ export default function HomeScreen() {
         keyExtractor={(item) => String(item?._id || Math.random())}
         renderItem={({ item }) => {
           const user = item?.user || {}
-          const likesCount = Array.isArray(item?.likes) ? item.likes.length : 0
-          const liked = likedByMe(item)
+          const likesCount = likesCountOptimistic(item)
+          const liked = likedOptimistic(item)
           return (
             <View style={styles.postContainer}>
               <View style={styles.postHeader}>
@@ -331,7 +345,20 @@ export default function HomeScreen() {
               </TouchableOpacity>
               <View style={styles.actions}>
                 <View style={styles.leftActions}>
-                  <TouchableOpacity style={styles.actionButton} onPress={() => like(String(item._id))}>
+                  <TouchableOpacity style={styles.actionButton} onPress={async () => {
+                    try { await Haptics.selectionAsync() } catch {}
+                    const id = String(item._id)
+                    const currently = likedOptimistic(item)
+                    const baseCount = likesCountOptimistic(item)
+                    likeLocalRef.current[id] = !currently
+                    likeCountLocalRef.current[id] = Math.max(0, baseCount + (currently ? -1 : 1))
+                    setFeed((prev) => [...prev])
+                    try { await (api as any).likePost(id) } catch {
+                      likeLocalRef.current[id] = currently
+                      likeCountLocalRef.current[id] = baseCount
+                      setFeed((prev) => [...prev])
+                    }
+                  }}>
                     <Ionicons name={liked ? 'heart' : 'heart-outline'} size={28} color={liked ? '#FF3040' : '#262626'} />
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.actionButton} onPress={() => router.push(`/post/${item._id}`)}>
@@ -341,7 +368,7 @@ export default function HomeScreen() {
                     <Ionicons name="paper-plane-outline" size={28} color="#262626" />
                   </TouchableOpacity>
                 </View>
-                <TouchableOpacity style={styles.actionButton} onPress={() => toggleSave(String(item._id))}>
+                <TouchableOpacity style={styles.actionButton} onPress={async () => { try { await Haptics.selectionAsync() } catch {} ; toggleSave(String(item._id)) }}>
                   <Ionicons name="bookmark-outline" size={28} color="#262626" />
                 </TouchableOpacity>
               </View>
