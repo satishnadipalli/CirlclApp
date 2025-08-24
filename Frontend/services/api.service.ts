@@ -436,6 +436,10 @@ class ApiService {
     return this.request(`/posts?page=${page}&limit=${limit}`)
   }
 
+  async getReels(page = 1, limit = 8) {
+    return this.request(`/posts/reels?page=${page}&limit=${limit}`)
+  }
+
   async getSavedPosts() {
     return this.request(`/posts/saved`)
   }

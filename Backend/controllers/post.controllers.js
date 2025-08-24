@@ -744,6 +744,55 @@ const getPostById = async (req, res) => {
   }
 }
 
+// REELS feed: video-only posts with scoring for high-quality playback order
+const getReels = async (req, res) => {
+  try {
+    let { page = 1, limit = 8 } = req.query
+    page = Number.parseInt(page)
+    limit = Math.min(10, Math.max(4, Number.parseInt(limit)))
+
+    const me = await User.findById(req.user.id).select('following savedPosts')
+    const following = me?.following || []
+    const saved = me?.savedPosts || []
+
+    // Pull recent video posts only
+    const recent = await Post.find({ mediaUrl: { $regex: /\.(mp4|mov|webm|m4v)$/i } })
+      .sort({ createdAt: -1 })
+      .limit(1000)
+      .populate('user', 'name profilePic')
+
+    const scorePost = (p) => {
+      let score = 0
+      // Popularity signals
+      score += (p.likes?.length || 0) * 3
+      score += (p.comments?.length || 0) * 2
+      // Recency (prefer newer, but not overly volatile)
+      const ageHours = Math.max(1, (Date.now() - new Date(p.createdAt).getTime()) / (1000 * 60 * 60))
+      score += 120 / ageHours
+      // From following
+      if (following.some((f) => String(f) === String(p.user?._id || p.user))) score += 30
+      // Saved affinity
+      if (saved.some((s) => String(s) === String(p._id))) score += 20
+      // Hashtags presence lightly boosts (content richness)
+      score += (p.hashtags?.length || 0) * 1
+      return score
+    }
+
+    const scored = recent
+      .map((p) => ({ p, s: scorePost(p) }))
+      .sort((a, b) => b.s - a.s)
+      .map((x) => x.p)
+
+    const start = (page - 1) * limit
+    const data = scored.slice(start, start + limit)
+    const hasMore = start + limit < scored.length
+
+    res.json({ success: true, page, limit, hasMore, posts: data })
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message })
+  }
+}
+
 module.exports = {
   createPost,
   getAllPosts,
@@ -761,4 +810,5 @@ module.exports = {
   getSavedPosts,
   getExplorePosts,
   getPostById,
+  getReels,
 };

@@ -22,10 +22,16 @@ app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 // Allow your frontend origin
 app.use(
   cors({
-    origin: process.env.ALLOWED_ORIGIN || "*",
+    origin: (origin, cb) => {
+      const allowed = process.env.ALLOWED_ORIGIN || "*"
+      if (allowed === "*") return cb(null, true)
+      if (!origin) return cb(null, true)
+      if (String(origin).startsWith(allowed)) return cb(null, true)
+      return cb(new Error("Not allowed by CORS"))
+    },
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
-    credentials: false,
+    credentials: Boolean(process.env.CORS_CREDENTIALS === 'true'),
   })
 );
 
@@ -53,7 +59,7 @@ const server = http.createServer(app);
 
 // Socket.io setup
 const io = new Server(server, {
-  cors: { origin: "*", methods: ["GET", "POST"] },
+  cors: { origin: process.env.ALLOWED_ORIGIN || "*", methods: ["GET", "POST"], credentials: Boolean(process.env.CORS_CREDENTIALS === 'true') },
 });
 
 // Map to track online users
