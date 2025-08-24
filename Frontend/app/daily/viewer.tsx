@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from "expo-router"
 import { useEffect, useMemo, useRef, useState } from "react"
-import { ActivityIndicator, Image, StyleSheet, Text, TouchableOpacity, View, Dimensions, PanResponder, TextInput } from "react-native"
+import { ActivityIndicator, Image, StyleSheet, Text, TouchableOpacity, View, Dimensions, PanResponder, TextInput, Alert } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import { Video } from "expo-av"
 import api from "@/services/api.service"
@@ -488,6 +488,31 @@ export default function DailyViewer() {
               style={{ position: 'absolute', right: 0 }}
             >
               <Text style={{ color: '#fff', fontWeight: '800' }}>Auto CC</Text>
+            </TouchableOpacity>
+          )}
+          {String(item?.user?._id || '') === String(myId || '') && (
+            <TouchableOpacity
+              onPress={async () => {
+                try {
+                  const ok = await new Promise<boolean>((resolve) => {
+                    (Alert as any)?.alert?.('Delete', 'Delete this entry?', [
+                      { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+                      { text: 'Delete', style: 'destructive', onPress: () => resolve(true) },
+                    ])
+                  })
+                  if (!ok) return
+                  const eid = String(item._id)
+                  const res = await fetch(`${(require('@/services/api.service') as any).default.baseURL}/daily/${eid}`, { method: 'DELETE', headers: await (api as any).getHeaders?.() })
+                  if (res.ok) {
+                    // remove from current list
+                    setEntries((prev) => prev.filter((e) => String(e._id) !== eid))
+                    setEntryIndex((i) => Math.max(0, i - 1))
+                  }
+                } catch {}
+              }}
+              style={{ position: 'absolute', right: 60 }}
+            >
+              <Text style={{ color: '#f55', fontWeight: '800' }}>Delete</Text>
             </TouchableOpacity>
           )}
           {['❤️','😂','🔥','😮','👏'].map((emoji) => {
