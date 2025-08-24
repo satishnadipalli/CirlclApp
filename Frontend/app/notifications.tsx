@@ -56,6 +56,7 @@ const NotificationsScreen = () => {
 
   const fetchNotifications = async (pageNum = 1, refresh = false) => {
     try {
+      console.log("hello")
       const token = await AsyncStorage.getItem("token")
       if (!token) return
 
@@ -64,8 +65,10 @@ const NotificationsScreen = () => {
       if (data.success) {
         if (refresh || pageNum === 1) {
           setNotifications(data.notifications)
+          console.log(data)
         } else {
           setNotifications((prev) => [...prev, ...data.notifications])
+          console.log(data)
         }
         setHasMore(pageNum < data.pages)
         setPage(pageNum)
@@ -86,6 +89,7 @@ const NotificationsScreen = () => {
       const data: any = await (await import("@/services/api.service")).apiService.getUnreadNotificationsCount()
       if (data.success) {
         setUnreadCount(data.count)
+        
       }
     } catch (error) {
       console.error("Error fetching unread count:", error)

@@ -34,7 +34,7 @@ router.get("/entry/:userId", auth, getEntryByUser)
 // Group-specific Daily feed for today (requires membership)
 router.get("/group/:groupId", auth, getGroupDailyFeed)
 
-// Views / reactions / highlights
+// Views / reactions / highlightss
 router.post("/view", auth, incrementView)
 router.post("/react", auth, reactToEntry)
 router.post("/highlight", auth, toggleHighlight)
