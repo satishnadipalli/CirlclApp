@@ -285,6 +285,70 @@ const autoCaptions = async (req, res) => {
     const isAudioVideo = /\.(mp3|m4a|wav|aac|flac|ogg|mp4|mov|m4v|webm)$/i.test(mediaUrl)
     if (!isAudioVideo) return res.status(400).json({ success: false, message: 'Media must be audio/video for auto-captions' })
 
+    // Prefer free/open Whisper server if configured
+    const provider = String(process.env.STT_PROVIDER || '').toLowerCase()
+    const whisperUrlRaw = process.env.WHISPER_SERVER_URL
+    if (provider === 'whisper' || (!process.env.ASSEMBLYAI_API_KEY && whisperUrlRaw)) {
+      try {
+        const whisperUrl = String(whisperUrlRaw || '').replace(/\/$/, '')
+        const body = { audio_url: mediaUrl, model: process.env.WHISPER_MODEL || 'base' }
+        let resp = await fetch(`${whisperUrl}/transcribe`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+        if (!resp.ok) {
+          // try direct endpoint as a fallback
+          resp = await fetch(whisperUrl, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+        }
+        if (!resp.ok) {
+          const t = await resp.text().catch(() => '')
+          return res.status(502).json({ success: false, message: 'Whisper server error', details: t })
+        }
+        const data = await resp.json()
+        let segments = []
+        if (Array.isArray(data?.segments)) {
+          segments = data.segments
+            .map((s) => ({ start: Number(s.start || s.start_time || 0), end: Number(s.end || s.end_time || 0), text: String(s.text || '') }))
+            .filter((s) => s.text)
+        } else if (Array.isArray(data?.words)) {
+          const words = data.words
+          const segmentMs = 3500
+          let curStart = words[0]?.start || 0
+          let curEnd = curStart
+          let buf = []
+          for (const w of words) {
+            const wStart = Number(w.start || 0)
+            const wEnd = Number(w.end || wStart)
+            if ((wEnd - curStart) > segmentMs) {
+              segments.push({ start: Math.max(0, curStart) / 1000, end: Math.max(curStart, curEnd) / 1000, text: buf.join(' ').trim() })
+              buf = []
+              curStart = wStart
+            }
+            buf.push(String(w.text || ''))
+            curEnd = wEnd
+          }
+          if (buf.length > 0) segments.push({ start: Math.max(0, curStart) / 1000, end: Math.max(curStart, curEnd) / 1000, text: buf.join(' ').trim() })
+        } else if (typeof data?.text === 'string' && data.text.trim()) {
+          const t = data.text.trim()
+          const chunks = t.match(/(?:[^.!?\n]+[.!?]?)/g) || [t]
+          let time = 0
+          segments = chunks.map((c) => { const len = Math.min(4, Math.max(1.5, c.split(/\s+/).length / 2)); const s = { start: time, end: time + len, text: c.trim() }; time += len; return s })
+        } else {
+          return res.status(204).json({ success: false, message: 'No transcribed content from Whisper' })
+        }
+
+        const norm = segments
+          .map((c) => ({ start: Math.max(0, Number(c.start) || 0), end: Math.max(0, Number(c.end) || 0), text: String(c.text || '') }))
+          .filter((c) => c.text)
+          .sort((a, b) => a.start - b.start)
+
+        await DailyCircleEntry.findByIdAndUpdate(entryId, { $set: { captions: norm } })
+        return res.json({ success: true, captions: norm })
+      } catch (err) {
+        // fall through to AssemblyAI if configured, otherwise surface error
+        if (!process.env.ASSEMBLYAI_API_KEY) {
+          return res.status(502).json({ success: false, message: 'Whisper fallback failed', details: String(err?.message || err) })
+        }
+      }
+    }
+
     const apiKey = process.env.ASSEMBLYAI_API_KEY
     if (!apiKey) return res.status(501).json({ success: false, message: 'ASR not configured. Set ASSEMBLYAI_API_KEY.' })
 
