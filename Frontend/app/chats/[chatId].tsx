@@ -20,6 +20,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  Image,
 } from "react-native"
 import * as ImagePicker from 'expo-image-picker'
 import * as DocumentPicker from 'expo-document-picker'
