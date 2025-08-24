@@ -2,7 +2,7 @@
 
 import { Ionicons } from "@expo/vector-icons"
 import AsyncStorage from "@react-native-async-storage/async-storage"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { Alert, FlatList, Image, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native"
 import { type Socket } from "socket.io-client"
 import socketService from "@/services/socket.service"
@@ -295,18 +295,23 @@ const NotificationsScreen = () => {
       try {
         const token = await AsyncStorage.getItem("token")
         if (!token) return
-        socketService.onNotification((notificationData: any) => {
+        const handler = (notificationData: any) => {
           setUnreadCount((prev) => prev + 1)
           setTimeout(() => {
             // toasts handled by provider; this screen just bumps badge
           }, 50)
-        })
+        }
+        ;(notifHandlerRef as any).current = handler
+        socketService.onNotification(handler)
       } catch {}
     })()
     return () => {
-      socketService.removeNotificationListener?.(() => {})
+      const h = (notifHandlerRef as any).current
+      if (h) socketService.removeNotificationListener?.(h)
     }
   }, [])
+
+  const notifHandlerRef = useRef<((data: any) => void) | null>(null)
 
   const renderNotification = ({ item }: { item: Notification }) => (
     <TouchableOpacity
