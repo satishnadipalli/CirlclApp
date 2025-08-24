@@ -327,7 +327,7 @@ export default function HomeScreen() {
                   <Text numberOfLines={2} ellipsizeMode='tail' style={{ marginTop: 8, color: '#333' }}>{daily?.prompt?.text}</Text>
                   {/* Remove square preview to keep rings in a single row */}
                   {daily?.posted && (
-                    <View style={{  marginTop: 18,marginLeft:-25 }}>
+                    <View style={{  marginTop: 8,marginLeft:-25, }}>
                       <FlatList
                         data={daily?.rings || []}
                         horizontal
@@ -351,7 +351,7 @@ export default function HomeScreen() {
                               label={item?.user?.name || 'Friend'}
                               viewed={viewed}
                               isVideo={isVideo}
-                              size={100}
+                              size={90}
                               loading={loadingRingIndex === index}
                               onPress={() => {
                                 setLoadingRingIndex(index)

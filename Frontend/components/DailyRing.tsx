@@ -25,12 +25,12 @@ export default function DailyRing({ imageUrl, label, onPress, viewed, loading, i
   }, [loading])
   const rotateOuter = spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] })
   const rotateInner = spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '-360deg'] })
-  const gradientColors = viewed ? ["#c7c7c7", "#c7c7c7"] : ["#f58529", "#dd2a7b", "#8134af", "#515bd4"]
-  const outer = size
-  const middle = size - 10
-  const inner = size - 24
+  const gradientColors = viewed ? ["#dfdfdfff", "#ebebebff"] : ["#f58529", "#dd2a7b", "#8134af", "#515bd4"]
+  const outer = size - 9
+  const middle = size - 14
+  const inner = size - 20
   return (
-    <TouchableOpacity onPress={onPress} style={{ width: outer + 14, alignItems: "center", marginHorizontal: 6 }} activeOpacity={0.8}>
+    <TouchableOpacity onPress={onPress} style={{ width: outer + 8, alignItems: "center", marginHorizontal: 6 }} activeOpacity={0.8}>
       <Animated.View style={{ transform: [{ rotate: loading ? rotateOuter : '0deg' }] }}>
         <LinearGradient colors={gradientColors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: outer, height: outer, borderRadius: outer / 2, alignItems: "center", justifyContent: "center" }}>
           <Animated.View style={{ width: middle, height: middle, borderRadius: middle / 2, backgroundColor: "#fff", alignItems: "center", justifyContent: "center", transform: [{ rotate: loading ? rotateInner : '0deg' }] }}>
