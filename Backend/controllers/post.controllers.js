@@ -736,6 +736,41 @@ const getExplorePosts = async (req, res) => {
   }
 }
 
+const getPlaceFeed = async (req, res) => {
+  try {
+    let { page = 1, limit = 18, name } = req.query
+    page = Math.max(1, parseInt(page))
+    limit = Math.min(50, Math.max(6, parseInt(limit)))
+    if (!name || String(name).trim() === '') return res.status(400).json({ success: false, message: 'Place name required' })
+    const rx = new RegExp(String(name).trim(), 'i')
+    const filter = { locationName: rx }
+    const total = await Post.countDocuments(filter)
+    const posts = await Post.find(filter)
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .populate('user', 'name profilePic')
+    return res.json({ success: true, page, limit, total, totalPages: Math.ceil(total/limit), posts })
+  } catch (e) { return res.status(500).json({ success: false, message: e.message }) }
+}
+
+const getNearbyFeed = async (req, res) => {
+  try {
+    let { page = 1, limit = 18, lat, lng, radiusKm = 50 } = req.query
+    page = Math.max(1, parseInt(page))
+    limit = Math.min(50, Math.max(6, parseInt(limit)))
+    const plat = Number(lat), plng = Number(lng), r = Math.max(1, Math.min(200, Number(radiusKm)))
+    if (!Number.isFinite(plat) || !Number.isFinite(plng)) return res.status(400).json({ success: false, message: 'lat and lng required' })
+    const filter = { geo: { $near: { $geometry: { type: 'Point', coordinates: [plng, plat] }, $maxDistance: r * 1000 } } }
+    const posts = await Post.find(filter)
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .populate('user', 'name profilePic')
+    return res.json({ success: true, page, limit, posts })
+  } catch (e) { return res.status(500).json({ success: false, message: e.message }) }
+}
+
 const getPostById = async (req, res) => {
   try {
     const { id } = req.params
@@ -909,4 +944,6 @@ module.exports = {
   markNotInterested,
   recordWatchMetric,
   getFollowingFeed,
+  getPlaceFeed,
+  getNearbyFeed,
 };

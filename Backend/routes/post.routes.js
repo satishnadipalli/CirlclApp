@@ -16,6 +16,9 @@ router.get("/", protect, postController.getAllPosts);
 router.get("/following", protect, postController.getFollowingFeed);
 // Explore
 router.get("/explore", protect, postController.getExplorePosts);
+// Place and Nearby
+router.get("/place", protect, postController.getPlaceFeed);
+router.get("/nearby", protect, postController.getNearbyFeed);
 
 // Reels
 router.get("/reels", protect, postController.getReels);

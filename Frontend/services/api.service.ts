@@ -396,6 +396,13 @@ class ApiService {
     const t = encodeURIComponent(tag.replace(/^#/, ''))
     return this.request(`/posts?hashtag=${t}&page=${page}&limit=${limit}`)
   }
+  async getPlaceFeed(name: string, page = 1, limit = 18) {
+    const n = encodeURIComponent(name)
+    return this.request(`/posts/place?name=${n}&page=${page}&limit=${limit}`)
+  }
+  async getNearbyFeed(lat: number, lng: number, radiusKm = 50, page = 1, limit = 18) {
+    return this.request(`/posts/nearby?lat=${lat}&lng=${lng}&radiusKm=${radiusKm}&page=${page}&limit=${limit}`)
+  }
 }
 
 const apiService = new ApiService()
