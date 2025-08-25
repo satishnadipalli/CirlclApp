@@ -56,6 +56,13 @@ const messageSchema = new mongoose.Schema(
         at: { type: Date, default: Date.now },
       },
     ],
+    linkPreview: new mongoose.Schema({
+      url: { type: String, default: '' },
+      title: { type: String, default: '' },
+      description: { type: String, default: '' },
+      image: { type: String, default: '' },
+      siteName: { type: String, default: '' },
+    }, { _id: false }),
   },
   { timestamps: true },
 )
