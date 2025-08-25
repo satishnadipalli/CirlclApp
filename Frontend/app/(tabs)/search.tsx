@@ -56,8 +56,16 @@ const Search = () => {
   const openHandledRef = useRef(false)
   const focusDailyHandledRef = useRef(false)
 
+  // New: search recents and filters state
+  const RECENTS_KEY = 'recent_searches_v1'
+  const [recentSearches, setRecentSearches] = useState<string[]>([])
+  const [showFilters, setShowFilters] = useState(false)
+  const [nearbyEnabled, setNearbyEnabled] = useState(false)
+  const [radiusKm, setRadiusKm] = useState<15 | 25 | 50>(25)
+
   useEffect(() => {
     loadExplore(1, true)
+    loadRecentSearches()
   }, [])
 
   useEffect(() => {
@@ -111,6 +119,27 @@ const Search = () => {
     } finally {
       loadingMoreRef.current = false
     }
+  }
+
+  // Recent searches helpers
+  const loadRecentSearches = async () => {
+    try {
+      const raw = await AsyncStorage.getItem(RECENTS_KEY)
+      const arr = raw ? JSON.parse(raw) : []
+      if (Array.isArray(arr)) setRecentSearches(arr.filter((s: any) => typeof s === 'string'))
+    } catch {}
+  }
+  const addRecentSearch = async (q: string) => {
+    try {
+      const t = q.trim()
+      if (t.length < 2) return
+      const next = [t, ...recentSearches.filter((x) => x.toLowerCase() !== t.toLowerCase())].slice(0, 10)
+      setRecentSearches(next)
+      await AsyncStorage.setItem(RECENTS_KEY, JSON.stringify(next))
+    } catch {}
+  }
+  const clearRecentSearches = async () => {
+    try { await AsyncStorage.removeItem(RECENTS_KEY); setRecentSearches([]) } catch {}
   }
 
   const loadStreak = async () => {
@@ -212,8 +241,27 @@ const Search = () => {
     if (loadingMoreRef.current) return
     loadingMoreRef.current = true
     try {
-      const res = await apiService.getExplore(p, 18)
-      const items = (res && (res.posts || []))
+      let res: any
+      let items: any[] = []
+      if (nearbyEnabled) {
+        try {
+          const coordsRaw = await AsyncStorage.getItem("user_coords")
+          const c = coordsRaw ? JSON.parse(coordsRaw) : null
+          if (c?.lat != null && c?.lng != null) {
+            res = await apiService.getNearbyFeed(Number(c.lat), Number(c.lng), Number(radiusKm), p, 18)
+            items = (res && (res.posts || [])) || []
+          } else {
+            res = await apiService.getExplore(p, 18)
+            items = (res && (res.posts || [])) || []
+          }
+        } catch {
+          res = await apiService.getExplore(p, 18)
+          items = (res && (res.posts || [])) || []
+        }
+      } else {
+        res = await apiService.getExplore(p, 18)
+        items = (res && (res.posts || [])) || []
+      }
       setExplore((prev) => (replace ? items : p === 1 ? items : [...prev, ...items]))
       setHasMore((res && res.hasMore) ?? items.length > 0)
       setPage(p)
@@ -244,6 +292,7 @@ const Search = () => {
         const res = await apiService.searchUsers(q, 1, 20)
         const users = Array.isArray(res?.users) ? res.users : []
         setSearchResults(users)
+        addRecentSearch(q).catch(() => {})
       } catch {
         setSearchResults([])
       } finally {
@@ -337,7 +386,11 @@ const Search = () => {
           autoCapitalize="none"
           autoCorrect={false}
           returnKeyType="search"
+          onSubmitEditing={() => addRecentSearch(query)}
         />
+        <TouchableOpacity onPress={() => setShowFilters(true)} style={{ padding: 6 }}>
+          <Ionicons name="options-outline" size={18} color="#666" />
+        </TouchableOpacity>
         {query.length > 0 && (
           <TouchableOpacity
             onPress={() => {
@@ -360,7 +413,7 @@ const Search = () => {
           renderItem={({ item }) => (
             <TouchableOpacity
               style={styles.userRow}
-              onPress={() => router.push(`/otherProfile?userId=${item._id}`)}
+              onPress={() => { addRecentSearch(query); router.push(`/otherProfile?userId=${item._id}`) }}
             >
               <Image
                 source={{ uri: item.profilePic || "https://i.pravatar.cc/100?img=12" }}
@@ -487,8 +540,67 @@ const Search = () => {
             ) : null
           }
           contentContainerStyle={{ paddingBottom: 20 }}
+          ListHeaderComponent={() => (
+            <View>
+              {recentSearches.length > 0 && (
+                <View style={{ paddingHorizontal: 12, paddingTop: 8 }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text style={{ color: '#000', fontWeight: '800' }}>Recent searches</Text>
+                    <TouchableOpacity onPress={clearRecentSearches}><Text style={{ color: '#007aff', fontWeight: '700' }}>Clear</Text></TouchableOpacity>
+                  </View>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 8 }}>
+                    {recentSearches.map((s) => (
+                      <TouchableOpacity key={s} onPress={() => onChangeQuery(s)} style={{ backgroundColor: '#f2f2f2', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8 }}>
+                        <Text style={{ color: '#333' }}>{s}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+            </View>
+          )}
         />
       )}
+
+      {/* Filters modal */}
+      <Modal visible={showFilters} animationType="slide" onRequestClose={() => setShowFilters(false)}>
+        <View style={{ flex: 1, backgroundColor: '#fff' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 12, paddingTop: 50, borderBottomWidth: 1, borderBottomColor: '#eee' }}>
+            <Text style={{ fontWeight: '800', fontSize: 18 }}>Explore filters</Text>
+            <TouchableOpacity onPress={() => setShowFilters(false)} style={{ backgroundColor: '#f2f2f2', padding: 8, borderRadius: 999 }}>
+              <Ionicons name="close" size={20} color="#333" />
+            </TouchableOpacity>
+          </View>
+          <ScrollView contentContainerStyle={{ padding: 16 }}>
+            <View style={{ marginBottom: 18 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Text style={{ color: '#000', fontWeight: '800' }}>Show nearby</Text>
+                <TouchableOpacity onPress={() => setNearbyEnabled(!nearbyEnabled)} style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, backgroundColor: nearbyEnabled ? '#0095f6' : '#eee' }}>
+                  <Text style={{ color: nearbyEnabled ? '#fff' : '#000', fontWeight: '700' }}>{nearbyEnabled ? 'On' : 'Off'}</Text>
+                </TouchableOpacity>
+              </View>
+              <Text style={{ color: '#666', marginTop: 6 }}>Uses your saved location to prioritize close posts.</Text>
+            </View>
+            {nearbyEnabled && (
+              <View style={{ marginBottom: 12 }}>
+                <Text style={{ color: '#000', fontWeight: '800', marginBottom: 8 }}>Radius</Text>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  {[15,25,50].map((r) => (
+                    <TouchableOpacity key={r} onPress={() => setRadiusKm(r as any)} style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, backgroundColor: radiusKm === r ? '#0095f6' : '#f2f2f2' }}>
+                      <Text style={{ color: radiusKm === r ? '#fff' : '#000', fontWeight: '700' }}>{r} km</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            )}
+          </ScrollView>
+          <View style={{ padding: 16, borderTopWidth: 1, borderTopColor: '#eee' }}>
+            <TouchableOpacity onPress={() => { setShowFilters(false); loadExplore(1, true) }} style={styles.primaryBtn}>
+              <Text style={{ color: '#fff', fontWeight: '800', fontSize: 16 }}>Apply</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       <Modal visible={showComposer} animationType="slide" onRequestClose={() => setShowComposer(false)}>
         <View style={{ flex: 1, backgroundColor: "#fff" }}>

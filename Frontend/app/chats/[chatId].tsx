@@ -47,6 +47,8 @@ interface ChatMessage {
   reactions?: Array<{ type: string; userId: string }>
   readBy?: string[]
   edited?: boolean
+  status?: 'sending' | 'sent' | 'failed'
+  uploadProgress?: number
 }
 
 interface DateHeader {
@@ -587,8 +589,9 @@ export default function ChatScreen() {
 
     const messageText = inputText.trim()
     setInputText("")
+    const tempId = `temp-${Date.now()}`
     const tempMessage: ChatMessage = {
-      id: `temp-${Date.now()}`,
+      id: tempId,
       text: messageText,
       sender: "me",
       from: currentUser,
@@ -597,6 +600,7 @@ export default function ChatScreen() {
       messageType: params.chatType,
       createdAt: new Date().toISOString(),
       replyTo: replyingTo || undefined,
+      status: 'sending',
     }
     setMessages((prev) => [...prev, tempMessage])
 
@@ -617,13 +621,14 @@ export default function ChatScreen() {
 
       if (!response.success) {
         console.error("[v0] API send message failed:", response)
-        Alert.alert("Error", "Failed to send message. Please try again.")
+        setMessages((prev) => prev.map((m) => (m.id === tempId ? { ...m, status: 'failed' } : m)))
       } else {
         console.log("[v0] Message sent successfully via API")
+        setMessages((prev) => prev.map((m) => (m.id === tempId ? { ...m, status: 'sent' } : m)))
       }
     } catch (error) {
       console.error("[v0] Error sending message via API:", error)
-      Alert.alert("Error", "Failed to send message. Please try again.")
+      setMessages((prev) => prev.map((m) => (m.id === tempId ? { ...m, status: 'failed' } : m)))
     }
     setReplyingTo(null)
   }
@@ -631,6 +636,24 @@ export default function ChatScreen() {
   const sendAttachment = async (assets: Array<{ uri: string; type?: string; name?: string }>) => {
     try {
       if (!currentUser || assets.length === 0) return
+      // Create a temp uploading message with progress
+      const tempId = `upload-${Date.now()}`
+      const att = assets.slice(0,1)[0]
+      const isVid0 = /\.(mp4|mov|m4v|webm)$/i.test(att.name || att.uri)
+      const tempUploading: ChatMessage = {
+        id: tempId,
+        text: '',
+        sender: 'me',
+        from: currentUser,
+        to: params.chatType === 'direct' ? ({ _id: params.chatId } as User) : undefined,
+        group: params.chatType === 'group' ? params.chatId : undefined,
+        messageType: params.chatType,
+        createdAt: new Date().toISOString(),
+        attachments: [{ url: att.uri, type: isVid0 ? 'video' : 'image', name: att.name || '' }],
+        status: 'sending',
+        uploadProgress: 0,
+      }
+      setMessages((prev) => [...prev, tempUploading])
       const token = await AsyncStorage.getItem('token')
       const form = new FormData()
       form.append('messageType', params.chatType as any)
@@ -652,7 +675,7 @@ export default function ChatScreen() {
           xhr.upload.onprogress = (e) => {
             if (e.lengthComputable) {
               const pct = Math.round((e.loaded / e.total) * 100)
-              // Optionally update some local UI state if desired
+              setMessages((prev) => prev.map((m) => (m.id === tempId ? { ...m, uploadProgress: pct } : m)))
             }
           }
           xhr.onerror = () => reject(new Error('Network error'))
@@ -665,7 +688,9 @@ export default function ChatScreen() {
           }
           xhr.send(form)
         })
+        setMessages((prev) => prev.map((m) => (m.id === tempId ? { ...m, status: 'sent', uploadProgress: 100 } : m)))
       } catch (e) {
+        setMessages((prev) => prev.map((m) => (m.id === tempId ? { ...m, status: 'failed' } : m)))
         throw e
       }
 
@@ -1112,7 +1137,17 @@ export default function ChatScreen() {
                 return <Text style={{ fontSize: 12, color: seen ? '#4ea1ff' : '#888' }}>{seen ? '✓✓' : '✓'}</Text>
               }
             })()}
+            {isMyMessage && (message as any).status && (
+              <Text style={{ fontSize: 12, color: (message as any).status === 'failed' ? '#e53935' : '#888' }}>
+                {(message as any).status === 'sending' ? 'Sending…' : (message as any).status === 'failed' ? 'Failed' : ''}
+              </Text>
+            )}
           </View>
+          {(isMyMessage && typeof (message as any).uploadProgress === 'number' && (message as any).uploadProgress >= 0 && (message as any).uploadProgress < 100) && (
+            <View style={{ marginTop: 6, height: 4, backgroundColor: '#ddd', borderRadius: 2, overflow: 'hidden' }}>
+              <View style={{ height: 4, width: `${Math.round((message as any).uploadProgress)}%`, backgroundColor: '#4ea1ff' }} />
+            </View>
+          )}
         </View>
       </TouchableOpacity>
     )
