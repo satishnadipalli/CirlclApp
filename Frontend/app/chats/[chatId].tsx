@@ -456,30 +456,20 @@ export default function ChatScreen() {
   const loadChatData = async (user: User) => {
     try {
       if (params.chatType === "direct") {
-        const response = await apiService.getDirectMessages(params.chatId)
-        if (response.success) {
-          const formattedMessages: ChatMessage[] = response.messages.map((msg: any) => ({
-            id: msg._id,
-            text: msg.text,
-            sender: msg.from._id === user._id ? "me" : "other",
-            from: msg.from,
-            to: msg.to,
-            messageType: "direct",
-            createdAt: msg.createdAt,
-            attachments: msg.attachments,
-          }))
-          console.log("[v0] Loaded direct messages:", formattedMessages.length)
-          setMessages(formattedMessages)
-
-          // Mark as read
-          try { await apiService.markDirectRead(params.chatId) } catch {}
-
-          const firstMessage = response.messages[0]
-          if (firstMessage) {
-            const otherUserData = firstMessage.from._id === user._id ? firstMessage.to : firstMessage.from
-            setOtherUser(otherUserData)
-          }
-        }
+        const res = await apiService.getDirectMessages(params.chatId)
+        const messages = (res as any)?.messages || []
+        const formattedMessages: ChatMessage[] = messages.map((msg: any) => ({
+          id: msg._id,
+          text: msg.text,
+          sender: msg.from === user._id ? "me" : "other",
+          from: resolveFromUser(msg.from),
+          to: resolveFromUser(msg.to),
+          messageType: "direct",
+          createdAt: msg.createdAt,
+          attachments: msg.attachments,
+        }))
+        console.log("[v0] Loaded direct messages:", formattedMessages.length)
+        setMessages(formattedMessages)
       } else {
         const [messagesResponse, groupResponse] = await Promise.all([
           apiService.getGroupMessages(params.chatId),
@@ -1075,6 +1065,23 @@ export default function ChatScreen() {
             </View>
           )}
 
+          {/* Simple link preview */}
+          {(() => {
+            try {
+              const match = String(message.text || '').match(/https?:\/\/[^\s]+/i)
+              if (!match) return null
+              const url = match[0]
+              return (
+                <TouchableOpacity onPress={() => { try { (require('expo-web-browser') as any).openBrowserAsync(url) } catch {} }} style={{ marginTop: 8 }}>
+                  <View style={{ backgroundColor: isMyMessage ? '#e6f2ff' : '#f5f5f5', borderRadius: 10, padding: 10, maxWidth: 260 }}>
+                    <Text numberOfLines={2} style={{ color: '#1a0dab', textDecorationLine: 'underline' }}>{url}</Text>
+                    <Text style={{ color: '#555', marginTop: 4 }} numberOfLines={2}>Open link</Text>
+                  </View>
+                </TouchableOpacity>
+              )
+            } catch { return null }
+          })()}
+
           {"replyTo" in (message as any) && (message as any).replyTo && (
             <View style={styles.replyBubble}>
               <View style={[styles.replyBar, { backgroundColor: isMyMessage ? "#9bd7a1" : "#bbb" }]} />
@@ -1396,6 +1403,30 @@ export default function ChatScreen() {
             </View>
           </Modal>
         )}
+        {/* Quick Reactions Modal */}
+        <Modal visible={!!reactingTo} transparent animationType="fade" onRequestClose={() => setReactingTo(null)}>
+          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.2)' }}>
+            <View style={{ flexDirection: 'row', backgroundColor: '#fff', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 8 }}>
+              {['❤️','👍','😂','😮','😢','🔥'].map((emoji) => (
+                <TouchableOpacity key={emoji} style={{ paddingHorizontal: 8, paddingVertical: 6 }} onPress={async () => {
+                  const msgId = (reactingTo as any)?.id
+                  try { await apiService.request(`/messages/${msgId}/react`, { method: 'POST', body: JSON.stringify({ type: emoji }) }) } catch {}
+                  setReactingTo(null)
+                }}>
+                  <Text style={{ fontSize: 20 }}>{emoji}</Text>
+                </TouchableOpacity>
+              ))}
+              <TouchableOpacity style={{ paddingHorizontal: 8, paddingVertical: 6, marginLeft: 6 }} onPress={async () => {
+                const msgId = (reactingTo as any)?.id
+                try { await apiService.request(`/messages/${msgId}/react`, { method: 'POST', body: JSON.stringify({ type: null }) }) } catch {}
+                setReactingTo(null)
+              }}>
+                <Text style={{ fontSize: 14, color: '#e53935', fontWeight: '700' }}>Remove</Text>
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }} onPress={() => setReactingTo(null)} />
+          </View>
+        </Modal>
       </KeyboardAvoidingView>
     
   )
