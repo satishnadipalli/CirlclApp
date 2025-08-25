@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useEffect, useRef, useState } from 'react'
-import { Animated, Dimensions, FlatList, Image, StyleSheet, Text, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native'
+import { ActivityIndicator, Animated, Dimensions, FlatList, Image, StyleSheet, Text, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native'
 import { Modal, TextInput, KeyboardAvoidingView, Platform, Share, Alert } from 'react-native'
 import { useRouter } from 'expo-router'
 import { Video } from 'expo-av'
@@ -33,6 +33,9 @@ export default function ReelsScreen() {
   const likeCountLocalRef = useRef<Record<string, number>>({})
   const progressRef = useRef<Record<string, number>>({}) // 0..1
   const impressionSentRef = useRef<Record<string, boolean>>({})
+  const [isPaused, setIsPaused] = useState(false)
+  const [isBuffering, setIsBuffering] = useState(false)
+  const [showMuteHint, setShowMuteHint] = useState(false)
 
   // Heart animation for double-tap
   const heartScale = useRef(new Animated.Value(0)).current
@@ -80,17 +83,29 @@ export default function ReelsScreen() {
 
   const onViewableItemsChanged = useRef(({ viewableItems }: any) => {
     if (!Array.isArray(viewableItems) || viewableItems.length === 0) return
-    const idx = viewableItems[0].index ?? 0
+    // Require higher threshold (>=90%) before switching to reduce flicker
+    const first = viewableItems.find((v: any) => (v?.isViewable && (v?.index ?? 0) >= 0 && (v?.item)))
+    const idx = first?.index ?? (viewableItems[0].index ?? 0)
     setCurrentIndex(idx)
   }).current
 
   // Play/pause current, preload neighbor, send impression metric
   useEffect(() => {
     const current = reels[currentIndex]
+    // show mute hint briefly when switching if muted
+    if (isMuted) {
+      setShowMuteHint(true)
+      setTimeout(() => setShowMuteHint(false), 1200)
+    } else {
+      setShowMuteHint(false)
+    }
     reels.forEach((r, idx) => {
       const ref = videoRefs.current.get(String(r?._id))
       if (!ref) return
-      try { if (idx === currentIndex) ref.playAsync(); else ref.pauseAsync() } catch {}
+      try {
+        if (idx === currentIndex && !isPaused) ref.playAsync();
+        else ref.pauseAsync()
+      } catch {}
     })
     const next = reels[currentIndex + 1]
     if (next?.mediaUrl && /\.(jpg|png)$/i.test(next.mediaUrl)) Image.prefetch(next.mediaUrl)
@@ -103,7 +118,7 @@ export default function ReelsScreen() {
         ;(api as any).postMetric(String(current._id), { event: 'impression' }).catch(() => {})
       }
     }
-  }, [currentIndex, reels])
+  }, [currentIndex, reels, isPaused])
 
   const isLiked = (item: any): boolean => {
     const id = String(item?._id || '')
@@ -250,6 +265,8 @@ export default function ReelsScreen() {
     try {
       const id = String(item?._id || '')
       if (!id) return
+      // buffering UI
+      setIsBuffering(Boolean(status?.isBuffering))
       // only track metrics for currently visible item
       const current = reels[currentIndex]
       if (!current || String(current?._id || '') !== id) return
@@ -306,20 +323,45 @@ export default function ReelsScreen() {
     const likes = likeCount(item)
     const prog = progressRef.current[String(item?._id || '')] || 0
     const saved = !!savedLocalRef.current[String(item?._id || '')]
+    const uri = String(item?.mediaUrl || '')
+    const isHls = /\.m3u8$/i.test(uri)
     return (
       <View style={styles.item}>
-        <TouchableWithoutFeedback onPress={() => onDoubleTap(item)}>
+        <TouchableWithoutFeedback
+          onPress={() => {
+            onDoubleTap(item)
+            // single tap toggles pause/play (with slight delay to avoid overriding double-tap like)
+            setTimeout(async () => {
+              try {
+                const ref = videoRefs.current.get(String(item?._id))
+                if (!ref) return
+                if (isPaused) { setIsPaused(false); await ref.playAsync() } else { setIsPaused(true); await ref.pauseAsync() }
+              } catch {}
+            }, 160)
+          }}
+        >
           <View>
             <Video
               ref={(r) => { if (r) videoRefs.current.set(String(item._id), r) }}
               source={{ uri: item.mediaUrl }}
               style={styles.video}
               resizeMode={'cover' as any}
-              shouldPlay={index === currentIndex}
+              shouldPlay={index === currentIndex && !isPaused}
               isLooping
               isMuted={isMuted}
               onPlaybackStatusUpdate={onStatusUpdate(item)}
             />
+            {isBuffering && (
+              <View style={styles.bufferOverlay}>
+                <ActivityIndicator color="#fff" />
+              </View>
+            )}
+            {showMuteHint && isMuted && (
+              <View style={styles.muteHint}>
+                <Ionicons name="volume-mute-outline" size={18} color="#fff" />
+                <Text style={{ color: '#fff', marginLeft: 6, fontWeight: '700' }}>Tap to unmute</Text>
+              </View>
+            )}
             {/* Progress bar */}
             <View style={styles.progressTrack}>
               <View style={[styles.progressFill, { width: `${Math.round(prog * 100)}%` }]} />
@@ -472,6 +514,8 @@ export default function ReelsScreen() {
 const styles = StyleSheet.create({
   item: { width, height, backgroundColor: '#000' },
   video: { width, height },
+  bufferOverlay: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
+  muteHint: { position: 'absolute', left: 12, top: 12, backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, flexDirection: 'row', alignItems: 'center' },
   overlay: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, padding: 12 },
   meta: { position: 'absolute', left: 12, bottom: 60, right: 80 },
   avatar: { width: 28, height: 28, borderRadius: 14, marginBottom: 6 },

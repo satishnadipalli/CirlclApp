@@ -785,7 +785,7 @@ const getPostById = async (req, res) => {
   }
 }
 
-// REELS feed: video-only posts with scoring for high-quality playback order
+// REELS feed: video-only posts with improved scoring and diversity for high-quality playback order
 const getReels = async (req, res) => {
   try {
     let { page = 1, limit = 8 } = req.query
@@ -798,19 +798,22 @@ const getReels = async (req, res) => {
     const notInterested = new Set((me?.notInterestedPosts || []).map((x) => String(x)))
 
     // Pull recent video posts only
-    const recent = await Post.find({ mediaUrl: { $regex: /\.(mp4|mov|webm|m4v)$/i } })
+    const recent = await Post.find({ mediaUrl: { $regex: /\.(mp4|mov|webm|m4v|m3u8)$/i } })
       .sort({ createdAt: -1 })
       .limit(1000)
       .populate('user', 'name profilePic')
 
+    const HOURS = 1000 * 60 * 60
     const scorePost = (p) => {
       let score = 0
       // Popularity signals
       score += (p.likes?.length || 0) * 3
       score += (p.comments?.length || 0) * 2
       // Recency (prefer newer, but not overly volatile)
-      const ageHours = Math.max(1, (Date.now() - new Date(p.createdAt).getTime()) / (1000 * 60 * 60))
-      score += 120 / ageHours
+      const ageHours = Math.max(1, (Date.now() - new Date(p.createdAt).getTime()) / HOURS)
+      // Slightly stronger early decay to surface fresh content; plateau after ~48h
+      score += 200 / (1 + ageHours)
+      if (ageHours > 72) score -= 20 // soft penalty for very old
       // From following
       if (following.some((f) => String(f) === String(p.user?._id || p.user))) score += 30
       // Saved affinity
@@ -824,16 +827,55 @@ const getReels = async (req, res) => {
       const impressions = Math.max(1, Number(p.impressions || 0))
       const completionRate = Math.min(1, Number(p.completeCount || 0) / watchCount)
       const avgWatchSeconds = Math.min(60, Number(p.watchMsTotal || 0) / impressions / 1000)
-      score += completionRate * 200
-      score += avgWatchSeconds * 2
-      score += Math.min(1, Number(p.rewatchCount || 0) / watchCount) * 80
+      score += completionRate * 240 // slightly higher weight to completion
+      score += avgWatchSeconds * 2.5 // slightly higher weight to avg watch
+      score += Math.min(1, Number(p.rewatchCount || 0) / watchCount) * 90
+      // Minimum viability gating: deprioritize items with extremely low impressions
+      if (impressions < 3 && ageHours > 12) score -= 30
+      // Tiny randomization to avoid determinism/ties
+      score += Math.random() * 0.5
       return score
     }
 
-    const scored = recent
+    const scoredItems = recent
       .map((p) => ({ p, s: scorePost(p) }))
       .sort((a, b) => b.s - a.s)
-      .map((x) => x.p)
+
+    // Diversity: limit long streaks by the same author (e.g., max 2 consecutive)
+    const MAX_CONSECUTIVE_PER_AUTHOR = 2
+    const arranged = []
+    let lastAuthor = null
+    let streak = 0
+    const delayed = []
+    for (const it of scoredItems) {
+      const authorId = String(it.p.user?._id || it.p.user || '')
+      if (authorId && authorId === lastAuthor && streak >= MAX_CONSECUTIVE_PER_AUTHOR) {
+        delayed.push(it)
+        continue
+      }
+      arranged.push(it)
+      if (authorId === lastAuthor) streak += 1
+      else { lastAuthor = authorId; streak = 1 }
+    }
+    // Second pass: insert delayed items trying to respect diversity where possible
+    for (const it of delayed) {
+      const authorId = String(it.p.user?._id || it.p.user || '')
+      let placed = false
+      for (let i = 0; i <= arranged.length; i++) {
+        const prev = arranged[i - 1]?.p
+        const next = arranged[i]?.p
+        const prevAuthor = prev ? String(prev.user?._id || prev.user || '') : null
+        const nextAuthor = next ? String(next.user?._id || next.user || '') : null
+        if ((prevAuthor !== authorId) && (nextAuthor !== authorId)) {
+          arranged.splice(i, 0, it)
+          placed = true
+          break
+        }
+      }
+      if (!placed) arranged.push(it)
+    }
+
+    const scored = arranged.map((x) => x.p)
 
     const start = (page - 1) * limit
     const data = scored.slice(start, start + limit)
