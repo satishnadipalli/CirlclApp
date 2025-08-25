@@ -41,6 +41,9 @@ export default function ReelsScreen() {
   const [showMuteHint, setShowMuteHint] = useState(false)
   const likeIconScales = useRef<Map<string, Animated.Value>>(new Map()).current
   const saveIconScales = useRef<Map<string, Animated.Value>>(new Map()).current
+  const [expandedCaption, setExpandedCaption] = useState<Record<string, boolean>>({})
+  const positionMsRef = useRef<Record<string, number>>({})
+  const durationMsRef = useRef<Record<string, number>>({})
 
   const isCloudinaryUrl = (u: string) => /res\.cloudinary\.com\//.test(u) && /\/video\/upload\//.test(u)
   const stripQuery = (u: string) => u.split('?')[0]
@@ -342,6 +345,9 @@ export default function ReelsScreen() {
       const current = reels[currentIndex]
       if (!current || String(current?._id || '') !== id) return
       if (!status?.isPlaying || status?.isBuffering) return
+      // update position/duration
+      if (typeof status?.positionMillis === 'number') positionMsRef.current[id] = status.positionMillis
+      if (typeof status?.durationMillis === 'number') durationMsRef.current[id] = status.durationMillis
       // progress
       if (typeof status?.positionMillis === 'number' && typeof status?.durationMillis === 'number' && status.durationMillis > 0) {
         const p = Math.max(0, Math.min(1, status.positionMillis / status.durationMillis))
@@ -467,13 +473,18 @@ export default function ReelsScreen() {
               </Text>
             </View>
             {!!item?.title && (
-              <Text style={styles.caption} numberOfLines={2}>
-                {String(item.title || '').split(/(#[A-Za-z0-9_]+)/g).map((seg: string, i: number) => (
-                  /^#[A-Za-z0-9_]+$/.test(seg)
-                    ? <Text key={i} style={{ color: '#4ea1ff' }} onPress={() => onPressHashtag(seg)}>{seg}</Text>
-                    : <Text key={i}>{seg}</Text>
-                ))}
-              </Text>
+              <View style={{ marginTop: 6, maxWidth: width * 0.7 }}>
+                <Text style={styles.caption} numberOfLines={expandedCaption[String(item?._id || '')] ? undefined : 2}>
+                  {String(item.title || '').split(/(#[A-Za-z0-9_]+)/g).map((seg: string, i: number) => (
+                    /^#[A-Za-z0-9_]+$/.test(seg)
+                      ? <Text key={i} style={{ color: '#4ea1ff' }} onPress={() => onPressHashtag(seg)}>{seg}</Text>
+                      : <Text key={i}>{seg}</Text>
+                  ))}
+                </Text>
+                <TouchableOpacity onPress={() => setExpandedCaption((p) => ({ ...p, [String(item?._id || '')]: !p[String(item?._id || '')] }))}>
+                  <Text style={{ color: '#aaa', marginTop: 4 }}>{expandedCaption[String(item?._id || '')] ? 'Less' : 'More'}</Text>
+                </TouchableOpacity>
+              </View>
             )}
             {!creatorFollowed(item) && (
               <TouchableOpacity onPress={() => onFollow(item)} style={{ backgroundColor: '#4ea1ff', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6, alignSelf: 'flex-start', marginTop: 6 }}>
@@ -542,6 +553,11 @@ export default function ReelsScreen() {
         windowSize={3}
         removeClippedSubviews={false}
       />
+      {/* Gradient fade for captions */}
+      <View pointerEvents='none' style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 80, backgroundColor: 'transparent' }}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.0)' }} />
+        <View style={{ height: 80, backgroundColor: 'rgba(0,0,0,0.35)' }} />
+      </View>
 
       {/* Comments Modal */}
       <Modal visible={!!commentsOpenForId} animationType='slide' onRequestClose={() => setCommentsOpenForId(null)} transparent>
