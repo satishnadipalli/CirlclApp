@@ -92,7 +92,7 @@ const sendMessage = async (req, res) => {
     if (Array.isArray(req.files) && req.files.length > 0) {
       message.attachments = (req.files || []).map((f) => ({
         url: f?.path || f?.location || f?.secure_url || f?.filename || '',
-        type: /^video\//.test(f?.mimetype || '') ? 'video' : (/^image\//.test(f?.mimetype || '') ? 'image' : 'file'),
+        type: /^video\//.test(f?.mimetype || '') ? 'video' : (/^image\//.test(f?.mimetype || '') ? 'image' : (/^audio\//.test(f?.mimetype || '') ? 'audio' : 'file')),
         name: f?.originalname || '',
         size: Number(f?.size || 0),
         width: 0,
