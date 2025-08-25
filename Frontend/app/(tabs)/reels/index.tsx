@@ -418,9 +418,17 @@ export default function ReelsScreen() {
         <TouchableWithoutFeedback onPress={() => {
           const now = Date.now()
           const dt = now - (lastTapRef.current || 0)
+          if (dt < 280) {
+            lastTapRef.current = now
+            onDoubleTap(item)
+            return
+          }
           lastTapRef.current = now
-          if (dt < 300) onDoubleTap(item)
-          else onToggleMute()
+          // single-tap: schedule mute toggle after a brief window to avoid conflicts
+          setTimeout(() => {
+            const since = Date.now() - lastTapRef.current
+            if (since >= 260) onToggleMute()
+          }, 260)
         }}>
           <View>
             <Video
@@ -448,7 +456,7 @@ export default function ReelsScreen() {
             )}
             {/* Progress bar */}
             <View style={styles.progressTrack}>
-              <View style={[styles.progressFill, { width: `${Math.round(prog * 100)}%` }]} />
+              <View style={[styles.progressFill, { width: `${Math.round(((positionMsRef.current[String(item?._id || '')] || 0) / Math.max(1, (durationMsRef.current[String(item?._id || '')] || 1))) * 100)}%` }]} />
             </View>
             {/* Heart animation */}
             {heartKey === String(item?._id || 'heart') && (
@@ -487,11 +495,14 @@ export default function ReelsScreen() {
             {!!item?.title && (
               <View style={{ marginTop: 6, maxWidth: width * 0.7 }}>
                 <Text style={styles.caption} numberOfLines={expandedCaption[String(item?._id || '')] ? undefined : 2}>
-                  {String(item.title || '').split(/(#[A-Za-z0-9_]+)/g).map((seg: string, i: number) => (
-                    /^#[A-Za-z0-9_]+$/.test(seg)
-                      ? <Text key={i} style={{ color: '#4ea1ff' }} onPress={() => onPressHashtag(seg)}>{seg}</Text>
-                      : <Text key={i}>{seg}</Text>
-                  ))}
+                  {String(item.title || '').split(/(#[A-Za-z0-9_]+|\[[^\]]+\])/g).map((seg: string, i: number) => {
+                    if (/^#[A-Za-z0-9_]+$/.test(seg)) return <Text key={i} style={{ color: '#4ea1ff' }} onPress={() => onPressHashtag(seg)}>{seg}</Text>
+                    if (/^\[[^\]]+\]$/.test(seg)) {
+                      const name = seg.slice(1, -1)
+                      return <Text key={i} style={{ color: '#4ea1ff' }} onPress={() => { try { router.push({ pathname: '/(tabs)/place', params: { name } }) } catch {} }}>{seg}</Text>
+                    }
+                    return <Text key={i}>{seg}</Text>
+                  })}
                 </Text>
                 <TouchableOpacity onPress={() => setExpandedCaption((p) => ({ ...p, [String(item?._id || '')]: !p[String(item?._id || '')] }))}>
                   <Text style={{ color: '#aaa', marginTop: 4 }}>{expandedCaption[String(item?._id || '')] ? 'Less' : 'More'}</Text>
@@ -582,7 +593,9 @@ export default function ReelsScreen() {
 
       {/* Comments Modal */}
       <Modal visible={!!commentsOpenForId} animationType='slide' onRequestClose={() => setCommentsOpenForId(null)} transparent>
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' }}>
+        <TouchableWithoutFeedback onPress={() => setCommentsOpenForId(null)}>
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' }}>
+        </TouchableWithoutFeedback>
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
             <View style={{ maxHeight: height * 0.7, backgroundColor: '#111', borderTopLeftRadius: 16, borderTopRightRadius: 16, paddingBottom: 12 }}>
               <View style={{ height: 48, alignItems: 'center', justifyContent: 'center' }}>
