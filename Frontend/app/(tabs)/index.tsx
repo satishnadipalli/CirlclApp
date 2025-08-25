@@ -192,7 +192,8 @@ export default function HomeScreen() {
     setFeedLoadingMore(true)
     try {
       let res: any = await (api as any).getFollowingFeed(p, 10)
-      if (res?.success === false || !Array.isArray(res?.posts)) {
+      if (res?.success === false || !Array.isArray(res?.posts) || (Array.isArray(res?.posts) && res.posts.length === 0 && p === 1)) {
+        // fallback to general feed for cold-start users
         res = await (api as any).getFeed(p, 10)
       }
       const items: any[] = Array.isArray(res?.posts) ? res.posts : []
