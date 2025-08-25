@@ -386,7 +386,11 @@ export default function HomeScreen() {
                 <Image source={{ uri: user?.profilePic || 'https://i.pravatar.cc/150?img=3' }} style={styles.userImage} />
                 <View style={styles.userInfo}>
                   <Text style={styles.username}>{user?.name || 'User'}</Text>
-                  {!!item?.locationName && <Text style={styles.location}>{item.locationName}</Text>}
+                  {!!item?.locationName && (
+                    <TouchableOpacity onPress={() => router.push({ pathname: '/(tabs)/place', params: { name: item.locationName } })}>
+                      <Text style={styles.location}>{item.locationName}</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
                 <TouchableOpacity style={styles.menuButton}>
                   <Ionicons name="ellipsis-horizontal" size={20} color="#262626" />
