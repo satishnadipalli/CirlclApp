@@ -490,6 +490,22 @@ export default function ChatScreen() {
     dot3Opacity.setValue(0.3)
   }
 
+  function processMessagesWithDates(items: ChatMessage[]): Array<ChatItem> {
+    const out: Array<ChatItem> = []
+    let lastKey = ""
+    for (const m of (items || [])) {
+      const d = new Date(m.createdAt || new Date().toISOString())
+      const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+      if (key !== lastKey) {
+        lastKey = key
+        const display = d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+        out.push({ id: `date-${key}`, type: 'date', date: key, displayText: display })
+      }
+      out.push(m)
+    }
+    return out
+  }
+
   useEffect(() => {
     // Interleave date headers and transform system messages into centered chips
     const withDates = processMessagesWithDates(messages)
