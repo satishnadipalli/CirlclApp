@@ -7,7 +7,7 @@ import { Ionicons } from "@expo/vector-icons"
 import * as Notifications from "expo-notifications"
 import { useRouter } from "expo-router"
 import React, { useEffect, useState } from "react"
-import { Dimensions, FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from "react-native"
+import { Dimensions, FlatList, Image, Platform, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native"
 import DailyRing from "@/components/DailyRing"
 import logo from "../../assets/images/circle-full.png"
 import * as Haptics from "expo-haptics"
@@ -479,11 +479,11 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingBottom: 8,
     backgroundColor: "white",
     borderBottomWidth: 0.5,
     borderBottomColor: "#dbdbdb",
-    paddingTop:40
+    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight- 10 : 0,
   },
   notificationButton: { padding: 8, position: 'relative' },
   storiesContainer: { paddingVertical: 0, backgroundColor: 'white', borderBottomWidth: 0.5, borderBottomColor: '#dbdbdb' },
