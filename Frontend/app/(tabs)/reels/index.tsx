@@ -6,6 +6,7 @@ import { Modal, TextInput, KeyboardAvoidingView, Platform, Share, Alert } from '
 import { useRouter } from 'expo-router'
 import { Video } from 'expo-av'
 import { Ionicons } from '@expo/vector-icons'
+import * as Clipboard from 'expo-clipboard'
 import api from '@/services/api.service'
 import * as Haptics from 'expo-haptics'
 import AsyncStorage from '@react-native-async-storage/async-storage'
@@ -38,6 +39,8 @@ export default function ReelsScreen() {
   const [isPaused, setIsPaused] = useState(false)
   const [isBuffering, setIsBuffering] = useState(false)
   const [showMuteHint, setShowMuteHint] = useState(false)
+  const likeIconScales = useRef<Map<string, Animated.Value>>(new Map()).current
+  const saveIconScales = useRef<Map<string, Animated.Value>>(new Map()).current
 
   const isCloudinaryUrl = (u: string) => /res\.cloudinary\.com\//.test(u) && /\/video\/upload\//.test(u)
   const stripQuery = (u: string) => u.split('?')[0]
@@ -184,9 +187,25 @@ export default function ReelsScreen() {
     ]).start()
   }
 
+  const getIconScale = (id: string, map: Map<string, Animated.Value>) => {
+    let v = map.get(id)
+    if (!v) { v = new Animated.Value(1); map.set(id, v) }
+    return v
+  }
+  const bounceIcon = (val: Animated.Value) => {
+    try {
+      val.setValue(0.85)
+      Animated.sequence([
+        Animated.spring(val, { toValue: 1.15, useNativeDriver: true }),
+        Animated.spring(val, { toValue: 1.0, useNativeDriver: true }),
+      ]).start()
+    } catch {}
+  }
+
   const toggleLike = async (item: any) => {
     const id = String(item?._id)
     if (!id) return
+    bounceIcon(getIconScale(id, likeIconScales))
     const currentlyLiked = isLiked(item)
     const currentCount = likeCount(item)
     // optimistic update
@@ -218,6 +237,7 @@ export default function ReelsScreen() {
   const onToggleSave = async (item: any) => {
     const id = String(item?._id || '')
     if (!id) return
+    bounceIcon(getIconScale(id, saveIconScales))
     const current = !!savedLocalRef.current[id]
     savedLocalRef.current[id] = !current
     setReels((prev) => [...prev])
@@ -262,7 +282,9 @@ export default function ReelsScreen() {
     try {
       const url = `${require('@/constants/Config').API_BASE_URL.replace(/\/api$/, '')}/post/${String(item?._id || '')}`
       await Share.share({ message: url })
-    } catch {}
+    } catch {
+      try { await Clipboard.setStringAsync(`${require('@/constants/Config').API_BASE_URL.replace(/\/api$/, '')}/post/${String(item?._id || '')}`); Alert.alert('Copied', 'Link copied to clipboard') } catch {}
+    }
   }
 
   const onNotInterested = async (item: any) => {
@@ -433,8 +455,10 @@ export default function ReelsScreen() {
           </View>
           <View style={{ flex: 1 }} />
           <View style={styles.meta}>
-            <Image source={{ uri: item?.user?.profilePic || 'https://i.pravatar.cc/100?img=6' }} style={styles.avatar} />
-            <Text style={styles.name}>{item?.user?.name || 'User'}</Text>
+            <TouchableOpacity onPress={() => { try { router.push({ pathname: '/otherProfile', params: { userId: String(item?.user?._id || '') } }) } catch {} }} style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Image source={{ uri: item?.user?.profilePic || 'https://i.pravatar.cc/100?img=6' }} style={styles.avatar} />
+              <Text style={styles.name}>{item?.user?.name || 'User'}</Text>
+            </TouchableOpacity>
             {/* Audio overlay */}
             <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6, gap: 8 }}>
               <Ionicons name="musical-notes" size={16} color="#fff" />
@@ -459,7 +483,9 @@ export default function ReelsScreen() {
           </View>
           <View style={styles.actions}>
             <TouchableOpacity style={styles.action} onPress={() => { try { Haptics.selectionAsync() } catch {} ; toggleLike(item) }}>
-              <Ionicons name={liked ? 'heart' : 'heart-outline'} size={28} color={liked ? '#FF3040' : '#fff'} />
+              <Animated.View style={{ transform: [{ scale: getIconScale(String(item?._id || ''), likeIconScales) }] }}>
+                <Ionicons name={liked ? 'heart' : 'heart-outline'} size={28} color={liked ? '#FF3040' : '#fff'} />
+              </Animated.View>
             </TouchableOpacity>
             <Text style={{ color: '#fff', fontWeight: '700' }}>{likes}</Text>
             <TouchableOpacity style={styles.action} onPress={() => openComments(item)}>
@@ -469,7 +495,9 @@ export default function ReelsScreen() {
               <Ionicons name="paper-plane-outline" size={28} color="#fff" />
             </TouchableOpacity>
             <TouchableOpacity style={styles.action} onPress={() => onToggleSave(item)}>
-              <Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={26} color="#fff" />
+              <Animated.View style={{ transform: [{ scale: getIconScale(String(item?._id || ''), saveIconScales) }] }}>
+                <Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={26} color="#fff" />
+              </Animated.View>
             </TouchableOpacity>
             <TouchableOpacity style={[styles.action, { marginTop: 10 }]} onPress={onToggleMute}>
               <Ionicons name={isMuted ? 'volume-mute-outline' : 'volume-high-outline'} size={24} color="#fff" />
