@@ -197,6 +197,31 @@ export default function ChatScreen() {
     return { _id: fromId, name: "", profilePic: "" } as User
   }
 
+  // Attach/Recording handlers (lightweight stubs to avoid runtime errors)
+  const onAttachPress = async () => {
+    try {
+      // Placeholder for attachment picker; no-op for now
+    } catch {}
+  }
+  const startHoldRecording = async () => {
+    try {
+      setIsRecording(true)
+      setRecordingMs(0)
+      try { if (recordingTimerRef.current) clearInterval(recordingTimerRef.current) } catch {}
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingMs((ms) => ms + 250)
+      }, 250)
+    } catch {}
+  }
+  const stopHoldRecording = async (send: boolean) => {
+    try {
+      setIsRecording(false)
+      try { if (recordingTimerRef.current) clearInterval(recordingTimerRef.current) } catch {}
+      setRecordingMs(0)
+      // TODO: implement audio upload if needed
+    } catch {}
+  }
+
   const initializeSocket = async (user: User) => {
     try {
       // await socketService.connect()
@@ -979,6 +1004,13 @@ function formatTimeShort(ms: number) {
   return `${mm}:${ss}`
 }
 
+function formatDuration(ms: number) {
+  const total = Math.floor((ms || 0) / 1000)
+  const mm = String(Math.floor(total / 60)).padStart(2, '0')
+  const ss = String(total % 60).padStart(2, '0')
+  return `${mm}:${ss}`
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -1321,6 +1353,10 @@ const styles = StyleSheet.create({
     color: '#333',
     marginBottom: 2,
   },
+  metaRow: { marginTop: 4, alignSelf: 'flex-end' },
+  messageBubble: {},
+  myBubble: {},
+  otherBubble: {},
   reactionsRow: { flexDirection: 'row', gap: 6, marginTop: 6 },
   reactionChip: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#eee', borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2 },
   reactionText: { fontSize: 12 },
