@@ -113,6 +113,7 @@ export default function ChatScreen() {
   const dot3Opacity = useRef(new Animated.Value(0.3)).current
 
   const [mediaViewer, setMediaViewer] = useState<{ visible: boolean; url: string; type: 'image' | 'video' | 'file' }>({ visible: false, url: '', type: 'image' })
+  const [reactingTo, setReactingTo] = useState<ChatMessage | null>(null)
 
   console.log("params",params);
 
@@ -522,7 +523,8 @@ export default function ChatScreen() {
     const isMyMessage = message.sender === "me"
 
     return (
-      <View style={[styles.messageContainer, isMyMessage ? styles.myMessage : styles.otherMessage]}>
+      <View style={[styles.messageContainer, isMyMessage ? styles.myMessage : styles.otherMessage]} onStartShouldSetResponder={() => true} onResponderGrant={(e) => { /* noop */ }}>
+        <TouchableOpacity activeOpacity={0.9} onLongPress={() => setReactingTo(message)} delayLongPress={200}>
         {/* Message bubble */}
         <View style={[styles.messageBubble, isMyMessage ? styles.myBubble : styles.otherBubble]}>
           {/* Text content */}
@@ -578,6 +580,16 @@ export default function ChatScreen() {
             </View>
           )}
         </View>
+        </TouchableOpacity>
+
+        {/* Reactions row */}
+        {Array.isArray((message as any).reactions) && (message as any).reactions.length > 0 && (
+          <View style={styles.reactionsRow}>
+            {Array.from(new Map(((message as any).reactions || []).map((r: any) => [r.type, 0])).keys()).map((t: string) => (
+              <View key={t} style={styles.reactionChip}><Text style={styles.reactionText}>{t}</Text></View>
+            ))}
+          </View>
+        )}
 
         {/* Metadata row (time, read receipts) */}
         <View style={styles.metaRow}>
@@ -830,6 +842,30 @@ export default function ChatScreen() {
             </View>
           </Modal>
         )}
+        {/* Quick Reactions Modal */}
+        <Modal visible={!!reactingTo} transparent animationType="fade" onRequestClose={() => setReactingTo(null)}>
+          <View style={styles.reactOverlay}>
+            <View style={styles.reactBar}>
+              {['❤️','👍','😂','😮','😢','🔥'].map((emoji) => (
+                <TouchableOpacity key={emoji} style={styles.reactBtn} onPress={async () => {
+                  const msgId = (reactingTo as any)?.id
+                  try { await apiService.request(`/messages/${msgId}/react`, { method: 'POST', body: JSON.stringify({ type: emoji }) }) } catch {}
+                  setReactingTo(null)
+                }}>
+                  <Text style={{ fontSize: 20 }}>{emoji}</Text>
+                </TouchableOpacity>
+              ))}
+              <TouchableOpacity style={[styles.reactBtn, { marginLeft: 6 }]} onPress={async () => {
+                const msgId = (reactingTo as any)?.id
+                try { await apiService.request(`/messages/${msgId}/react`, { method: 'POST', body: JSON.stringify({ type: null }) }) } catch {}
+                setReactingTo(null)
+              }}>
+                <Text style={{ fontSize: 14, color: '#e53935', fontWeight: '700' }}>Remove</Text>
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity style={styles.reactBackdrop} onPress={() => setReactingTo(null)} />
+          </View>
+        </Modal>
       </KeyboardAvoidingView>
     
   )
@@ -1268,4 +1304,11 @@ const styles = StyleSheet.create({
     color: '#333',
     marginBottom: 2,
   },
+  reactionsRow: { flexDirection: 'row', gap: 6, marginTop: 6 },
+  reactionChip: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#eee', borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2 },
+  reactionText: { fontSize: 12 },
+  reactOverlay: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.2)' },
+  reactBar: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 8, elevation: 2, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 8 },
+  reactBtn: { paddingHorizontal: 8, paddingVertical: 6 },
+  reactBackdrop: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 },
 })
