@@ -3,6 +3,31 @@ const User = require("../models/user.models")
 const Group = require("../models/group.model")
 const mongoose = require("mongoose")
 
+// naive URL detection
+const URL_REGEX = /https?:\/\/[^\s]+/i
+
+async function fetchLinkPreview(url) {
+  try {
+    // Prefer OpenGraph/Twitter meta tags
+    const res = await fetch(url, { method: 'GET', redirect: 'follow' })
+    const html = await res.text()
+    const pick = (prop) => {
+      const og = new RegExp(`<meta[^>]+property=["']og:${prop}["'][^>]+content=["']([^"']+)["'][^>]*>`, 'i').exec(html)
+      if (og && og[1]) return og[1]
+      const tw = new RegExp(`<meta[^>]+name=["']twitter:${prop}["'][^>]+content=["']([^"']+)["'][^>]*>`, 'i').exec(html)
+      if (tw && tw[1]) return tw[1]
+      return ''
+    }
+    const title = pick('title') || (/<title[^>]*>([^<]+)<\/title>/i.exec(html)?.[1] || '')
+    const description = pick('description')
+    const image = pick('image')
+    const siteName = pick('site_name')
+    return { url, title, description, image, siteName }
+  } catch {
+    return { url, title: '', description: '', image: '', siteName: '' }
+  }
+}
+
 // Send message (both direct and group)
 const sendMessage = async (req, res) => {
   try {
@@ -102,6 +127,15 @@ const sendMessage = async (req, res) => {
       if (!message.text) message.text = ''
     }
 
+    // Link preview (best-effort, async-within-request to keep simple)
+    const urlMatch = typeof txt === 'string' ? txt.match(URL_REGEX) : null
+    if (urlMatch && urlMatch[0]) {
+      try {
+        const meta = await fetchLinkPreview(urlMatch[0])
+        message.linkPreview = meta
+      } catch {}
+    }
+
     await message.save()
     await message.populate("from", "name profilePic")
     await message.populate({
@@ -130,6 +164,7 @@ const sendMessage = async (req, res) => {
           messageType: "direct",
           replyTo: message.replyTo?._id || null,
           attachments: message.attachments || [],
+          linkPreview: message.linkPreview || null,
           _id: message._id,
         }
         if (recipientSocketId) io.to(recipientSocketId).emit("receiveDirectMessage", payload)
@@ -144,6 +179,7 @@ const sendMessage = async (req, res) => {
           messageType: "group",
           replyTo: message.replyTo?._id || null,
           attachments: message.attachments || [],
+          linkPreview: message.linkPreview || null,
           _id: message._id,
         }
         io.to(`group_${message.group?._id || message.group}`).emit("receiveGroupMessage", payload)
@@ -262,6 +298,7 @@ const getAllChats = async (req, res) => {
             text: "$lastMessage.text",
             createdAt: "$lastMessage.createdAt",
             attachments: "$lastMessage.attachments",
+            linkPreview: "$lastMessage.linkPreview",
           },
           unreadCount: "$unread",
           chatType: "direct",

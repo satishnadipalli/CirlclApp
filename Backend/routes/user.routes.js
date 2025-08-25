@@ -4,6 +4,7 @@ const auth = require("../middlewares/auth.middleware"); // JWT protect
 const { register, login, getProfile, updateProfile, followUser, unfollowUser, searchuser, getUserById, getFollowers, getFollowing, listCloseFriends, addCloseFriend, removeCloseFriend, registerPushToken, blockUser, unblockUser, refresh, logout, getNotificationPrefs, updateNotificationPrefs } = require("../controllers/user.controller");
 const { getOnlineUsers } = require("../controllers/user.controller");
 const { getSuggestions, getMutuals } = require("../controllers/user.controller");
+const { getLastSeen } = require("../controllers/user.controller");
 
 // Public routes
 router.post("/register", register);
@@ -32,6 +33,7 @@ router.get('/me/notification-prefs', auth, getNotificationPrefs)
 router.put('/me/notification-prefs', auth, updateNotificationPrefs)
 // Presence
 router.get('/presence/online', auth, getOnlineUsers)
+router.get('/:id/last-seen', auth, getLastSeen)
 // Suggestions & Mutuals
 router.get('/me/suggestions', auth, getSuggestions)
 router.get('/:id/mutuals', auth, getMutuals)

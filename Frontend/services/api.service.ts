@@ -295,6 +295,7 @@ class ApiService {
   // User Methods
   async getMe() { return this.request("/users/me") }
   async getUserProfile(userId) { return this.request(`/users/${userId}`) }
+  async getLastSeen(userId: string) { return this.request(`/users/${userId}/last-seen`) }
   async getFollowers(userId, page = 1, limit = 20) {
     try {
       let id = userId
@@ -416,6 +417,11 @@ class ApiService {
 
   async getOnlineUsers() {
     return this.request(`/users/presence/online`)
+  }
+
+  // Heartbeat via socket (preferred over HTTP)
+  sendHeartbeat() {
+    try { (socketService as any).socket?.emit('heartbeat') } catch {}
   }
 }
 

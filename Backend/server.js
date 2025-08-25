@@ -11,6 +11,8 @@ const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const morgan = require("morgan");
 
+const User = require("./models/user.models");
+
 dotenv.config();
 connectDB();
 
@@ -98,12 +100,13 @@ io.use((socket, next) => {
 
 io.on("connection", (socket) => {
   // Register user (trust verified JWT over client payload)
-  socket.on("register", (clientUserId) => {
+  socket.on("register", async (clientUserId) => {
     const userId = socket.userId || clientUserId;
     if (!userId) return;
     onlineUsers.set(userId, socket.id);
     socketToUser.set(socket.id, userId);
     io.emit("userStatusChange", { userId, status: "online" });
+    try { await User.findByIdAndUpdate(userId, { $set: { lastActiveAt: new Date() } }) } catch {}
   });
 
   // Direct messaging (no-op; REST controller will emit after persistence)
@@ -150,13 +153,21 @@ io.on("connection", (socket) => {
     socket.to(`group_${groupId}`).emit("groupStopTyping", { userId, groupId });
   });
 
+  // Heartbeat from clients to update lastActiveAt
+  socket.on("heartbeat", async () => {
+    const uid = socketToUser.get(socket.id) || socket.userId
+    if (!uid) return
+    try { await User.findByIdAndUpdate(uid, { $set: { lastActiveAt: new Date() } }) } catch {}
+  });
+
   // Disconnect
-  socket.on("disconnect", () => {
+  socket.on("disconnect", async () => {
     const userId = socketToUser.get(socket.id) || socket.userId;
     if (!userId) return;
     onlineUsers.delete(userId);
     socketToUser.delete(socket.id);
     io.emit("userStatusChange", { userId, status: "offline" });
+    try { await User.findByIdAndUpdate(userId, { $set: { lastActiveAt: new Date() } }) } catch {}
     //here thihs userStatus Chage helps us to chage the status of the user to make the status to noarmal to probable stuff and it eliminates the other user info profiles to a broging stuff
   });
   // this will make the process simple and clear 

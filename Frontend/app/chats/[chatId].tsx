@@ -49,6 +49,7 @@ interface ChatMessage {
   edited?: boolean
   status?: 'sending' | 'sent' | 'failed'
   uploadProgress?: number
+  linkPreview?: { url: string; title?: string; description?: string; image?: string; siteName?: string } | null
 }
 
 interface DateHeader {
@@ -236,6 +237,7 @@ export default function ChatScreen() {
             createdAt: msg.createdAt || new Date().toISOString(),
             system: /\badded\b/i.test(String(msg.text || "")),
             attachments: msg.attachments,
+            linkPreview: msg.linkPreview || null,
           }
 
           // Mark as read immediately when a new incoming message arrives while viewing this conversation
@@ -402,7 +404,7 @@ export default function ChatScreen() {
                   ...prev,
                   {
                     _id: fromUserId,
-                    name: data.name || groupRef.current?.members.find((m) => m._id === fromUserId)?.name || "Someone",
+                    name: data.name || "Someone",
                   },
                 ]
               }
@@ -412,133 +414,70 @@ export default function ChatScreen() {
         }
         socketService.onGroupTyping(onGroupTypingCb)
         typingListenerRef.current = onGroupTypingCb
-
-        const onGroupStopTypingCb = (data: { from: string }) => {
-          console.log("[v0] Received group stop typing event:", data)
-          const fromUserId = typeof data.from === "object" ? data.from._id : data.from
-          setTypingUsers((prev) => {
-            const filtered = prev.filter((user) => user._id !== fromUserId)
-            if (filtered.length === 0) {
-              stopTypingAnimation()
-            }
-            return filtered
-          })
-        }
-        socketService.onGroupStopTyping(onGroupStopTypingCb)
-        stopTypingListenerRef.current = onGroupStopTypingCb
-      }
-
-      const onUserStatusChangeCb = (data: { userId: string; status: "online" | "offline" }) => {
-        console.log("[v0] User status change:", data)
-        setOnlineUsers((prev) => {
-          const newSet = new Set(prev)
-          if (data.status === "online") {
-            newSet.add(data.userId)
-          } else {
-            newSet.delete(data.userId)
-          }
-          return newSet
-        })
-      }
-      socketService.onUserStatusChange(onUserStatusChangeCb)
-      userStatusListenerRef.current = onUserStatusChangeCb
-
-      if (params.chatType === "group") {
-        console.log("[v0] Joining group:", params.chatId)
-        socketService.joinGroup(params.chatId)
       }
     } catch (error) {
-      console.error("[v0] Socket connection error:", error)
+      console.error("[v0] Socket initialization error:", error)
       setIsConnected(false)
     }
   }
 
-  const loadChatData = async (user: User) => {
+  async function loadChatData(user: User) {
     try {
+      setIsLoading(true)
       if (params.chatType === "direct") {
-        const response = await apiService.getDirectMessages(params.chatId)
-        if (response.success) {
-          const formattedMessages: ChatMessage[] = response.messages.map((msg: any) => ({
-            id: msg._id,
-            text: msg.text,
-            sender: msg.from._id === user._id ? "me" : "other",
-            from: msg.from,
-            to: msg.to,
-            messageType: "direct",
-            createdAt: msg.createdAt,
-            attachments: msg.attachments,
-          }))
-          console.log("[v0] Loaded direct messages:", formattedMessages.length)
-          setMessages(formattedMessages)
-
-          // Mark as read
-          try { await apiService.markDirectRead(params.chatId) } catch {}
-
-          const firstMessage = response.messages[0]
-          if (firstMessage) {
-            const otherUserData = firstMessage.from._id === user._id ? firstMessage.to : firstMessage.from
-            setOtherUser(otherUserData)
-          }
-        }
+        const res = await apiService.getDirectMessages(params.chatId)
+        const messages = (res as any)?.messages || []
+        const formattedMessages: ChatMessage[] = messages.map((msg: any) => ({
+          id: msg._id,
+          text: msg.text,
+          sender: msg.from === user._id ? "me" : "other",
+          from: resolveFromUser(msg.from),
+          to: resolveFromUser(msg.to),
+          messageType: "direct",
+          createdAt: msg.createdAt,
+          attachments: msg.attachments,
+          linkPreview: msg.linkPreview || null,
+        }))
+        console.log("[v0] Loaded direct messages:", formattedMessages.length)
+        setMessages(formattedMessages)
       } else {
-        const [messagesResponse, groupResponse] = await Promise.all([
-          apiService.getGroupMessages(params.chatId),
-          apiService.getGroupInfo(params.chatId),
-        ])
-
-        if (messagesResponse.success) {
-          const formattedMessages: ChatMessage[] = messagesResponse.messages.map((msg: any) => ({
-            id: msg._id,
-            text: msg.text,
-            sender: msg.from._id === user._id ? "me" : "other",
-            from: msg.from,
-            group: msg.group,
-            messageType: "group",
-            createdAt: msg.createdAt,
-            system: /\badded\b/i.test(String(msg.text || "")),
-            attachments: msg.attachments,
-          }))
-          console.log("[v0] Loaded group messages:", formattedMessages.length)
-          setMessages(formattedMessages)
-
-          // Mark as read for group
-          try { await apiService.markGroupRead(params.chatId) } catch {}
-        }
-
-        if (groupResponse.success) {
-          setGroup(groupResponse.group)
-        }
+        const res = await apiService.getGroupMessages(params.chatId)
+        const messages = (res as any)?.messages || []
+        const formattedMessages: ChatMessage[] = messages.map((msg: any) => ({
+          id: msg._id,
+          text: msg.text,
+          sender: msg.from === user._id ? "me" : "other",
+          from: resolveFromUser(msg.from),
+          group: params.chatId,
+          messageType: "group",
+          createdAt: msg.createdAt,
+          system: /\badded\b/i.test(String(msg.text || "")),
+          attachments: msg.attachments,
+          linkPreview: msg.linkPreview || null,
+        }))
+        console.log("[v0] Loaded group messages:", formattedMessages.length)
+        setMessages(formattedMessages)
       }
     } catch (error) {
-      console.error("Error loading chat data:", error)
-      Alert.alert("Error", "Failed to load chat data")
+      console.error("[v0] Error fetching messages:", error)
+      Alert.alert("Error", "Failed to load messages")
     } finally {
       setIsLoading(false)
     }
   }
 
   const startTypingAnimation = () => {
-    const animateDot = (dotOpacity: Animated.Value, delay: number) => {
+    const animateDot = (dot: Animated.Value, delay: number) => {
       Animated.loop(
         Animated.sequence([
-          Animated.timing(dotOpacity, {
-            toValue: 1,
-            duration: 600,
-            delay,
-            useNativeDriver: true,
-          }),
-          Animated.timing(dotOpacity, {
-            toValue: 0.3,
-            duration: 600,
-            useNativeDriver: true,
-          }),
+          Animated.timing(dot, { toValue: 1, duration: 300, useNativeDriver: true, delay }),
+          Animated.timing(dot, { toValue: 0.3, duration: 300, useNativeDriver: true }),
         ]),
       ).start()
     }
-
     animateDot(dot1Opacity, 0)
-    animateDot(dot2Opacity, 200)
-    animateDot(dot3Opacity, 400)
+    animateDot(dot2Opacity, 150)
+    animateDot(dot3Opacity, 300)
   }
 
   const stopTypingAnimation = () => {
@@ -550,504 +489,47 @@ export default function ChatScreen() {
     dot3Opacity.setValue(0.3)
   }
 
-  const handleTextChange = (text: string) => {
-    setInputText(text)
-
-    if (currentUser) {
-      if (params.chatType === "direct") {
-        socketService.sendTyping(params.chatId, currentUser._id, currentUser.name)
-      } else {
-        socketService.sendGroupTyping(params.chatId, currentUser._id, currentUser.name)
-      }
-
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current)
-      }
-
-      typingTimeoutRef.current = setTimeout(() => {
-        if (params.chatType === "direct") {
-          socketService.sendStopTyping(params.chatId, currentUser._id)
-        } else {
-          socketService.sendGroupStopTyping(params.chatId, currentUser._id)
-        }
-      }, 1000)
-    }
-  }
-
-  const sendMessage = async () => {
-    if (!inputText.trim() || !currentUser) return
-
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current)
-    }
-
-    if (params.chatType === "direct") {
-      socketService.sendStopTyping(params.chatId, currentUser._id)
-    } else {
-      socketService.sendGroupStopTyping(params.chatId, currentUser._id)
-    }
-
-    const messageText = inputText.trim()
-    setInputText("")
-    const tempId = `temp-${Date.now()}`
-    const tempMessage: ChatMessage = {
-      id: tempId,
-      text: messageText,
-      sender: "me",
-      from: currentUser,
-      to: params.chatType === "direct" ? ({ _id: params.chatId } as User) : undefined,
-      group: params.chatType === "group" ? params.chatId : undefined,
-      messageType: params.chatType,
-      createdAt: new Date().toISOString(),
-      replyTo: replyingTo || undefined,
-      status: 'sending',
-    }
-    setMessages((prev) => [...prev, tempMessage])
-
-    console.log("[v0] Sending socket message:", messageText)
-    if (params.chatType === "direct") {
-      socketService.sendDirectMessage(params.chatId, messageText, replyingTo?.id)
-    } else {
-      socketService.sendGroupMessage(params.chatId, messageText, replyingTo?.id)
-    }
-
-    try {
-      let response
-      if (params.chatType === "direct") {
-        response = await apiService.sendDirectMessage(params.chatId, messageText, replyingTo?.id)
-      } else {
-        response = await apiService.sendGroupMessage(params.chatId, messageText, replyingTo?.id)
-      }
-
-      if (!response.success) {
-        console.error("[v0] API send message failed:", response)
-        setMessages((prev) => prev.map((m) => (m.id === tempId ? { ...m, status: 'failed' } : m)))
-      } else {
-        console.log("[v0] Message sent successfully via API")
-        setMessages((prev) => prev.map((m) => (m.id === tempId ? { ...m, status: 'sent' } : m)))
-      }
-    } catch (error) {
-      console.error("[v0] Error sending message via API:", error)
-      setMessages((prev) => prev.map((m) => (m.id === tempId ? { ...m, status: 'failed' } : m)))
-    }
-    setReplyingTo(null)
-  }
-
-  const sendAttachment = async (assets: Array<{ uri: string; type?: string; name?: string }>) => {
-    try {
-      if (!currentUser || assets.length === 0) return
-      // Create a temp uploading message with progress
-      const tempId = `upload-${Date.now()}`
-      const att = assets.slice(0,1)[0]
-      const isVid0 = /\.(mp4|mov|m4v|webm)$/i.test(att.name || att.uri)
-      const tempUploading: ChatMessage = {
-        id: tempId,
-        text: '',
-        sender: 'me',
-        from: currentUser,
-        to: params.chatType === 'direct' ? ({ _id: params.chatId } as User) : undefined,
-        group: params.chatType === 'group' ? params.chatId : undefined,
-        messageType: params.chatType,
-        createdAt: new Date().toISOString(),
-        attachments: [{ url: att.uri, type: isVid0 ? 'video' : 'image', name: att.name || '' }],
-        status: 'sending',
-        uploadProgress: 0,
-      }
-      setMessages((prev) => [...prev, tempUploading])
-      const token = await AsyncStorage.getItem('token')
-      const form = new FormData()
-      form.append('messageType', params.chatType as any)
-      if (params.chatType === 'direct') form.append('to', String(params.chatId))
-      else form.append('group', String(params.chatId))
-      if (replyingTo?.id) form.append('replyTo', String(replyingTo.id))
-      for (const a of assets) {
-        const isVid = /\.(mp4|mov|m4v|webm)$/i.test(a.name || a.uri)
-        const mime = a.type || (isVid ? 'video/mp4' : 'image/jpeg')
-        form.append('files', { uri: a.uri as any, name: a.name || (isVid ? 'video.mp4' : 'image.jpg'), type: mime } as any)
-      }
-
-      // Track progress
-      try {
-        await new Promise((resolve, reject) => {
-          const xhr = new XMLHttpRequest()
-          xhr.open('POST', require('@/constants/Config').API_BASE_URL + '/messages')
-          xhr.setRequestHeader('Authorization', `Bearer ${token}`)
-          xhr.upload.onprogress = (e) => {
-            if (e.lengthComputable) {
-              const pct = Math.round((e.loaded / e.total) * 100)
-              setMessages((prev) => prev.map((m) => (m.id === tempId ? { ...m, uploadProgress: pct } : m)))
-            }
-          }
-          xhr.onerror = () => reject(new Error('Network error'))
-          xhr.onload = () => {
-            if (xhr.status >= 200 && xhr.status < 300) resolve(true)
-            else {
-              try { reject(new Error(JSON.parse(xhr.responseText)?.message || 'Failed to send attachment')) }
-              catch { reject(new Error('Failed to send attachment')) }
-            }
-          }
-          xhr.send(form)
-        })
-        setMessages((prev) => prev.map((m) => (m.id === tempId ? { ...m, status: 'sent', uploadProgress: 100 } : m)))
-      } catch (e) {
-        setMessages((prev) => prev.map((m) => (m.id === tempId ? { ...m, status: 'failed' } : m)))
-        throw e
-      }
-
-      setReplyingTo(null)
-    } catch (e) {
-      Alert.alert('Send failed', (e as Error).message)
-    }
-  }
-
-  const onAttachPress = async () => {
-    try {
-      const choice = await new Promise<'gallery'|'file'|'voice'|'cancel'>((resolve) => {
-        Alert.alert('Attach', 'Choose source', [
-          { text: 'Gallery', onPress: () => resolve('gallery') },
-          { text: 'File', onPress: () => resolve('file') },
-          { text: 'Voice note', onPress: () => resolve('voice') },
-          { text: 'Cancel', style: 'cancel', onPress: () => resolve('cancel') },
-        ])
-      })
-      if (choice === 'gallery') {
-        const perm = await ImagePicker.requestMediaLibraryPermissionsAsync()
-        if (!perm.granted) return
-        const picked = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.All, allowsMultipleSelection: true, quality: 0.85 })
-        if (!picked.canceled) {
-          const assets = (picked.assets || []).slice(0, 8).map((a) => ({ uri: a.uri, name: a.fileName || a.uri.split('/').pop() || 'media' }))
-          await sendAttachment(assets)
-        }
-      } else if (choice === 'file') {
-        const picked = await DocumentPicker.getDocumentAsync({ multiple: true, copyToCacheDirectory: true })
-        if (picked.type === 'success') {
-          const assets = [{ uri: picked.uri, name: picked.name }]
-          await sendAttachment(assets)
-        }
-      } else if (choice === 'voice') {
-        await recordAndSendVoiceNote()
-      }
-    } catch {}
-  }
-
-  const recordAndSendVoiceNote = async () => {
-    try {
-      const perm = await Audio.requestPermissionsAsync()
-      if (!(perm?.granted || perm?.status === 'granted')) {
-        Alert.alert('Microphone', 'Recording permission is required')
-        return
-      }
-      await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true, shouldDuckAndroid: true, playThroughEarpieceAndroid: false })
-      const rec = new Audio.Recording()
-      await rec.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY)
-      await rec.startAsync()
-      // Simple 3-second quick note. TODO: replace with hold-to-record UI.
-      await new Promise((r) => setTimeout(r, 3000))
-      await rec.stopAndUnloadAsync()
-      const uri = rec.getURI()
-      if (uri) {
-        await sendAttachment([{ uri, name: 'voice-note.m4a', type: 'audio/m4a' }])
-        Alert.alert('Voice note', 'Sent')
-      } else {
-        Alert.alert('Voice note', 'No audio captured')
-      }
-    } catch (e: any) {
-      Alert.alert('Recording failed', e?.message || 'Unable to record audio')
-    }
-  }
-
-  const formatDuration = (ms: number) => {
-    const s = Math.floor(ms / 1000)
-    const mm = String(Math.floor(s / 60)).padStart(2, '0')
-    const ss = String(s % 60).padStart(2, '0')
-    return `${mm}:${ss}`
-  }
-
-  const startHoldRecording = async () => {
-    try {
-      if (isRecording) return
-      const perm = await Audio.requestPermissionsAsync()
-      if (!(perm?.granted || perm?.status === 'granted')) { Alert.alert('Microphone', 'Recording permission is required'); return }
-      await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true, shouldDuckAndroid: true, playThroughEarpieceAndroid: false })
-      const rec = new Audio.Recording()
-      await rec.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY)
-      await rec.startAsync()
-      recordingRef.current = rec
-      setRecordingMs(0)
-      setIsRecording(true)
-      if (recordingTimerRef.current) try { clearInterval(recordingTimerRef.current) } catch {}
-      recordingTimerRef.current = setInterval(async () => {
-        try {
-          const st: any = await rec.getStatusAsync()
-          if (st?.isRecording && typeof st?.durationMillis === 'number') setRecordingMs(st.durationMillis)
-        } catch {}
-      }, 200)
-    } catch (e: any) {
-      setIsRecording(false)
-    }
-  }
-
-  const stopHoldRecording = async (send: boolean) => {
-    try {
-      const rec = recordingRef.current
-      if (!rec) { setIsRecording(false); return }
-      await rec.stopAndUnloadAsync()
-      if (recordingTimerRef.current) { try { clearInterval(recordingTimerRef.current) } catch {} ; recordingTimerRef.current = null }
-      const uri = rec.getURI()
-      const dur = recordingMs
-      setIsRecording(false)
-      recordingRef.current = null
-      setRecordingMs(0)
-      if (send && uri && dur > 400) {
-        const name = uri.split('/').pop() || 'voice-note.m4a'
-        const type = name.endsWith('.3gp') ? 'audio/3gpp' : (name.endsWith('.m4a') ? 'audio/m4a' : 'audio/aac')
-        await sendAttachment([{ uri, name, type }])
-      }
-    } catch {
-      setIsRecording(false)
-      recordingRef.current = null
-      if (recordingTimerRef.current) { try { clearInterval(recordingTimerRef.current) } catch {} ; recordingTimerRef.current = null }
-      setRecordingMs(0)
-    }
-  }
-
-  const isToday = (date: Date): boolean => {
-    const today = new Date()
-    return date.toDateString() === today.toDateString()
-  }
-
-  const isYesterday = (date: Date): boolean => {
-    const yesterday = new Date()
-    yesterday.setDate(yesterday.getDate() - 1)
-    return date.toDateString() === yesterday.toDateString()
-  }
-
-  const formatDate = (date: Date): string => {
-    if (isToday(date)) return "Today"
-    if (isYesterday(date)) return "Yesterday"
-
-    const day = date.getDate().toString().padStart(2, "0")
-    const month = (date.getMonth() + 1).toString().padStart(2, "0")
-    const year = date.getFullYear()
-    return `${day}-${month}-${year}`
-  }
-
-  const formatTime = (date: Date): string => {
-    return date.toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    })
-  }
-
-  const processMessagesWithDates = (messages: ChatMessage[]): ChatItem[] => {
-    const items: ChatItem[] = []
-    let lastDate = ""
-
-    messages.forEach((message) => {
-      if (message.createdAt) {
-        const messageDate = new Date(message.createdAt)
-        const currentDate = messageDate.toDateString()
-
-        if (currentDate !== lastDate) {
-          items.push({
-            id: `date-${currentDate}`,
-            type: "date",
-            date: currentDate,
-            displayText: formatDate(messageDate),
-          })
-          lastDate = currentDate
-        }
-      }
-      items.push(message)
-    })
-
-    return items
-  }
-
   useEffect(() => {
     // Interleave date headers and transform system messages into centered chips
     const withDates = processMessagesWithDates(messages)
     const processedItems: ChatItem[] = withDates.map((item) => {
-      if ((item as any)?.system) {
-        return {
-          id: (item as any).id,
-          type: "system",
-          text: (item as any).text,
-          createdAt: (item as any).createdAt || new Date().toISOString(),
-        }
-      }
-      return item
+      if ("type" in item && item.type === "system") return item
+      const m = item as ChatMessage
+      return m
     })
     setChatItems(processedItems)
   }, [messages])
-
-  useEffect(() => {
-    loadUserAndInitialize()
-
-    return () => {
-      // Only leave the group on unmount if this is a group chat
-      if (params.chatType === "group" && socketService.isSocketConnected()) {
-        socketService.leaveGroup(params.chatId)
-        console.log("[v0] Left group on unmount:", params.chatId)
-      }
-
-      // Remove registered listeners to prevent duplicate callbacks when navigating back and forth
-      if (messageListenerRef.current) socketService.removeMessageListener(messageListenerRef.current)
-      if (typingListenerRef.current) socketService.removeTypingListener(typingListenerRef.current)
-      if (stopTypingListenerRef.current) socketService.removeStopTypingListener(stopTypingListenerRef.current)
-      if (userStatusListenerRef.current) socketService.removeUserStatusListener(userStatusListenerRef.current)
-      if (reactionListenerRef.current) socketService.removeMessageReactionsUpdated(reactionListenerRef.current)
-      if (deleteListenerRef.current) socketService.removeMessageDeleted(deleteListenerRef.current)
-      if (editListenerRef.current) socketService.removeMessageEdited(editListenerRef.current)
-      if (readListenerRef.current) socketService.removeMessagesRead(readListenerRef.current)
-
-      // DO NOT disconnect socket here
-      // socketService.disconnect()  // keep this commented
-    }
-  }, [])
-
-  useEffect(() => {
-    if (typingUsers.length > 0 && isUserAtBottom) {
-      setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true })
-      }, 100)
-    }
-  }, [typingUsers, isUserAtBottom])
-
-  // Refresh presence on screen focus using a proper hook
-  useFocusEffect(
-    useCallback(() => {
-      let cancelled = false
-      ;(async () => {
-        try {
-          const res: any = await apiService.getOnlineUsers()
-          if (!cancelled && res?.success && Array.isArray(res.userIds)) {
-            setOnlineUsers(new Set(res.userIds.map(String)))
-          }
-        } catch {}
-      })()
-      return () => { cancelled = true }
-    }, [])
-  )
-
-  useEffect(() => {
-    if (isUserAtBottom) {
-      flatListRef.current?.scrollToEnd({ animated: true })
-      setShowScrollToBottom(false)
-      setNewMessagesCount(0)
-    }
-  }, [messages, isUserAtBottom])
-
-  const handleScroll = (event: any) => {
-    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent
-    const isAtBottom = contentOffset.y + layoutMeasurement.height >= contentSize.height - 50
-    setIsUserAtBottom(isAtBottom)
-    isUserAtBottomRef.current = isAtBottom
-    if (isAtBottom) {
-      setShowScrollToBottom(false)
-      setNewMessagesCount(0)
-      // Best-effort mark-as-read when user reaches bottom
-      try {
-        if (params.chatType === "direct") apiService.markDirectRead(params.chatId)
-        else apiService.markGroupRead(params.chatId)
-      } catch {}
-    }
-  }
-
-  const getUserInitials = (name: string): string => {
-    if (!name || typeof name !== "string") {
-      return "??"
-    }
-    return name?.split(" ")?.map((word) => word.charAt(0))?.join("")?.substring(0, 2)?.toUpperCase()
-  }
-
-  const getUserColor = (userId: string): string => {
-    const colors = [
-      "#FF6B6B",
-      "#4ECDC4",
-      "#45B7D1",
-      "#96CEB4",
-      "#FFEAA7",
-      "#DDA0DD",
-      "#98D8C8",
-      "#F7DC6F",
-      "#BB8FCE",
-      "#85C1E9",
-    ]
-    const index = userId?.split("")?.reduce((acc, char) => acc + char.charCodeAt(0), 0) % colors.length
-    return colors[index]
-  }
 
   const renderItem = ({ item }: { item: ChatItem }) => {
     if ("type" in item && item.type === "date") {
       return (
         <View style={styles.dateHeader}>
-          <Text style={styles.dateHeaderText}>{item.displayText}</Text>
+          <Text style={styles.dateHeaderText}>{(item as DateHeader).displayText}</Text>
         </View>
       )
     }
 
     if ("type" in item && item.type === "system") {
+      const sys = item as SystemChipItem
       return (
-        <View style={styles.systemChipContainer}>
-          <View style={styles.systemChip}>
-            <Text style={styles.systemChipText}>{item.text}</Text>
-          </View>
+        <View style={[styles.systemChip, { alignSelf: "center" }]}> 
+          <Text style={styles.systemChipText}>{sys.text}</Text>
         </View>
       )
     }
 
     const message = item as ChatMessage
-    const messageTime = message.createdAt ? formatTime(new Date(message.createdAt)) : ""
     const isMyMessage = message.sender === "me"
 
     return (
-      <TouchableOpacity
-        activeOpacity={0.7}
-        onLongPress={() => {
-          const opts: any[] = [
-            { text: '❤️', onPress: async () => { try { await apiService.request('/messages/'+message.id+'/react', { method:'POST', body: JSON.stringify({ type: '❤️' }) }) } catch {} } },
-            { text: '😂', onPress: async () => { try { await apiService.request('/messages/'+message.id+'/react', { method:'POST', body: JSON.stringify({ type: '😂' }) }) } catch {} } },
-            { text: '🔥', onPress: async () => { try { await apiService.request('/messages/'+message.id+'/react', { method:'POST', body: JSON.stringify({ type: '🔥' }) }) } catch {} } },
-            { text: 'Reply', onPress: () => setReplyingTo(message) },
-          ]
-          if (isMyMessage) {
-            opts.push({ text: 'Edit', onPress: async () => {
-              try {
-                const prompt = (global as any).prompt || (()=>null)
-                const t = prompt ? prompt('Edit message', message.text || '') : ''
-                if (typeof t === 'string') await apiService.request('/messages/'+message.id, { method:'PUT', body: JSON.stringify({ text: t }) })
-              } catch {}
-            } })
-            opts.push({ text: 'Delete', style: 'destructive', onPress: async () => { try { await apiService.request('/messages/'+message.id, { method:'DELETE' }) } catch {} } })
-          }
-          opts.push({ text: 'Cancel', style: 'cancel' })
-          Alert.alert('Message', 'Choose action', opts)
-        }}
-        style={[styles.messageRow, isMyMessage ? styles.myMessageRow : styles.otherMessageRow]}
-      >
-        {params.chatType === "group" && !isMyMessage && (
-          <View style={styles.avatarContainer}>
-            {message.from.profilePic ? (
-              <Avatar.Image size={32} source={{ uri: message.from.profilePic }} />
-            ) : (
-              <View style={[styles.initialsAvatar, { backgroundColor: getUserColor(message.from._id) }]}>
-                <Text style={styles.initialsText}>{getUserInitials(message.from.name)}</Text>
-              </View>
-            )}
-          </View>
-        )}
-
-        <View
-          style={[
-            styles.messageContainer,
-            isMyMessage ? styles.myMessage : styles.otherMessage,
-            params.chatType === "group" && !isMyMessage ? styles.groupOtherMessage : {},
-          ]}
-        >
-          {params.chatType === "group" && !isMyMessage && (
-            <Text style={[styles.senderName, { color: getUserColor(message.from._id) }]}>{message.from.name}</Text>
+      <View style={[styles.messageContainer, isMyMessage ? styles.myMessage : styles.otherMessage]}>
+        {/* Message bubble */}
+        <View style={[styles.messageBubble, isMyMessage ? styles.myBubble : styles.otherBubble]}>
+          {/* Text content */}
+          {message.text && (
+            <Text style={[styles.messageText, isMyMessage ? styles.myMessageText : styles.otherMessageText]}>
+              {message.text}
+            </Text>
           )}
 
           {/* Attachments */}
@@ -1056,100 +538,52 @@ export default function ChatScreen() {
               {(message as any).attachments.map((att: any, idx: number) => (
                 <View key={String(idx)}>
                   {att.type === 'image' ? (
-                    <TouchableOpacity onPress={() => setMediaViewer({ visible: true, url: att.url, type: 'image' })}>
-                      <Image source={{ uri: att.url }} style={{ width: 220, height: 220, borderRadius: 10, backgroundColor: '#eee' }} />
-                    </TouchableOpacity>
+                    <Image source={{ uri: att.url }} style={{ width: 220, height: 220, borderRadius: 10, backgroundColor: '#ddd' }} resizeMode="cover" />
                   ) : att.type === 'video' ? (
-                    <TouchableOpacity onPress={() => setMediaViewer({ visible: true, url: att.url, type: 'video' })}>
-                      <ExpoVideo source={{ uri: att.url }} style={{ width: 220, height: 220, borderRadius: 10, backgroundColor: '#000' }} useNativeControls resizeMode={'cover' as any} />
-                    </TouchableOpacity>
-                  ) : att.type === 'audio' ? (
-                    <AudioPlayer sourceUrl={att.url} />
+                    <ExpoVideo source={{ uri: att.url }} style={{ width: 220, height: 220, borderRadius: 10, backgroundColor: '#000' }} useNativeControls resizeMode="cover" />
                   ) : (
-                    <TouchableOpacity onPress={() => setMediaViewer({ visible: true, url: att.url, type: 'file' })}>
-                      <Text style={{ color: '#fff', textDecorationLine: 'underline' }}>{att.name || 'file'}</Text>
-                    </TouchableOpacity>
+                    <View style={{ padding: 12, backgroundColor: '#f0f0f0', borderRadius: 8 }}><Text style={{ color: '#333' }}>{att.name || 'File'}</Text></View>
                   )}
                 </View>
               ))}
             </View>
           )}
 
+          {/* Link Preview */}
+          {message.linkPreview && message.linkPreview.url ? (
+            <View style={styles.linkCard}>
+              {message.linkPreview.image ? (
+                <Image source={{ uri: message.linkPreview.image }} style={styles.linkImage} resizeMode="cover" />
+              ) : null}
+              <View style={styles.linkContent}>
+                {message.linkPreview.siteName ? <Text numberOfLines={1} style={styles.linkSite}>{message.linkPreview.siteName}</Text> : null}
+                {message.linkPreview.title ? <Text numberOfLines={2} style={styles.linkTitle}>{message.linkPreview.title}</Text> : null}
+                {message.linkPreview.description ? <Text numberOfLines={3} style={styles.linkDesc}>{message.linkPreview.description}</Text> : null}
+                <Text numberOfLines={1} style={styles.linkUrl}>{message.linkPreview.url}</Text>
+              </View>
+            </View>
+          ) : null}
+
           {"replyTo" in (message as any) && (message as any).replyTo && (
             <View style={styles.replyBubble}>
               <View style={[styles.replyBar, { backgroundColor: isMyMessage ? "#9bd7a1" : "#bbb" }]} />
               <View style={{ flex: 1 }}>
-                <Text style={styles.replyName}>
-                  {((message as any).replyTo.from?.name) || "Replied"}
+                <Text style={{ color: "#555", fontSize: 12 }} numberOfLines={1}>
+                  Replying to {(message as any).replyTo?.from?.name || ""}
                 </Text>
-                <Text style={styles.replyText} numberOfLines={2}>
-                  {(message as any).replyTo.text}
+                <Text style={{ color: "#333" }} numberOfLines={1}>
+                  {(message as any).replyTo?.text || ""}
                 </Text>
               </View>
             </View>
           )}
-
-          <Text style={[styles.messageText, isMyMessage ? styles.myMessageText : styles.otherMessageText]}>
-            {message.text}
-          </Text>
-
-          {/* Simple link preview */}
-          {(() => {
-            try {
-              const match = String(message.text || '').match(/https?:\/\/[^\s]+/i)
-              if (!match) return null
-              const url = match[0]
-              return (
-                <TouchableOpacity onPress={() => { try { (require('expo-web-browser') as any).openBrowserAsync(url) } catch {} }} style={{ marginTop: 8 }}>
-                  <View style={{ backgroundColor: isMyMessage ? '#e6f2ff' : '#f5f5f5', borderRadius: 10, padding: 10, maxWidth: 260 }}>
-                    <Text numberOfLines={2} style={{ color: '#1a0dab', textDecorationLine: 'underline' }}>{url}</Text>
-                    <Text style={{ color: '#555', marginTop: 4 }} numberOfLines={2}>Open link</Text>
-                  </View>
-                </TouchableOpacity>
-              )
-            } catch { return null }
-          })()}
-
-          {/* Reactions bar */}
-          {Array.isArray((message as any).reactions) && (message as any).reactions.length > 0 && (
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
-              {Array.from(Object.entries(((message as any).reactions as any[]).reduce((acc: any, r: any) => { acc[r.type] = (acc[r.type]||0)+1; return acc }, {}))).map(([emoji, count]: any) => (
-                <View key={emoji} style={{ backgroundColor: isMyMessage ? '#e6f2ff' : '#f2f2f2', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 }}>
-                  <Text style={{ color: '#333' }}>{emoji} {count > 1 ? count : ''}</Text>
-                </View>
-              ))}
-            </View>
-          )}
-
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
-            <Text style={[styles.timeText, isMyMessage ? styles.myTimeText : styles.otherTimeText]}>{messageTime}</Text>
-            {isMyMessage && (() => {
-              // direct: double if peer id present in readBy; group: double if any member besides me present
-              const rb = new Set<string>((Array.isArray((message as any).readBy) ? (message as any).readBy : []).map(String))
-              if (params.chatType === 'direct') {
-                const peerId = String(params.chatId)
-                const seen = rb.has(peerId)
-                return <Text style={{ fontSize: 12, color: seen ? '#4ea1ff' : '#888' }}>{seen ? '✓✓' : '✓'}</Text>
-              } else {
-                const me = String(currentUser?._id || '')
-                rb.delete(me)
-                const seen = rb.size > 0
-                return <Text style={{ fontSize: 12, color: seen ? '#4ea1ff' : '#888' }}>{seen ? '✓✓' : '✓'}</Text>
-              }
-            })()}
-            {isMyMessage && (message as any).status && (
-              <Text style={{ fontSize: 12, color: (message as any).status === 'failed' ? '#e53935' : '#888' }}>
-                {(message as any).status === 'sending' ? 'Sending…' : (message as any).status === 'failed' ? 'Failed' : ''}
-              </Text>
-            )}
-          </View>
-          {(isMyMessage && typeof (message as any).uploadProgress === 'number' && (message as any).uploadProgress >= 0 && (message as any).uploadProgress < 100) && (
-            <View style={{ marginTop: 6, height: 4, backgroundColor: '#ddd', borderRadius: 2, overflow: 'hidden' }}>
-              <View style={{ height: 4, width: `${Math.round((message as any).uploadProgress)}%`, backgroundColor: '#4ea1ff' }} />
-            </View>
-          )}
         </View>
-      </TouchableOpacity>
+
+        {/* Metadata row (time, read receipts) */}
+        <View style={styles.metaRow}>
+          <Text style={styles.timeText}>{new Date(message.createdAt || "").toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</Text>
+        </View>
+      </View>
     )
   }
 
@@ -1797,5 +1231,42 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 12,
     borderRadius: 20,
+  },
+  linkCard: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: 10,
+    marginTop: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  linkImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 4,
+    marginRight: 10,
+  },
+  linkContent: {
+    flex: 1,
+  },
+  linkSite: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 2,
+  },
+  linkTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginBottom: 2,
+  },
+  linkDesc: {
+    fontSize: 12,
+    color: '#555',
+    marginBottom: 4,
+  },
+  linkUrl: {
+    fontSize: 12,
+    color: '#333',
+    marginBottom: 2,
   },
 })

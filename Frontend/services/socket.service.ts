@@ -25,6 +25,7 @@ class SocketService {
     this.messageEditListeners = [];
     this.messageReadListeners = [];
     this.currentUserId = null;
+    this.heartbeatInterval = null as any;
   }
 
   async connect() {
@@ -50,6 +51,9 @@ class SocketService {
       this.socket.on("connect", () => {
         console.log("[v0] Socket connected:", this.socket?.id);
         this.isConnected = true;
+        // Start heartbeat (every 30s)
+        try { if (this.heartbeatInterval) clearInterval(this.heartbeatInterval) } catch {}
+        try { this.heartbeatInterval = setInterval(() => { try { (this.socket as any)?.emit('heartbeat') } catch {} }, 30000) } catch {}
         resolve();
       });
       this.socket.on("connect_error", (err) => {
@@ -69,6 +73,7 @@ class SocketService {
 
       console.log("[v0] Socket disconnected:", reason);
       this.isConnected = false;
+      try { if (this.heartbeatInterval) clearInterval(this.heartbeatInterval) } catch {}
 
       if (reason === "io server disconnect") {
         this.handleReconnection();
@@ -79,6 +84,8 @@ class SocketService {
       console.log("[v0] Socket reconnected after", attemptNumber, "attempts");
       this.isConnected = true;
       this.reconnectAttempts = 0;
+      try { if (this.heartbeatInterval) clearInterval(this.heartbeatInterval) } catch {}
+      try { this.heartbeatInterval = setInterval(() => { try { (this.socket as any)?.emit('heartbeat') } catch {} }, 30000) } catch {}
     });
 
     this.socket.on("reconnect_error", (error) => {
@@ -176,6 +183,8 @@ class SocketService {
       console.log("[v0] Socket connected:", this.socket.id);
       this.isConnected = true;
       if (this.currentUserId) this.registerUser(this.currentUserId);
+      try { if (this.heartbeatInterval) clearInterval(this.heartbeatInterval) } catch {}
+      try { this.heartbeatInterval = setInterval(() => { try { (this.socket as any)?.emit('heartbeat') } catch {} }, 30000) } catch {}
     });
   }
 
@@ -218,6 +227,7 @@ class SocketService {
       this.isConnected = false;
       // Clear all listeners to avoid duplicate callbacks on next mount
       this.clearAllListeners();
+      try { if (this.heartbeatInterval) clearInterval(this.heartbeatInterval) } catch {}
     }
   }
 

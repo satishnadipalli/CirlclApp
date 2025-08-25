@@ -36,6 +36,7 @@ const userSchema = new mongoose.Schema({
     save: { type: Boolean, default: true },
     daily: { type: Boolean, default: true },
   }, { _id: false }),
+  lastActiveAt: { type: Date, default: Date.now },
 }, { timestamps: true });
 
 // Ensure an index on username for fast lookups (unique+sparse allows missing values)

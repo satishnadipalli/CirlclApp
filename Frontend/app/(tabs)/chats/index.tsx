@@ -19,10 +19,13 @@ export default function ChatsScreen() {
   const [userId, setUserId] = useState<string>("")
   const [typingState, setTypingState] = useState<Record<string, string>>({})
   const [suggestions, setSuggestions] = useState<Array<{ user: any; mutualCount: number; mutualNames: string[] }>>([])
+  const [onlineMap, setOnlineMap] = useState<Set<string>>(new Set())
+  const [lastSeenMap, setLastSeenMap] = useState<Record<string, string>>({})
   const router = useRouter()
 
   const directListenerRef = useRef<((msg: any) => void) | null>(null)
   const groupListenerRef = useRef<((msg: any) => void) | null>(null)
+  const statusListenerRef = useRef<((data: any) => void) | null>(null)
 
   useEffect(() => {
     if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -37,6 +40,7 @@ export default function ChatsScreen() {
     console.log("working: userId available, fetching chats for", userId)
     fetchChats()
     loadSuggestions()
+    seedPresence()
   }, [userId])
 
   const loadUser = async () => {
@@ -60,6 +64,22 @@ export default function ChatsScreen() {
       const arr = Array.isArray(res?.suggestions) ? res.suggestions : []
       setSuggestions(arr)
     } catch { setSuggestions([]) }
+  }
+
+  const seedPresence = async () => {
+    try {
+      const res: any = await apiService.getOnlineUsers()
+      const set = new Set<string>((res?.userIds || []).map(String))
+      setOnlineMap(set)
+      // fetch last seen for peers currently in chat list (limit 10)
+      const peers = (chats || []).filter(c => c.chatType === 'direct').slice(0, 10).map(c => (c.user || c.participant)?._id).filter(Boolean)
+      const entries: Record<string, string> = {}
+      await Promise.all(peers.map(async (pid) => {
+        const r: any = await apiService.getLastSeen(String(pid))
+        if (r?.success && r?.lastActiveAt) entries[String(pid)] = r.lastActiveAt
+      }))
+      setLastSeenMap((prev) => ({ ...prev, ...entries }))
+    } catch {}
   }
 
   const sortChats = (list: AnyChat[]) => {
@@ -101,6 +121,7 @@ export default function ChatsScreen() {
       const res = await apiService.getUserProfile(peerId)
       const u = (res as any)?.user || (res as any)?.data || res
       setChats((prev) => prev.map((c) => (c.chatType === "direct" && (c.user || c.participant)?._id === peerId ? { ...c, user: u } : c)))
+      try { const r: any = await apiService.getLastSeen(peerId); if (r?.success && r?.lastActiveAt) setLastSeenMap((p) => ({ ...p, [peerId]: r.lastActiveAt })) } catch {}
     } catch {}
   }
 
@@ -190,6 +211,24 @@ export default function ChatsScreen() {
     directListenerRef.current = onDirect
     groupListenerRef.current = onGroup
 
+    const onStatus = (data: { userId: string; status: 'online'|'offline' }) => {
+      setOnlineMap((prev) => {
+        const next = new Set(prev)
+        if (data.status === 'online') next.add(String(data.userId))
+        else next.delete(String(data.userId))
+        return next
+      })
+      if (data.status === 'offline') {
+        // refresh last seen for user immediately
+        const peerId = String(data.userId)
+        apiService.getLastSeen(peerId).then((r: any) => {
+          if (r?.success && r?.lastActiveAt) setLastSeenMap((p) => ({ ...p, [peerId]: r.lastActiveAt }))
+        }).catch(() => {})
+      }
+    }
+    socketService.onUserStatusChange(onStatus)
+    statusListenerRef.current = onStatus
+
     // typing
     socketService.onTyping((data: any) => {
       const fromId = data?.from
@@ -219,6 +258,7 @@ export default function ChatsScreen() {
     return () => {
       if (directListenerRef.current) socketService.removeDirectMessageListener(directListenerRef.current)
       if (groupListenerRef.current) socketService.removeGroupMessageListener(groupListenerRef.current)
+      if (statusListenerRef.current) socketService.removeUserStatusListener(statusListenerRef.current)
       // socketService.disconnect() // Do not disconnect global socket here; managed in Root layout
     }
   }, [])
@@ -238,7 +278,10 @@ export default function ChatsScreen() {
 
   const renderItem = ({ item }: { item: AnyChat }) => {
     const typingText = item.chatType === "direct" ? typingState[(item.user || item.participant)?._id] : typingState[item.group?._id]
-    return <ChatListItem chat={item} currentUserId={userId} typingText={typingText || ""} />
+    const peerId = item.chatType === 'direct' ? String((item.user || item.participant)?._id || '') : ''
+    const isOnline = peerId ? onlineMap.has(peerId) : false
+    const lastSeen = peerId ? lastSeenMap[peerId] : undefined
+    return <ChatListItem chat={{ ...item, __presence: { isOnline, lastSeen } }} currentUserId={userId} typingText={typingText || ""} />
   }
 
   const keyExtractor = (item: AnyChat) => (item.chatType === "direct" ? `direct_${(item.user || item.participant)?._id}` : `group_${item.group?._id}`)

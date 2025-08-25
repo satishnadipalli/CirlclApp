@@ -304,7 +304,7 @@ const getUserById = async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ success: false, message: "Invalid user ID" });
     }
-    const user = await User.findById(id).select("_id name profilePic bio followers following");
+    const user = await User.findById(id).select("_id name profilePic bio followers following lastActiveAt");
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found" });
     }
@@ -518,6 +518,16 @@ const getMutuals = async (req, res) => {
   } catch (e) { return res.status(500).json({ success: false, message: e.message }) }
 }
 
+// Last seen timestamp for a user
+const getLastSeen = async (req, res) => {
+  try {
+    const { id } = req.params
+    const user = await User.findById(id).select('_id lastActiveAt')
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' })
+    res.json({ success: true, lastActiveAt: user.lastActiveAt })
+  } catch (e) { res.status(500).json({ success: false, message: e.message }) }
+}
+
 module.exports = {
   register,
   login,
@@ -542,4 +552,5 @@ module.exports = {
   getOnlineUsers,
   getSuggestions,
   getMutuals,
+  getLastSeen,
 };
