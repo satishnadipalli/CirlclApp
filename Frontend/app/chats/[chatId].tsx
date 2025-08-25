@@ -328,12 +328,22 @@ export default function ChatScreen() {
       editListenerRef.current = onEdited
 
       const onRead = (payload: any) => {
-        if (params.chatType === 'direct' && payload?.chatType === 'direct') {
-          // mark all messages from me to peer as read
-          setMessages((prev) => prev.map((m) => (m.sender === 'me' ? ({ ...(m as any), readBy: [currentUser?._id, payload?.peerId].filter(Boolean) } as any) : m)))
-        } else if (params.chatType === 'group' && payload?.chatType === 'group' && String(payload?.groupId) === String(params.chatId)) {
-          setMessages((prev) => prev.map((m) => ({ ...(m as any), readBy: Array.isArray((m as any).readBy) ? Array.from(new Set([...(m as any).readBy, payload.readerId])) : [payload.readerId] } as any)))
-        }
+        setMessages((prev) => prev.map((m) => {
+          if (params.chatType === 'direct' && payload?.chatType === 'direct') {
+            // any message from me to peer is now read by peer
+            if (m.sender === 'me') {
+              const rb = Array.isArray((m as any).readBy) ? new Set((m as any).readBy.map(String)) : new Set<string>()
+              if (payload?.peerId) rb.add(String(payload.peerId))
+              if (currentUser?._id) rb.add(String(currentUser._id))
+              return { ...(m as any), readBy: Array.from(rb) } as any
+            }
+          } else if (params.chatType === 'group' && payload?.chatType === 'group' && String(payload?.groupId) === String(params.chatId)) {
+            const rb = Array.isArray((m as any).readBy) ? new Set((m as any).readBy.map(String)) : new Set<string>()
+            if (payload?.readerId) rb.add(String(payload.readerId))
+            return { ...(m as any), readBy: Array.from(rb) } as any
+          }
+          return m
+        }))
       }
       socketService.onMessagesRead(onRead)
       readListenerRef.current = onRead
@@ -1088,9 +1098,20 @@ export default function ChatScreen() {
 
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
             <Text style={[styles.timeText, isMyMessage ? styles.myTimeText : styles.otherTimeText]}>{messageTime}</Text>
-            {isMyMessage && (
-              <Text style={{ fontSize: 12, color: '#4ea1ff' }}>{Array.isArray((message as any).readBy) && (message as any).readBy?.length > 1 ? '✓✓' : '✓'}</Text>
-            )}
+            {isMyMessage && (() => {
+              // direct: double if peer id present in readBy; group: double if any member besides me present
+              const rb = new Set<string>((Array.isArray((message as any).readBy) ? (message as any).readBy : []).map(String))
+              if (params.chatType === 'direct') {
+                const peerId = String(params.chatId)
+                const seen = rb.has(peerId)
+                return <Text style={{ fontSize: 12, color: seen ? '#4ea1ff' : '#888' }}>{seen ? '✓✓' : '✓'}</Text>
+              } else {
+                const me = String(currentUser?._id || '')
+                rb.delete(me)
+                const seen = rb.size > 0
+                return <Text style={{ fontSize: 12, color: seen ? '#4ea1ff' : '#888' }}>{seen ? '✓✓' : '✓'}</Text>
+              }
+            })()}
           </View>
         </View>
       </TouchableOpacity>

@@ -253,6 +253,7 @@ export default function ReelsScreen() {
       // only track metrics for currently visible item
       const current = reels[currentIndex]
       if (!current || String(current?._id || '') !== id) return
+      if (!status?.isPlaying || status?.isBuffering) return
       // progress
       if (typeof status?.positionMillis === 'number' && typeof status?.durationMillis === 'number' && status.durationMillis > 0) {
         const p = Math.max(0, Math.min(1, status.positionMillis / status.durationMillis))
@@ -267,18 +268,18 @@ export default function ReelsScreen() {
           ;(api as any).postMetric(id, { event: 'watch_start' }).catch(() => {}).finally(() => { inFlightRef.current[key] = false })
         }
       }
-      // periodic progress every ~2s
+      // periodic progress every ~5s
       const last = lastReportedMsRef.current[id] || 0
       const pos = Number(status?.positionMillis || 0)
       const now = Date.now()
       const lastSentAt = lastSentAtRef.current[`${id}:progress`] || 0
-      if (status?.isPlaying && pos - last >= 2000 && now - lastSentAt >= 2000) {
+      if (status?.isPlaying && pos - last >= 5000 && now - lastSentAt >= 5000) {
         lastReportedMsRef.current[id] = pos
         lastSentAtRef.current[`${id}:progress`] = now
         const key = `${id}:watch_progress`
         if (!inFlightRef.current[key]) {
           inFlightRef.current[key] = true
-          ;(api as any).postMetric(id, { event: 'watch_progress', deltaMs: 2000 }).catch(() => {}).finally(() => { inFlightRef.current[key] = false })
+          ;(api as any).postMetric(id, { event: 'watch_progress', deltaMs: 5000 }).catch(() => {}).finally(() => { inFlightRef.current[key] = false })
         }
       }
       // complete + rewatch (looping)
