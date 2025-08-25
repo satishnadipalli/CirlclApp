@@ -6,8 +6,9 @@ import { socketService } from "@/services/socket.service"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import { useRouter } from "expo-router"
 import React, { useCallback, useEffect, useRef, useState } from "react"
-import { Alert, FlatList, LayoutAnimation, Platform, StyleSheet, Text, TextInput, UIManager, View, TouchableOpacity, StatusBar } from "react-native"
+import { Alert, FlatList, LayoutAnimation, Platform, StyleSheet, Text, TextInput, UIManager, View, TouchableOpacity, StatusBar, Image, ScrollView } from "react-native"
 import { useFocusEffect } from "@react-navigation/native"
+import { Ionicons } from "@expo/vector-icons"
 
 type AnyChat = any
 
@@ -17,6 +18,7 @@ export default function ChatsScreen() {
   const [loading, setLoading] = useState(true)
   const [userId, setUserId] = useState<string>("")
   const [typingState, setTypingState] = useState<Record<string, string>>({})
+  const [suggestions, setSuggestions] = useState<Array<{ user: any; mutualCount: number; mutualNames: string[] }>>([])
   const router = useRouter()
 
   const directListenerRef = useRef<((msg: any) => void) | null>(null)
@@ -34,6 +36,7 @@ export default function ChatsScreen() {
     if (!userId) return
     console.log("working: userId available, fetching chats for", userId)
     fetchChats()
+    loadSuggestions()
   }, [userId])
 
   const loadUser = async () => {
@@ -49,6 +52,14 @@ export default function ChatsScreen() {
       Alert.alert("Login required", "Please login again")
       throw e
     }
+  }
+
+  const loadSuggestions = async () => {
+    try {
+      const res: any = await apiService.getSuggestions()
+      const arr = Array.isArray(res?.suggestions) ? res.suggestions : []
+      setSuggestions(arr)
+    } catch { setSuggestions([]) }
   }
 
   const sortChats = (list: AnyChat[]) => {
@@ -233,39 +244,59 @@ export default function ChatsScreen() {
   const keyExtractor = (item: AnyChat) => (item.chatType === "direct" ? `direct_${(item.user || item.participant)?._id}` : `group_${item.group?._id}`)
 
   return (
-    <View style={styles.container}>
-      <View style={styles.headerRow}>
+    <View style={{ flex: 1, backgroundColor: "#fff" }}>
+      <StatusBar barStyle="dark-content" />
+      <View style={{ paddingHorizontal: 12, paddingTop: 12, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: "#f3f3f3" }}>
         <TextInput
-          style={[styles.searchBar, { flex: 1, marginTop: 0 }]}
-          placeholder="Search chats..."
           value={search}
           onChangeText={setSearch}
-          placeholderTextColor="#666"
+          placeholder="Search"
+          placeholderTextColor="#999"
+          style={{ backgroundColor: "#f2f2f2", borderRadius: 10, paddingHorizontal: 12, height: 40, color: '#000' }}
         />
-        <TouchableOpacity onPress={() => router.push("/groups/create")} style={styles.createBtn}>
-          <Text style={styles.createBtnText}>Create</Text>
-        </TouchableOpacity>
       </View>
-      {loading ? (
-        <Text style={{ textAlign: "center", marginTop: 20 }}>Loading chats...</Text>
-      ) : !userId ? (
-        <Text style={{ textAlign: "center", marginTop: 20 }}>Please login to view chats</Text>
-      ) : filtered.length === 0 ? (
-        <Text style={{ textAlign: "center", marginTop: 20 }}>No chats</Text>
-      ) : (
-        <FlatList data={filtered} keyExtractor={keyExtractor} renderItem={renderItem} ItemSeparatorComponent={() => <View style={styles.separator} />} />
+      {suggestions.length > 0 && (
+        <View style={{ paddingVertical: 10 }}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 12, gap: 12 }}>
+            {suggestions.slice(0, 12).map((s, idx) => (
+              <View key={String(s?.user?._id || idx)} style={{ width: 180, borderWidth: 1, borderColor: '#eee', borderRadius: 12, padding: 10 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                  <Image source={{ uri: s?.user?.profilePic || 'https://i.pravatar.cc/100?img=19' }} style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#eee' }} />
+                  <View style={{ marginLeft: 8, flex: 1 }}>
+                    <Text numberOfLines={1} style={{ fontWeight: '800', color: '#000' }}>{s?.user?.name || 'User'}</Text>
+                    {s?.mutualCount > 0 && (
+                      <Text numberOfLines={1} style={{ color: '#666', fontSize: 12 }}>Followed by {s.mutualNames.join(', ')}{s.mutualCount > s.mutualNames.length ? ` +${s.mutualCount - s.mutualNames.length}` : ''}</Text>
+                    )}
+                  </View>
+                </View>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <TouchableOpacity onPress={async () => { try { await apiService.followUser(s?.user?._id) } catch {}; loadSuggestions(); }} style={{ flex: 1, backgroundColor: '#0095f6', borderRadius: 8, alignItems: 'center', paddingVertical: 8 }}>
+                    <Text style={{ color: '#fff', fontWeight: '800' }}>Follow</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => router.push({ pathname: '/otherProfile', params: { userId: String(s?.user?._id || '') } })} style={{ width: 40, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f2f2f2' }}>
+                    <Ionicons name="person-outline" size={18} color="#333" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))}
+          </ScrollView>
+        </View>
       )}
+      <FlatList
+        data={chats}
+        keyExtractor={(_, idx) => String(idx)}
+        renderItem={({ item }) => (
+          <ChatListItem chat={item} currentUserId={userId} typingText={typingState[item?.chatType === 'direct' ? (item.user?._id || item.participant?._id) : item.group?._id] || ''} />
+        )}
+        ItemSeparatorComponent={() => <View style={styles.separator} />}
+        contentContainerStyle={{ paddingBottom: 40 }}
+      />
     </View>
   )
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff" },
-  headerRow: { flexDirection: "row", alignItems: "center",paddingVertical:10,marginTop:15,paddingHorizontal:10,  paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0, gap: 8 },
-  searchBar: { height: 40, paddingLeft: 16, borderRadius: 10, backgroundColor: "#f2f2f2", fontSize: 16 },
-  createBtn: { backgroundColor: "#0095f6", height: 40, borderRadius: 10, paddingHorizontal: 12, justifyContent: "center" },
-  createBtnText: { color: "#fff", fontWeight: "700" },
-  separator: { height: 1, backgroundColor: "#eee", marginLeft: 75 },
+  separator: { height: 1, backgroundColor: "#f2f2f2" },
 })
 
  
