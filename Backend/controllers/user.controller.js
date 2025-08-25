@@ -439,6 +439,16 @@ const unblockUser = async (req, res) => {
   } catch (e) { res.status(500).json({ success: false, message: e.message }) }
 }
 
+// Presence: list currently online user ids (best-effort)
+const getOnlineUsers = async (req, res) => {
+  try {
+    const onlineUsers = req.app.get('onlineUsers')
+    if (!onlineUsers) return res.json({ success: true, userIds: [] })
+    const ids = Array.from(onlineUsers.keys()).map(String)
+    res.json({ success: true, userIds: ids })
+  } catch (e) { res.status(500).json({ success: false, message: e.message }) }
+}
+
 module.exports = {
   register,
   login,
@@ -460,4 +470,5 @@ module.exports = {
   unblockUser,
   getNotificationPrefs,
   updateNotificationPrefs,
+  getOnlineUsers,
 };
