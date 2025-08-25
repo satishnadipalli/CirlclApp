@@ -1086,9 +1086,12 @@ export default function ChatScreen() {
             </View>
           )}
 
-          {messageTime && (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
             <Text style={[styles.timeText, isMyMessage ? styles.myTimeText : styles.otherTimeText]}>{messageTime}</Text>
-          )}
+            {isMyMessage && (
+              <Text style={{ fontSize: 12, color: '#4ea1ff' }}>{Array.isArray((message as any).readBy) && (message as any).readBy?.length > 1 ? '✓✓' : '✓'}</Text>
+            )}
+          </View>
         </View>
       </TouchableOpacity>
     )
@@ -1218,10 +1221,15 @@ export default function ChatScreen() {
           }}
           disabled={params.chatType === "direct"}
         >
-          <Avatar.Image size={40} source={{ uri: headerInfo.avatar }} />
+          <View>
+            <Avatar.Image size={40} source={{ uri: headerInfo.avatar }} />
+            {params.chatType === 'direct' && onlineUsers.has(params.chatId) && (
+              <View style={{ position: 'absolute', right: -2, bottom: -2, width: 14, height: 14, borderRadius: 7, backgroundColor: '#4CAF50', borderWidth: 2, borderColor: '#fff', shadowColor: '#4CAF50', shadowOpacity: 0.9, shadowRadius: 6 }} />
+            )}
+          </View>
           <View style={{ marginLeft: 10, flex: 1 }}>
             <Text style={styles.nameText}>{headerInfo.name}</Text>
-            <Text style={styles.statusText}>{headerInfo.status}</Text>
+            <Text style={[styles.statusText, params.chatType === 'direct' ? (onlineUsers.has(params.chatId) ? { color: '#4CAF50', fontWeight: '700' } : { color: '#999' }) : null]}>{headerInfo.status}</Text>
           </View>
           {params.chatType === "group" && <Icon name="chevron-right" size={24} color="#666" />}
           <View style={[styles.connectionStatus, { backgroundColor: isConnected ? "#4CAF50" : "#F44336" }]} />
