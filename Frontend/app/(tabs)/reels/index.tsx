@@ -37,6 +37,40 @@ export default function ReelsScreen() {
   const [isBuffering, setIsBuffering] = useState(false)
   const [showMuteHint, setShowMuteHint] = useState(false)
 
+  const isCloudinaryUrl = (u: string) => /res\.cloudinary\.com\//.test(u) && /\/video\/upload\//.test(u)
+  const stripQuery = (u: string) => u.split('?')[0]
+  const deriveHlsUrl = (u: string) => {
+    try {
+      const base = stripQuery(u)
+      if (!isCloudinaryUrl(base)) return null
+      const parts = base.split('/video/upload/')
+      if (parts.length !== 2) return null
+      const prefix = parts[0]
+      const rest = parts[1]
+      const withoutExt = rest.replace(/\.[a-z0-9]+$/i, '')
+      return `${prefix}/video/upload/sp_auto/${withoutExt}/manifest.m3u8`
+    } catch { return null }
+  }
+  const derivePosterUrl = (u: string, fallback?: string) => {
+    try {
+      const base = stripQuery(u)
+      if (!isCloudinaryUrl(base)) return fallback || ''
+      const parts = base.split('/video/upload/')
+      if (parts.length !== 2) return fallback || ''
+      const prefix = parts[0]
+      const rest = parts[1]
+      const withoutExt = rest.replace(/\.[a-z0-9]+$/i, '')
+      return `${prefix}/video/upload/so_1/${withoutExt}.jpg`
+    } catch { return fallback || '' }
+  }
+  const getPlayback = (mediaUrl?: string, fallbackPoster?: string) => {
+    const raw = String(mediaUrl || '')
+    const isHls = /\.m3u8$/i.test(raw)
+    const hls = isHls ? raw : deriveHlsUrl(raw)
+    const poster = derivePosterUrl(raw, fallbackPoster)
+    return { sourceUrl: hls || raw, posterUrl: poster }
+  }
+
   // Heart animation for double-tap
   const heartScale = useRef(new Animated.Value(0)).current
   const [heartKey, setHeartKey] = useState<string | null>(null)
@@ -89,7 +123,7 @@ export default function ReelsScreen() {
     setCurrentIndex(idx)
   }).current
 
-  // Play/pause current, preload neighbor, send impression metric
+  // Play/pause current, preload neighbor posters, send impression metric
   useEffect(() => {
     const current = reels[currentIndex]
     // show mute hint briefly when switching if muted
@@ -108,7 +142,10 @@ export default function ReelsScreen() {
       } catch {}
     })
     const next = reels[currentIndex + 1]
-    if (next?.mediaUrl && /\.(jpg|png)$/i.test(next.mediaUrl)) Image.prefetch(next.mediaUrl)
+    if (next?.mediaUrl) {
+      const { posterUrl } = getPlayback(next.mediaUrl, next?.user?.profilePic)
+      if (posterUrl) Image.prefetch(posterUrl)
+    }
     if (current?._id) {
       // reset progress tracking
       lastReportedMsRef.current[String(current._id)] = 0
@@ -324,7 +361,7 @@ export default function ReelsScreen() {
     const prog = progressRef.current[String(item?._id || '')] || 0
     const saved = !!savedLocalRef.current[String(item?._id || '')]
     const uri = String(item?.mediaUrl || '')
-    const isHls = /\.m3u8$/i.test(uri)
+    const { sourceUrl, posterUrl } = getPlayback(uri, item?.user?.profilePic)
     return (
       <View style={styles.item}>
         <TouchableWithoutFeedback
@@ -343,13 +380,15 @@ export default function ReelsScreen() {
           <View>
             <Video
               ref={(r) => { if (r) videoRefs.current.set(String(item._id), r) }}
-              source={{ uri: item.mediaUrl }}
+              source={{ uri: sourceUrl }}
               style={styles.video}
               resizeMode={'cover' as any}
               shouldPlay={index === currentIndex && !isPaused}
               isLooping
               isMuted={isMuted}
               onPlaybackStatusUpdate={onStatusUpdate(item)}
+              posterSource={posterUrl ? { uri: posterUrl } : undefined}
+              usePoster={!!posterUrl}
             />
             {isBuffering && (
               <View style={styles.bufferOverlay}>
