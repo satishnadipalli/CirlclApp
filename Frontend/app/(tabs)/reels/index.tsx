@@ -593,9 +593,10 @@ export default function ReelsScreen() {
 
       {/* Comments Modal */}
       <Modal visible={!!commentsOpenForId} animationType='slide' onRequestClose={() => setCommentsOpenForId(null)} transparent>
-        <TouchableWithoutFeedback onPress={() => setCommentsOpenForId(null)}>
-          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' }}>
-        </TouchableWithoutFeedback>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' }}>
+          <TouchableWithoutFeedback onPress={() => setCommentsOpenForId(null)}>
+            <View style={{ flex: 1 }} />
+          </TouchableWithoutFeedback>
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
             <View style={{ maxHeight: height * 0.7, backgroundColor: '#111', borderTopLeftRadius: 16, borderTopRightRadius: 16, paddingBottom: 12 }}>
               <View style={{ height: 48, alignItems: 'center', justifyContent: 'center' }}>
