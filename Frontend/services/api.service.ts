@@ -130,6 +130,10 @@ class ApiService {
     return this.request(`/users/me/notification-prefs`, { method: 'PUT', body: JSON.stringify(prefs) })
   }
 
+  // Suggestions & Mutuals
+  async getSuggestions() { return this.request(`/users/me/suggestions`) }
+  async getMutuals(userId: string, limit = 10) { return this.request(`/users/${userId}/mutuals?limit=${limit}`) }
+
   // Chat Methods
   async getChats() {
     return this.request("/messages/chats")
