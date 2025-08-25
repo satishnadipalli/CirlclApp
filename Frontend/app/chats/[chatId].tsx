@@ -49,7 +49,6 @@ interface ChatMessage {
   edited?: boolean
   status?: 'sending' | 'sent' | 'failed'
   uploadProgress?: number
-  linkPreview?: { url: string; title?: string; description?: string; image?: string; siteName?: string } | null
 }
 
 interface DateHeader {
@@ -268,7 +267,6 @@ export default function ChatScreen() {
             createdAt: msg.createdAt || new Date().toISOString(),
             system: /\badded\b/i.test(String(msg.text || "")),
             attachments: msg.attachments,
-            linkPreview: msg.linkPreview || null,
           }
 
           // Mark as read immediately when a new incoming message arrives while viewing this conversation
@@ -467,7 +465,6 @@ export default function ChatScreen() {
           messageType: "direct",
           createdAt: msg.createdAt,
           attachments: msg.attachments,
-          linkPreview: msg.linkPreview || null,
         }))
         console.log("[v0] Loaded direct messages:", formattedMessages.length)
         setMessages(formattedMessages)
@@ -597,20 +594,22 @@ export default function ChatScreen() {
             </View>
           )}
 
-          {/* Link Preview */}
-          {message.linkPreview && message.linkPreview.url ? (
-            <View style={styles.linkCard}>
-              {message.linkPreview.image ? (
-                <Image source={{ uri: message.linkPreview.image }} style={styles.linkImage} resizeMode="cover" />
-              ) : null}
-              <View style={styles.linkContent}>
-                {message.linkPreview.siteName ? <Text numberOfLines={1} style={styles.linkSite}>{message.linkPreview.siteName}</Text> : null}
-                {message.linkPreview.title ? <Text numberOfLines={2} style={styles.linkTitle}>{message.linkPreview.title}</Text> : null}
-                {message.linkPreview.description ? <Text numberOfLines={3} style={styles.linkDesc}>{message.linkPreview.description}</Text> : null}
-                <Text numberOfLines={1} style={styles.linkUrl}>{message.linkPreview.url}</Text>
-              </View>
-            </View>
-          ) : null}
+          {/* Simple link preview */}
+          {(() => {
+            try {
+              const match = String(message.text || '').match(/https?:\/\/[^\s]+/i)
+              if (!match) return null
+              const url = match[0]
+              return (
+                <TouchableOpacity onPress={() => { try { (require('expo-web-browser') as any).openBrowserAsync(url) } catch {} }} style={{ marginTop: 8 }}>
+                  <View style={{ backgroundColor: isMyMessage ? '#e6f2ff' : '#f5f5f5', borderRadius: 10, padding: 10, maxWidth: 260 }}>
+                    <Text numberOfLines={2} style={{ color: '#1a0dab', textDecorationLine: 'underline' }}>{url}</Text>
+                    <Text style={{ color: '#555', marginTop: 4 }} numberOfLines={2}>Open link</Text>
+                  </View>
+                </TouchableOpacity>
+              )
+            } catch { return null }
+          })()}
 
           {"replyTo" in (message as any) && (message as any).replyTo && (
             <View style={styles.replyBubble}>
@@ -890,10 +889,10 @@ export default function ChatScreen() {
         )}
         {/* Quick Reactions Modal */}
         <Modal visible={!!reactingTo} transparent animationType="fade" onRequestClose={() => setReactingTo(null)}>
-          <View style={styles.reactOverlay}>
-            <View style={styles.reactBar}>
+          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.2)' }}>
+            <View style={{ flexDirection: 'row', backgroundColor: '#fff', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 8 }}>
               {['❤️','👍','😂','😮','😢','🔥'].map((emoji) => (
-                <TouchableOpacity key={emoji} style={styles.reactBtn} onPress={async () => {
+                <TouchableOpacity key={emoji} style={{ paddingHorizontal: 8, paddingVertical: 6 }} onPress={async () => {
                   const msgId = (reactingTo as any)?.id
                   try { await apiService.request(`/messages/${msgId}/react`, { method: 'POST', body: JSON.stringify({ type: emoji }) }) } catch {}
                   setReactingTo(null)
@@ -901,7 +900,7 @@ export default function ChatScreen() {
                   <Text style={{ fontSize: 20 }}>{emoji}</Text>
                 </TouchableOpacity>
               ))}
-              <TouchableOpacity style={[styles.reactBtn, { marginLeft: 6 }]} onPress={async () => {
+              <TouchableOpacity style={{ paddingHorizontal: 8, paddingVertical: 6, marginLeft: 6 }} onPress={async () => {
                 const msgId = (reactingTo as any)?.id
                 try { await apiService.request(`/messages/${msgId}/react`, { method: 'POST', body: JSON.stringify({ type: null }) }) } catch {}
                 setReactingTo(null)
@@ -909,7 +908,7 @@ export default function ChatScreen() {
                 <Text style={{ fontSize: 14, color: '#e53935', fontWeight: '700' }}>Remove</Text>
               </TouchableOpacity>
             </View>
-            <TouchableOpacity style={styles.reactBackdrop} onPress={() => setReactingTo(null)} />
+            <TouchableOpacity style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }} onPress={() => setReactingTo(null)} />
           </View>
         </Modal>
       </KeyboardAvoidingView>
