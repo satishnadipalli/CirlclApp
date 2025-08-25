@@ -5,7 +5,8 @@ import { socketService } from "@/services/socket.service"
 import type { ChatParams, Group, TypingUser, User } from "@/types/chat.types"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import { useLocalSearchParams, useRouter } from "expo-router"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, useCallback } from "react"
+import { useFocusEffect } from "@react-navigation/native"
 import {
   Alert,
   Animated,
@@ -879,13 +880,21 @@ export default function ChatScreen() {
     }
   }, [typingUsers, isUserAtBottom])
 
-  // Refresh presence on screen focus if available
-  useEffect(() => {
-    const sub = (require('expo-router') as any).useFocusEffect?.(() => {
-      (async () => { try { const res: any = await apiService.getOnlineUsers(); if (res?.success && Array.isArray(res.userIds)) setOnlineUsers(new Set(res.userIds.map(String))) } catch {} })()
-    })
-    return () => { try { sub && sub() } catch {} }
-  }, [])
+  // Refresh presence on screen focus using a proper hook
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false
+      ;(async () => {
+        try {
+          const res: any = await apiService.getOnlineUsers()
+          if (!cancelled && res?.success && Array.isArray(res.userIds)) {
+            setOnlineUsers(new Set(res.userIds.map(String)))
+          }
+        } catch {}
+      })()
+      return () => { cancelled = true }
+    }, [])
+  )
 
   useEffect(() => {
     if (isUserAtBottom) {
