@@ -42,6 +42,8 @@ export default function ReelsScreen() {
   // Metrics state
   const startedRef = useRef<Record<string, boolean>>({})
   const lastReportedMsRef = useRef<Record<string, number>>({})
+  const lastSentAtRef = useRef<Record<string, number>>({})
+  const inFlightRef = useRef<Record<string, boolean>>({})
 
   const load = async (p = 1) => {
     if (loadingMore || (!hasMore && p !== 1)) return
@@ -259,19 +261,38 @@ export default function ReelsScreen() {
       // start
       if (status?.isPlaying && status?.positionMillis > 300 && !startedRef.current[id]) {
         startedRef.current[id] = true
-        ;(api as any).postMetric(id, { event: 'watch_start' }).catch(() => {})
+        const key = `${id}:watch_start`
+        if (!inFlightRef.current[key]) {
+          inFlightRef.current[key] = true
+          ;(api as any).postMetric(id, { event: 'watch_start' }).catch(() => {}).finally(() => { inFlightRef.current[key] = false })
+        }
       }
       // periodic progress every ~2s
       const last = lastReportedMsRef.current[id] || 0
       const pos = Number(status?.positionMillis || 0)
-      if (status?.isPlaying && pos - last >= 2000) {
+      const now = Date.now()
+      const lastSentAt = lastSentAtRef.current[`${id}:progress`] || 0
+      if (status?.isPlaying && pos - last >= 2000 && now - lastSentAt >= 2000) {
         lastReportedMsRef.current[id] = pos
-        ;(api as any).postMetric(id, { event: 'watch_progress', deltaMs: 2000 }).catch(() => {})
+        lastSentAtRef.current[`${id}:progress`] = now
+        const key = `${id}:watch_progress`
+        if (!inFlightRef.current[key]) {
+          inFlightRef.current[key] = true
+          ;(api as any).postMetric(id, { event: 'watch_progress', deltaMs: 2000 }).catch(() => {}).finally(() => { inFlightRef.current[key] = false })
+        }
       }
       // complete + rewatch (looping)
       if (status?.didJustFinish) {
-        ;(api as any).postMetric(id, { event: 'watch_complete', durationMs: Number(status?.durationMillis || 0) }).catch(() => {})
-        ;(api as any).postMetric(id, { event: 'rewatch' }).catch(() => {})
+        const keyC = `${id}:watch_complete`
+        const keyR = `${id}:rewatch`
+        if (!inFlightRef.current[keyC]) {
+          inFlightRef.current[keyC] = true
+          ;(api as any).postMetric(id, { event: 'watch_complete', durationMs: Number(status?.durationMillis || 0) }).catch(() => {}).finally(() => { inFlightRef.current[keyC] = false })
+        }
+        if (!inFlightRef.current[keyR]) {
+          inFlightRef.current[keyR] = true
+          ;(api as any).postMetric(id, { event: 'rewatch' }).catch(() => {}).finally(() => { inFlightRef.current[keyR] = false })
+        }
         // reset for next loop
         startedRef.current[id] = false
         lastReportedMsRef.current[id] = 0
