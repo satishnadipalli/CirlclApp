@@ -50,7 +50,8 @@ export default function ReelsScreen() {
       const prefix = parts[0]
       const rest = parts[1]
       const withoutExt = rest.replace(/\.[a-z0-9]+$/i, '')
-      return `${prefix}/video/upload/sp_auto/${withoutExt}/manifest.m3u8`
+      // Cloudinary HLS: use sp_auto and .m3u8
+      return `${prefix}/video/upload/sp_auto/${withoutExt}.m3u8`
     } catch { return null }
   }
   const derivePosterUrl = (u: string, fallback?: string) => {
@@ -65,10 +66,13 @@ export default function ReelsScreen() {
       return `${prefix}/video/upload/so_1/${withoutExt}.jpg`
     } catch { return fallback || '' }
   }
-  const getPlayback = (mediaUrl?: string, fallbackPoster?: string) => {
+  const hlsBlockedRef = useRef<Record<string, boolean>>({})
+  const [renderTick, setRenderTick] = useState(0)
+  const getPlayback = (mediaUrl?: string, fallbackPoster?: string, id?: string) => {
     const raw = String(mediaUrl || '')
     const isHls = /\.m3u8$/i.test(raw)
-    const hls = isHls ? raw : deriveHlsUrl(raw)
+    const hlsCandidate = isHls ? raw : deriveHlsUrl(raw)
+    const hls = (id && hlsBlockedRef.current[String(id)]) ? null : hlsCandidate
     const poster = derivePosterUrl(raw, fallbackPoster)
     return { sourceUrl: hls || raw, posterUrl: poster }
   }
@@ -310,8 +314,8 @@ export default function ReelsScreen() {
     try {
       const id = String(item?._id || '')
       if (!id) return
-      // buffering UI
-      setIsBuffering(Boolean(status?.isBuffering))
+      // buffering UI only for current visible item
+      if (String(reels[currentIndex]?._id || '') === id) setIsBuffering(Boolean(status?.isBuffering))
       // only track metrics for currently visible item
       const current = reels[currentIndex]
       if (!current || String(current?._id || '') !== id) return
@@ -360,6 +364,11 @@ export default function ReelsScreen() {
         startedRef.current[id] = false
         lastReportedMsRef.current[id] = 0
       }
+      // if HLS fails to play, fallback to MP4 by blocking HLS for this id
+      if (status?.isLoaded === false || status?.error) {
+        hlsBlockedRef.current[id] = true
+        setRenderTick((t) => t + 1)
+      }
     } catch {}
   }
 
@@ -369,22 +378,10 @@ export default function ReelsScreen() {
     const prog = progressRef.current[String(item?._id || '')] || 0
     const saved = !!savedLocalRef.current[String(item?._id || '')]
     const uri = String(item?.mediaUrl || '')
-    const { sourceUrl, posterUrl } = getPlayback(uri, item?.user?.profilePic)
+    const { sourceUrl, posterUrl } = getPlayback(uri, item?.user?.profilePic, item?._id)
     return (
       <View style={styles.item}>
-        <TouchableWithoutFeedback
-          onPress={() => {
-            onDoubleTap(item)
-            // single tap toggles pause/play (with slight delay to avoid overriding double-tap like)
-            setTimeout(async () => {
-              try {
-                const ref = videoRefs.current.get(String(item?._id))
-                if (!ref) return
-                if (isPaused) { setIsPaused(false); await ref.playAsync() } else { setIsPaused(true); await ref.pauseAsync() }
-              } catch {}
-            }, 160)
-          }}
-        >
+        <TouchableWithoutFeedback onPress={() => onDoubleTap(item)}>
           <View>
             <Video
               ref={(r) => { if (r) videoRefs.current.set(String(item._id), r) }}
