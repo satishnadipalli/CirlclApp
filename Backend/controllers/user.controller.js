@@ -264,7 +264,8 @@ const searchuser = async (req, res) => {
       } catch {}
     }
 
-    const query = { name: regex }
+    // Match on username OR name
+    const query = { $or: [ { username: regex }, { name: regex } ] }
     if (excludeIds.size > 0) {
       query._id = { $nin: Array.from(excludeIds) }
     }

@@ -199,6 +199,18 @@ class SocketService {
     }, delay);
   }
 
+  // Update the auth token used for the Socket.io handshake and seamlessly reconnect
+  updateAuthToken(token: string) {
+    if (!this.socket) return;
+    try {
+      (this.socket as any).auth = { token };
+      if (this.socket.connected) {
+        try { this.socket.disconnect(); } catch {}
+        try { this.socket.connect(); } catch {}
+      }
+    } catch {}
+  }
+
   disconnect() {
     if (this.socket) {
       this.socket.disconnect();

@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 
 const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
-  username: { type: String, default: "" },
+  username: { type: String, unique: true, sparse: true, trim: true, lowercase: true, default: null },
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
   profilePic: { type: String, default: "" },
@@ -37,5 +37,10 @@ const userSchema = new mongoose.Schema({
     daily: { type: Boolean, default: true },
   }, { _id: false }),
 }, { timestamps: true });
+
+// Ensure an index on username for fast lookups (unique+sparse allows missing values)
+try {
+  userSchema.index({ username: 1 }, { unique: true, sparse: true });
+} catch {}
 
 module.exports = mongoose.model("User", userSchema);
