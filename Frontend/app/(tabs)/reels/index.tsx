@@ -519,13 +519,27 @@ export default function ReelsScreen() {
           </TouchableWithoutFeedback>
         )}
         pagingEnabled
+        bounces={false}
+        alwaysBounceVertical={false}
+        showsVerticalScrollIndicator={false}
+        snapToInterval={height}
+        decelerationRate={'fast' as any}
+        snapToAlignment={'start' as any}
+        disableIntervalMomentum
         showsVerticalScrollIndicator={false}
         onViewableItemsChanged={onViewableItemsChanged}
-        viewabilityConfig={{ itemVisiblePercentThreshold: 80 }}
+        viewabilityConfig={{ itemVisiblePercentThreshold: 95 }}
+        onMomentumScrollEnd={(e) => {
+          try {
+            const y = e?.nativeEvent?.contentOffset?.y || 0
+            const idx = Math.round(y / height)
+            setCurrentIndex(Math.max(0, Math.min(idx, Math.max(0, reels.length - 1))))
+          } catch {}
+        }}
         onEndReached={() => load(page + 1)}
-        onEndReachedThreshold={0.6}
-        initialNumToRender={3}
-        windowSize={5}
+        onEndReachedThreshold={0.8}
+        initialNumToRender={2}
+        windowSize={3}
         removeClippedSubviews={false}
       />
 
