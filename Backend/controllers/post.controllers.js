@@ -863,6 +863,31 @@ const markNotInterested = async (req, res) => {
   }
 }
 
+const getFollowingFeed = async (req, res) => {
+  try {
+    let { page = 1, limit = 10 } = req.query
+    page = Math.max(1, parseInt(page))
+    limit = Math.min(50, Math.max(1, parseInt(limit)))
+
+    const me = await User.findById(req.user.id).select('following')
+    const ids = new Set((me?.following || []).map((x) => String(x)))
+    ids.add(String(req.user.id))
+
+    const total = await Post.countDocuments({ user: { $in: Array.from(ids) } })
+    const posts = await Post.find({ user: { $in: Array.from(ids) } })
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .populate('user', 'name profilePic')
+      .populate('comments.user', 'name profilePic')
+      .populate('comments.replies.user', 'name profilePic')
+
+    return res.json({ success: true, page, limit, total, posts })
+  } catch (e) {
+    return res.status(500).json({ success: false, message: e.message })
+  }
+}
+
 module.exports = {
   createPost,
   getAllPosts,
@@ -883,4 +908,5 @@ module.exports = {
   getReels,
   markNotInterested,
   recordWatchMetric,
+  getFollowingFeed,
 };

@@ -376,6 +376,9 @@ class ApiService {
 
   async getPostById(id: string) { return this.request(`/posts/${id}`) }
   async getFeed(page = 1, limit = 10) { return this.request(`/posts?page=${page}&limit=${limit}`) }
+  async getFollowingFeed(page = 1, limit = 10) {
+    return this.request(`/posts/following?page=${page}&limit=${limit}`)
+  }
   async getReels(page = 1, limit = 8) { return this.request(`/posts/reels?page=${page}&limit=${limit}`) }
   async getSavedPosts() { return this.request(`/posts/saved`) }
   async likePost(postId: string) { return this.request(`/posts/${postId}/like`, { method: 'PUT' }) }
