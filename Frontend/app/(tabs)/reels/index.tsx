@@ -44,6 +44,7 @@ export default function ReelsScreen() {
   const [expandedCaption, setExpandedCaption] = useState<Record<string, boolean>>({})
   const positionMsRef = useRef<Record<string, number>>({})
   const durationMsRef = useRef<Record<string, number>>({})
+  const [followingSet, setFollowingSet] = useState<Set<string>>(new Set())
 
   const isCloudinaryUrl = (u: string) => /res\.cloudinary\.com\//.test(u) && /\/video\/upload\//.test(u)
   const stripQuery = (u: string) => u.split('?')[0]
@@ -115,6 +116,11 @@ export default function ReelsScreen() {
       try {
         const u = await AsyncStorage.getItem('user')
         if (u) setCurrentUserId(JSON.parse(u)?.id || null)
+      } catch {}
+      try {
+        const f: any = await (api as any).getFollowing()
+        const ids = new Set((Array.isArray(f?.data || f?.following) ? (f?.data || f?.following) : []).map((it: any) => String(it?._id || it)))
+        setFollowingSet(ids)
       } catch {}
       try {
         const m = await AsyncStorage.getItem('reels_muted')
@@ -409,7 +415,13 @@ export default function ReelsScreen() {
     const { sourceUrl, posterUrl } = getPlayback(uri, item?.user?.profilePic, item?._id)
     return (
       <View style={styles.item}>
-        <TouchableWithoutFeedback onPress={() => onDoubleTap(item)}>
+        <TouchableWithoutFeedback onPress={() => {
+          const now = Date.now()
+          const dt = now - (lastTapRef.current || 0)
+          lastTapRef.current = now
+          if (dt < 300) onDoubleTap(item)
+          else onToggleMute()
+        }}>
           <View>
             <Video
               ref={(r) => { if (r) videoRefs.current.set(String(item._id), r) }}
@@ -466,12 +478,12 @@ export default function ReelsScreen() {
               <Text style={styles.name}>{item?.user?.name || 'User'}</Text>
             </TouchableOpacity>
             {/* Audio overlay */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6, gap: 8 }}>
+            <TouchableOpacity onPress={onToggleMute} activeOpacity={0.8} style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6, gap: 8, alignSelf: 'flex-start', backgroundColor: 'rgba(0,0,0,0.35)', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6 }}>
               <Ionicons name="musical-notes" size={16} color="#fff" />
               <Text style={{ color: '#fff' }} numberOfLines={1}>
-                {String(item?.audioTitle || 'Original audio')} · {String(item?.user?.name || 'User')}
+                {isMuted ? 'Tap to unmute · ' : 'Sound on · '}{String(item?.audioTitle || 'Original audio')}
               </Text>
-            </View>
+            </TouchableOpacity>
             {!!item?.title && (
               <View style={{ marginTop: 6, maxWidth: width * 0.7 }}>
                 <Text style={styles.caption} numberOfLines={expandedCaption[String(item?._id || '')] ? undefined : 2}>
@@ -486,11 +498,24 @@ export default function ReelsScreen() {
                 </TouchableOpacity>
               </View>
             )}
-            {!creatorFollowed(item) && (
-              <TouchableOpacity onPress={() => onFollow(item)} style={{ backgroundColor: '#4ea1ff', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6, alignSelf: 'flex-start', marginTop: 6 }}>
-                <Text style={{ color: '#fff', fontWeight: '800' }}>Follow</Text>
-              </TouchableOpacity>
-            )}
+            {(() => {
+              const authorId = String(item?.user?._id || '')
+              const isMe = authorId && authorId === String(currentUserId || '')
+              if (!authorId || isMe) return null
+              const followed = followingSet.has(authorId)
+              return (
+                <TouchableOpacity
+                  onPress={async () => {
+                    try {
+                      if (followed) { await (api as any).unfollowUser(authorId); setFollowingSet((s) => { const n = new Set(Array.from(s)); n.delete(authorId); return n }) }
+                      else { await (api as any).followUser(authorId); setFollowingSet((s) => { const n = new Set(Array.from(s)); n.add(authorId); return n }) }
+                    } catch {}
+                  }}
+                  style={{ borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6, alignSelf: 'flex-start', marginTop: 6, backgroundColor: followed ? 'rgba(255,255,255,0.12)' : '#4ea1ff', borderWidth: followed ? 1 : 0, borderColor: 'rgba(255,255,255,0.25)' }}>
+                  <Text style={{ color: '#fff', fontWeight: '800' }}>{followed ? 'Following' : 'Follow'}</Text>
+                </TouchableOpacity>
+              )
+            })()}
           </View>
           <View style={styles.actions}>
             <TouchableOpacity style={styles.action} onPress={() => { try { Haptics.selectionAsync() } catch {} ; toggleLike(item) }}>
@@ -553,11 +578,7 @@ export default function ReelsScreen() {
         windowSize={3}
         removeClippedSubviews={false}
       />
-      {/* Gradient fade for captions */}
-      <View pointerEvents='none' style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 80, backgroundColor: 'transparent' }}>
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.0)' }} />
-        <View style={{ height: 80, backgroundColor: 'rgba(0,0,0,0.35)' }} />
-      </View>
+      {/* Removed bottom overlay for cleaner look */}
 
       {/* Comments Modal */}
       <Modal visible={!!commentsOpenForId} animationType='slide' onRequestClose={() => setCommentsOpenForId(null)} transparent>
