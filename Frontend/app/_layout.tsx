@@ -48,6 +48,22 @@ export default function RootLayout() {
       if (!granted) return
       const token = (await Notifications.getExpoPushTokenAsync()).data
       if (token) await api.registerPushToken(token)
+      // Gentle daily reminder respecting prefs
+      try {
+        const prefs: any = await api.getNotificationPrefs()
+        const dailyOn = !!(prefs as any)?.prefs?.daily
+        if (dailyOn) {
+          // cancel previous
+          try { await Notifications.cancelScheduledNotificationAsync('daily-circle-reminder' as any) } catch {}
+          // schedule at 7pm local
+          const trigger = { hour: 19, minute: 0, repeats: true } as any
+          await Notifications.scheduleNotificationAsync({
+            identifier: 'daily-circle-reminder' as any,
+            content: { title: 'Daily Circle', body: "Share today's moment with your circle ✨", sound: 'default' },
+            trigger,
+          })
+        }
+      } catch {}
     } catch {}
   }
 
