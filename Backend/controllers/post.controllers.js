@@ -8,7 +8,7 @@ const extractTags = (text = "") => {
   const hashtags = (text.match(/#\w+/g) || []).map((tag) =>
     tag.substring(1).toLowerCase()
   );
-  const mentions = (text.match(/@\w+/g) || []).map((tag) =>
+  const mentions = (text.match(/@[\w.-]+/g) || []).map((tag) =>
     tag.substring(1).toLowerCase()
   );
   return { hashtags, mentions };
@@ -20,7 +20,7 @@ const createPost = async (req, res) => {
     if (!title) return res.status(400).json({ message: "Title is required" })
 
     const hashtags = (description.match(/#\w+/g) || []).map((t) => t.substring(1).toLowerCase())
-    const mentions = (description.match(/@\w+/g) || []).map((u) => u.substring(1))
+    const mentions = (description.match(/@[\w.-]+/g) || []).map((u) => u.substring(1).toLowerCase())
 
     const lng = req.body?.lng != null ? Number(req.body.lng) : null
     const lat = req.body?.lat != null ? Number(req.body.lat) : null
@@ -44,8 +44,12 @@ const createPost = async (req, res) => {
     if (mentions.length > 0) {
       console.log("mentions", mentions)
 
+      const patterns = mentions.map((m) => new RegExp(`^${m}$`, "i"))
       const mentionedUsers = await User.find({
-        name: { $in: mentions.map((m) => new RegExp(`^${m}$`, "i")) },
+        $or: [
+          { username: { $in: patterns } },
+          { name: { $in: patterns } }, // fallback for legacy mentions
+        ],
       }).select("_id")
       console.log(mentionedUsers)
       for (const mentionedUser of mentionedUsers) {
@@ -132,9 +136,9 @@ const getMyPosts = async (req, res) => {
       .populate("comments.user", "name profilePic")
       .populate("comments.replies.user", "name profilePic")
 
-    const username = req.user.name // Get current user's name
+    const handle = (req.user?.username && String(req.user.username).trim()) ? req.user.username : req.user.name
     const mentionedPosts = await Post.find({
-      mentions: { $regex: new RegExp(`^${username}$`, "i") }, // Case-insensitive search
+      mentions: { $regex: new RegExp(`^${handle}$`, "i") },
     })
       .sort({ createdAt: -1 })
       .populate("user", "name profilePic followers following")
@@ -315,9 +319,10 @@ const addComment = async (req, res) => {
 
     // 🔔 Notifications for mentions in comment
     if (mentions.length > 0) {
-      // Match users case-insensitively
+      // Match users by username first, fallback to name (case-insensitive)
+      const patterns = mentions.map((n) => new RegExp(`^${n}$`, "i"))
       const mentionedUsers = await User.find({
-        name: { $in: mentions.map((n) => new RegExp(`^${n}$`, "i")) },
+        $or: [ { username: { $in: patterns } }, { name: { $in: patterns } } ],
       }).select("_id");
 
       console.log("mentioned uers", mentionedUsers);
@@ -368,7 +373,7 @@ const replyToComment = async (req, res) => {
     const hashtags = (text.match(/#\w+/g) || []).map((tag) =>
       tag.slice(1).toLowerCase()
     );
-    const mentions = (text.match(/@\w+/g) || []).map((m) => m.slice(1));
+    const mentions = (text.match(/@[\w.-]+/g) || []).map((m) => m.slice(1).toLowerCase());
 
     comment.replies.push({
       user: req.user.id,
@@ -396,8 +401,9 @@ const replyToComment = async (req, res) => {
 
     // 🔔 Mention notifications in reply
     if (mentions.length > 0) {
+      const patterns = mentions.map((m) => new RegExp(`^${m}$`, "i"))
       const mentionedUsers = await User.find({
-        name: { $in: mentions.map((m) => new RegExp(`^${m}$`, "i")) },
+        $or: [ { username: { $in: patterns } }, { name: { $in: patterns } } ],
       }).select("_id");
       for (const mentionedUser of mentionedUsers) {
         if (mentionedUser._id.toString() !== req.user.id.toString()) {

@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage"
+import socketService from "./socket.service"
 
 class ApiService {
   constructor() {
@@ -116,6 +117,7 @@ class ApiService {
       await AsyncStorage.setItem('token', data.token)
       await AsyncStorage.setItem('refreshToken', data.refreshToken)
       if (data?.user) await AsyncStorage.setItem('user', JSON.stringify(data.user))
+      try { socketService.updateAuthToken(data.token) } catch {}
       return true
     } catch { return false }
   }
@@ -248,11 +250,8 @@ class ApiService {
   async getDailyViewers(entryId: string) { return this.request(`/daily/${entryId}/viewers`) }
   async getDailyCaptions(entryId: string) { return this.request(`/daily/${entryId}/captions`) }
   async putDailyCaptions(entryId: string, captions: Array<{ start: number; end: number; text: string }>) {
-    return this.request(`/daily/${entryId}/captions`, { method: 'PUT', body: JSON.stringify({ captions }) })
-  }
-  async autoDailyCaptions(entryId: string) {
-    return this.request(`/daily/${entryId}/captions/auto`, { method: 'POST' })
-  }
+    return this.request(`/daily/${entryId}/captions`, { method: 'PUT', body: JSON.stringify({ captions }) }) }
+  async autoDailyCaptions(entryId: string) { return this.request(`/daily/${entryId}/captions/auto`, { method: 'POST' }) }
   async useLatePass() { return this.request(`/daily/late-pass`, { method: 'POST' }) }
 
   async getDirectMessages(withUserId) {
@@ -271,92 +270,27 @@ class ApiService {
     })
   }
 
-  async markDirectRead(peerId) {
-    return this.request(`/messages/direct/${peerId}/read`, { method: "POST" })
-  }
-
-  async markGroupRead(groupId) {
-    return this.request(`/messages/group/${groupId}/read`, { method: "POST" })
-  }
+  async markDirectRead(peerId) { return this.request(`/messages/direct/${peerId}/read`, { method: "POST" }) }
+  async markGroupRead(groupId) { return this.request(`/messages/group/${groupId}/read`, { method: "POST" }) }
 
   // Group Methods
   async createGroup(name, description, memberIds) {
-    return this.request("/groups", {
-      method: "POST",
-      body: JSON.stringify({
-        name,
-        description,
-        members: memberIds,
-      }),
-    })
-  }
-
-  async getUserGroups() {
-    return this.request("/groups")
-  }
-
-  async getGroupInfo(groupId) {
-    return this.request(`/groups/${groupId}`)
-  }
-
-  async getGroupMessages(groupId) {
-    return this.request(`/groups/${groupId}/messages`)
-  }
-
+    return this.request("/groups", { method: "POST", body: JSON.stringify({ name, description, members: memberIds, }), }) }
+  async getUserGroups() { return this.request("/groups") }
+  async getGroupInfo(groupId) { return this.request(`/groups/${groupId}`) }
+  async getGroupMessages(groupId) { return this.request(`/groups/${groupId}/messages`) }
   async sendGroupMessage(groupId, text, replyTo) {
-    return this.request("/messages", {
-      method: "POST",
-      body: JSON.stringify({
-        group: groupId,
-        text,
-        messageType: "group",
-        replyTo,
-      }),
-    })
-  }
-
-  async addGroupMembers(groupId, memberIds) {
-    return this.request(`/groups/${groupId}/members`, {
-      method: "POST",
-      body: JSON.stringify({
-        members: memberIds,
-      }),
-    })
-  }
-
-  async removeGroupMember(groupId, memberId) {
-    return this.request(`/groups/${groupId}/members/${memberId}`, {
-      method: "DELETE",
-    })
-  }
-
-  async promoteToAdmin(groupId, memberId) {
-    return this.request(`/groups/${groupId}/admins/${memberId}`, {
-      method: "POST",
-    })
-  }
-
-  async demoteAdmin(groupId, adminId) {
-    return this.request(`/groups/${groupId}/admins/${adminId}`, {
-      method: "DELETE",
-    })
-  }
-
-  async leaveGroup(groupId) {
-    return this.request(`/groups/${groupId}/leave`, { method: 'POST' })
-  }
-
-  async deleteGroup(groupId) {
-    return this.request(`/groups/${groupId}`, { method: 'DELETE' })
-  }
+    return this.request("/messages", { method: "POST", body: JSON.stringify({ group: groupId, text, messageType: "group", replyTo, }), }) }
+  async addGroupMembers(groupId, memberIds) { return this.request(`/groups/${groupId}/members`, { method: "POST", body: JSON.stringify({ members: memberIds, }), }) }
+  async removeGroupMember(groupId, memberId) { return this.request(`/groups/${groupId}/members/${memberId}`, { method: "DELETE", }) }
+  async promoteToAdmin(groupId, memberId) { return this.request(`/groups/${groupId}/admins/${memberId}`, { method: "POST", }) }
+  async demoteAdmin(groupId, adminId) { return this.request(`/groups/${groupId}/admins/${adminId}`, { method: "DELETE", }) }
+  async leaveGroup(groupId) { return this.request(`/groups/${groupId}/leave`, { method: 'POST' }) }
+  async deleteGroup(groupId) { return this.request(`/groups/${groupId}`, { method: 'DELETE' }) }
 
   // User Methods
-  async getMe() {
-    return this.request("/users/me")
-  }
-  async getUserProfile(userId) {
-    return this.request(`/users/${userId}`)
-  }
+  async getMe() { return this.request("/users/me") }
+  async getUserProfile(userId) { return this.request(`/users/${userId}`) }
   async getFollowers(userId, page = 1, limit = 20) {
     try {
       let id = userId
@@ -389,28 +323,17 @@ class ApiService {
     const gid = groupId ? `&groupId=${encodeURIComponent(groupId)}` : ""
     return this.request(`/users/search?q=${encodeURIComponent(q)}&page=${page}&limit=${limit}${gid}`)
   }
-  async followUser(userId) {
-    return this.request(`/users/${userId}/follow`, { method: "POST" })
-  }
-  async unfollowUser(userId) {
-    return this.request(`/users/${userId}/unfollow`, { method: "POST" })
-  }
+  async followUser(userId) { return this.request(`/users/${userId}/follow`, { method: "POST" }) }
+  async unfollowUser(userId) { return this.request(`/users/${userId}/unfollow`, { method: "POST" }) }
 
-  async registerPushToken(token: string) {
-    return this.request(`/users/me/push-token`, { method: 'POST', body: JSON.stringify({ token }) })
-  }
+  async registerPushToken(token: string) { return this.request(`/users/me/push-token`, { method: 'POST', body: JSON.stringify({ token }) }) }
   async blockUser(userId: string) { return this.request(`/users/${userId}/block`, { method: 'POST' }) }
   async unblockUser(userId: string) { return this.request(`/users/${userId}/unblock`, { method: 'POST' }) }
   async report(targetType: 'entry'|'user'|'message'|'post', targetId: string, reason: 'spam'|'abuse'|'nudity'|'violence'|'other', details?: string, targetUser?: string) {
-    return this.request(`/safety/report`, { method: 'POST', body: JSON.stringify({ targetType, targetId, reason, details, targetUser }) })
-  }
+    return this.request(`/safety/report`, { method: 'POST', body: JSON.stringify({ targetType, targetId, reason, details, targetUser }) }) }
 
   async updateProfile(profileData: { name?: string; bio?: string; website?: string; profilePic?: string }) {
-    return this.request("/users/profile", {
-      method: "PUT",
-      body: JSON.stringify(profileData),
-    })
-  }
+    return this.request("/users/profile", { method: "PUT", body: JSON.stringify(profileData), }) }
 
   async uploadProfilePicture(fileUri: string) {
     try {
@@ -418,112 +341,50 @@ class ApiService {
       const token = this.token || (await AsyncStorage.getItem("token"))
       if (token) authHeader = { Authorization: `Bearer ${token}` }
       const formData = new FormData()
-      formData.append("file", {
-        uri: fileUri as any,
-        type: "image/jpeg",
-        name: "avatar.jpg",
-      } as any)
+      formData.append("file", { uri: fileUri as any, type: "image/jpeg", name: "avatar.jpg", } as any)
       const response = await fetch(`${this.baseURL}/upload`, { method: 'POST', headers: authHeader, body: formData as any })
       const data = await response.json()
       if (!response.ok) throw new Error(data?.message || 'Failed to upload profile picture')
       return { success: true, ...data }
-    } catch (e) {
-      return { success: false, message: e instanceof Error ? e.message : 'Failed' }
-    }
+    } catch (e) { return { success: false, message: e instanceof Error ? e.message : 'Failed' } }
   }
 
   // Auth Methods
   async login(email, password) {
     const res = await this.request("/users/login", { method: "POST", body: JSON.stringify({ email, password }) })
-    if ((res as any)?.token) {
-      this.token = (res as any).token
-      await AsyncStorage.setItem('token', (res as any).token)
-    }
-    if ((res as any)?.refreshToken) {
-      ;(this as any).refreshToken = (res as any).refreshToken
-      await AsyncStorage.setItem('refreshToken', (res as any).refreshToken)
-    }
+    if ((res as any)?.token) { this.token = (res as any).token; await AsyncStorage.setItem('token', (res as any).token) }
+    if ((res as any)?.refreshToken) { ;(this as any).refreshToken = (res as any).refreshToken; await AsyncStorage.setItem('refreshToken', (res as any).refreshToken) }
     return res
   }
 
   async register(name, email, password) {
     const res = await this.request("/users/register", { method: "POST", body: JSON.stringify({ name, email, password }) })
-    if ((res as any)?.token) {
-      this.token = (res as any).token
-      await AsyncStorage.setItem('token', (res as any).token)
-    }
-    if ((res as any)?.refreshToken) {
-      ;(this as any).refreshToken = (res as any).refreshToken
-      await AsyncStorage.setItem('refreshToken', (res as any).refreshToken)
-    }
+    if ((res as any)?.token) { this.token = (res as any).token; await AsyncStorage.setItem('token', (res as any).token) }
+    if ((res as any)?.refreshToken) { ;(this as any).refreshToken = (res as any).refreshToken; await AsyncStorage.setItem('refreshToken', (res as any).refreshToken) }
     return res
   }
 
-  async getNotifications(page = 1, limit = 20) {
-    return this.request(`/notifications?page=${page}&limit=${limit}`)
-  }
-  async getUnreadNotificationsCount() {
-    return this.request(`/notifications/unread-count`)
-  }
-  async markNotificationRead(id: string) {
-    return this.request(`/notifications/${id}/read`, { method: 'PUT' })
-  }
-  async markAllNotificationsRead() {
-    return this.request(`/notifications/read-all`, { method: 'PUT' })
-  }
-  async deleteNotification(id: string) {
-    return this.request(`/notifications/${id}`, { method: 'DELETE' })
-  }
+  async getNotifications(page = 1, limit = 20) { return this.request(`/notifications?page=${page}&limit=${limit}`) }
+  async getUnreadNotificationsCount() { return this.request(`/notifications/unread-count`) }
+  async markNotificationRead(id: string) { return this.request(`/notifications/${id}/read`, { method: 'PUT' }) }
+  async markAllNotificationsRead() { return this.request(`/notifications/read-all`, { method: 'PUT' }) }
+  async deleteNotification(id: string) { return this.request(`/notifications/${id}`, { method: 'DELETE' }) }
 
-  async getPostById(id: string) {
-    return this.request(`/posts/${id}`)
-  }
-
-  // Generic home feed (sorted by recency). Falls back if no dedicated following feed.
-  async getFeed(page = 1, limit = 10) {
-    return this.request(`/posts?page=${page}&limit=${limit}`)
-  }
-
-  async getReels(page = 1, limit = 8) {
-    return this.request(`/posts/reels?page=${page}&limit=${limit}`)
-  }
-
-  async getSavedPosts() {
-    return this.request(`/posts/saved`)
-  }
-
-  async likePost(postId: string) {
-    return this.request(`/posts/${postId}/like`, { method: 'PUT' })
-  }
-
-  async notInterested(postId: string) {
-    return this.request(`/posts/${postId}/not-interested`, { method: 'POST' })
-  }
-
-  async postMetric(postId: string, payload: { event: 'impression'|'watch_start'|'watch_progress'|'watch_complete'|'rewatch'; positionMs?: number; durationMs?: number; deltaMs?: number }) {
-    return this.request(`/posts/${postId}/metrics`, { method: 'POST', body: JSON.stringify(payload) })
-  }
-
-  async toggleSave(postId: string) {
-    return this.request(`/posts/${postId}/save`, { method: 'PUT' })
-  }
-  async addComment(postId: string, text: string) {
-    return this.request(`/posts/${postId}/comment`, { method: 'POST', body: JSON.stringify({ text }) })
-  }
-  async replyToComment(postId: string, commentId: string, text: string) {
-    return this.request(`/posts/${postId}/comment/${commentId}/reply`, { method: 'POST', body: JSON.stringify({ text }) })
-  }
-  async likeComment(postId: string, commentId: string, replyId?: string) {
-    return this.request(`/posts/${postId}/comment/like`, { method: 'PUT', body: JSON.stringify({ commentId, ...(replyId ? { replyId } : {}) }) })
-  }
+  async getPostById(id: string) { return this.request(`/posts/${id}`) }
+  async getFeed(page = 1, limit = 10) { return this.request(`/posts?page=${page}&limit=${limit}`) }
+  async getReels(page = 1, limit = 8) { return this.request(`/posts/reels?page=${page}&limit=${limit}`) }
+  async getSavedPosts() { return this.request(`/posts/saved`) }
+  async likePost(postId: string) { return this.request(`/posts/${postId}/like`, { method: 'PUT' }) }
+  async notInterested(postId: string) { return this.request(`/posts/${postId}/not-interested`, { method: 'POST' }) }
+  async postMetric(postId: string, payload: { event: 'impression'|'watch_start'|'watch_progress'|'watch_complete'|'rewatch'; positionMs?: number; durationMs?: number; deltaMs?: number }) { return this.request(`/posts/${postId}/metrics`, { method: 'POST', body: JSON.stringify(payload) }) }
+  async toggleSave(postId: string) { return this.request(`/posts/${postId}/save`, { method: 'PUT' }) }
+  async addComment(postId: string, text: string) { return this.request(`/posts/${postId}/comment`, { method: 'POST', body: JSON.stringify({ text }) }) }
+  async replyToComment(postId: string, commentId: string, text: string) { return this.request(`/posts/${postId}/comment/${commentId}/reply`, { method: 'POST', body: JSON.stringify({ text }) }) }
+  async likeComment(postId: string, commentId: string, replyId?: string) { return this.request(`/posts/${postId}/comment/like`, { method: 'PUT', body: JSON.stringify({ commentId, ...(replyId ? { replyId } : {}) }) }) }
 
   // Profile-specific helpers
-  async getMyPosts(page = 1, limit = 10) {
-    return this.request(`/posts/me?page=${page}&limit=${limit}`)
-  }
-  async getUserPosts(userId: string, page = 1, limit = 10) {
-    return this.request(`/posts?userId=${encodeURIComponent(userId)}&page=${page}&limit=${limit}`)
-  }
+  async getMyPosts(page = 1, limit = 10) { return this.request(`/posts/me?page=${page}&limit=${limit}`) }
+  async getUserPosts(userId: string, page = 1, limit = 10) { return this.request(`/posts?userId=${encodeURIComponent(userId)}&page=${page}&limit=${limit}`) }
 }
 
 const apiService = new ApiService()
