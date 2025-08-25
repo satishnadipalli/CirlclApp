@@ -435,6 +435,13 @@ export default function ReelsScreen() {
           <View style={styles.meta}>
             <Image source={{ uri: item?.user?.profilePic || 'https://i.pravatar.cc/100?img=6' }} style={styles.avatar} />
             <Text style={styles.name}>{item?.user?.name || 'User'}</Text>
+            {/* Audio overlay */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6, gap: 8 }}>
+              <Ionicons name="musical-notes" size={16} color="#fff" />
+              <Text style={{ color: '#fff' }} numberOfLines={1}>
+                {String(item?.audioTitle || 'Original audio')} · {String(item?.user?.name || 'User')}
+              </Text>
+            </View>
             {!!item?.title && (
               <Text style={styles.caption} numberOfLines={2}>
                 {String(item.title || '').split(/(#[A-Za-z0-9_]+)/g).map((seg: string, i: number) => (
