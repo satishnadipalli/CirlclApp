@@ -4,7 +4,7 @@ import { apiService } from "@/services/api.service"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import { useLocalSearchParams, useRouter } from "expo-router"
 import React, { useEffect, useMemo, useRef, useState } from "react"
-import { Alert, FlatList, Image, StyleSheet, Text, TextInput, TouchableOpacity, View, Modal, ActivityIndicator } from "react-native"
+import { Alert, FlatList, Image, StyleSheet, Text, TextInput, TouchableOpacity, View, Modal, ActivityIndicator, Platform, StatusBar } from "react-native"
 import Icon from "react-native-vector-icons/MaterialIcons"
 import * as ImagePicker from 'expo-image-picker'
 
@@ -414,7 +414,7 @@ const FollowButton: React.FC<{ memberId: string }> = ({ memberId }) => {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff", paddingTop: 50 },
+  container: { flex: 1, backgroundColor: "#fff", paddingTop: Platform.OS === "android" ? StatusBar.currentHeight - 10 : 0, },
   header: { paddingHorizontal: 16, paddingBottom: 8, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   back: { fontSize: 24 },
   title: { fontSize: 18, fontWeight: "700" },
