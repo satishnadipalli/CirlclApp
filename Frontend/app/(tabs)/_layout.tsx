@@ -114,6 +114,9 @@ export default function TabLayout() {
           ),
         }}
       />
+
+      {/* Hidden screen for hashtag details */}
+      <Tabs.Screen name="hashtag" options={{ href: null, headerShown: true, headerTitle: "#hashtag" }} />
     </Tabs>
   );
 }

@@ -392,6 +392,10 @@ class ApiService {
   // Profile-specific helpers
   async getMyPosts(page = 1, limit = 10) { return this.request(`/posts/me?page=${page}&limit=${limit}`) }
   async getUserPosts(userId: string, page = 1, limit = 10) { return this.request(`/posts?userId=${encodeURIComponent(userId)}&page=${page}&limit=${limit}`) }
+  async getHashtagFeed(tag: string, page = 1, limit = 18) {
+    const t = encodeURIComponent(tag.replace(/^#/, ''))
+    return this.request(`/posts?hashtag=${t}&page=${page}&limit=${limit}`)
+  }
 }
 
 const apiService = new ApiService()

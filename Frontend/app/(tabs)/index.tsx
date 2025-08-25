@@ -441,6 +441,15 @@ export default function HomeScreen() {
                   <Text style={styles.captionUsername}>{user?.name || 'User'} </Text>
                   {item?.title || item?.description || ''}
                 </Text>
+                {!!(Array.isArray(item?.hashtags) && item.hashtags.length > 0) && (
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+                    {item.hashtags.slice(0,6).map((h: string) => (
+                      <TouchableOpacity key={h} onPress={() => router.push({ pathname: '/(tabs)/hashtag', params: { tag: h } })} style={{ backgroundColor: '#f1f1f1', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6 }}>
+                        <Text style={{ color: '#333' }}>#{h}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
               </View>
               <TouchableOpacity onPress={() => router.push(`/post/${item._id}`)}>
                 <Text style={styles.viewComments}>View comments</Text>
