@@ -197,6 +197,11 @@ export default function ChatScreen() {
     return { _id: fromId, name: "", profilePic: "" } as User
   }
 
+  // Kick off loading on mount
+  useEffect(() => {
+    ;(async () => { try { await loadUserAndInitialize() } catch {} })()
+  }, [])
+
   // Attach/Recording handlers (lightweight stubs to avoid runtime errors)
   const onAttachPress = async () => {
     try {
@@ -1009,6 +1014,23 @@ function formatDuration(ms: number) {
   const mm = String(Math.floor(total / 60)).padStart(2, '0')
   const ss = String(total % 60).padStart(2, '0')
   return `${mm}:${ss}`
+}
+
+// List scroll handler
+function handleScroll(e: any) {
+  try {
+    const { layoutMeasurement, contentSize, contentOffset } = e?.nativeEvent || {}
+    if (!layoutMeasurement || !contentSize || !contentOffset) return
+    const paddingToBottom = 60
+    const atBottom = contentOffset.y + layoutMeasurement.height >= contentSize.height - paddingToBottom
+    // Using global refs via closure: keep both state and ref in sync
+    setIsUserAtBottom(atBottom)
+    isUserAtBottomRef.current = atBottom
+    if (atBottom) {
+      setShowScrollToBottom(false)
+      setNewMessagesCount(0)
+    }
+  } catch {}
 }
 
 const styles = StyleSheet.create({
