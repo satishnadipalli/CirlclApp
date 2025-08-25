@@ -32,6 +32,8 @@ export default function HomeScreen() {
   const [feedRefreshing, setFeedRefreshing] = useState(false)
   const likeLocalRef = React.useRef<Record<string, boolean>>({})
   const likeCountLocalRef = React.useRef<Record<string, number>>({})
+  const [suggestions, setSuggestions] = useState<Array<{ user: any; mutualCount: number; mutualNames: string[] }>>([])
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false)
 
   const router = useRouter()
   const notifHandlerRef = React.useRef<((data: any)=>void)|null>(null)
@@ -52,6 +54,7 @@ export default function HomeScreen() {
     initializeSocket()
     loadDaily()
     loadFeed(1, true)
+    loadSuggestions()
 
     const onPosted = () => {
       loadDaily()
@@ -263,6 +266,17 @@ export default function HomeScreen() {
     return adj != null ? adj : base
   }
 
+  const loadSuggestions = async () => {
+    try {
+      setSuggestionsLoading(true)
+      const res: any = await (api as any).getSuggestions()
+      const arr = Array.isArray(res?.suggestions) ? res.suggestions : []
+      setSuggestions(arr)
+    } catch {
+      setSuggestions([])
+    } finally { setSuggestionsLoading(false) }
+  }
+
   return (
     <View style={{ flex: 1, backgroundColor: "#fafafa" }}>
       {showCelebration && (
@@ -373,6 +387,46 @@ export default function HomeScreen() {
                 </TouchableOpacity>
               )}
             </View>
+
+            {/* Suggestions carousel */}
+            {suggestions.length > 0 && (
+              <View style={{ backgroundColor: '#fff', paddingVertical: 10, borderBottomWidth: 0.5, borderBottomColor: '#dbdbdb' }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 12, marginBottom: 6 }}>
+                  <Text style={{ fontWeight: '900', color: '#000' }}>Suggested for you</Text>
+                  <TouchableOpacity onPress={() => loadSuggestions()}><Text style={{ color: '#007aff', fontWeight: '700' }}>Refresh</Text></TouchableOpacity>
+                </View>
+                <FlatList
+                  data={suggestions}
+                  keyExtractor={(it, idx) => String(it?.user?._id || idx)}
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{ paddingHorizontal: 8, gap: 10 }}
+                  renderItem={({ item }) => (
+                    <View style={{ width: 200, backgroundColor: '#fff', borderWidth: 1, borderColor: '#eee', borderRadius: 12, padding: 12 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                        <Image source={{ uri: item?.user?.profilePic || 'https://i.pravatar.cc/150?img=14' }} style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#eee' }} />
+                        <View style={{ marginLeft: 10, flex: 1 }}>
+                          <Text numberOfLines={1} style={{ fontWeight: '800', color: '#000' }}>{item?.user?.name || 'User'}</Text>
+                          {item?.mutualCount > 0 && (
+                            <Text numberOfLines={1} style={{ color: '#666', fontSize: 12 }}>
+                              Followed by {item.mutualNames.join(', ')}{item.mutualCount > item.mutualNames.length ? ` +${item.mutualCount - item.mutualNames.length}` : ''}
+                            </Text>
+                          )}
+                        </View>
+                      </View>
+                      <View style={{ flexDirection: 'row', gap: 8 }}>
+                        <TouchableOpacity onPress={async () => { try { await (api as any).followUser(item?.user?._id) } catch {}; loadSuggestions(); }} style={{ flex: 1, backgroundColor: '#0095f6', borderRadius: 8, alignItems: 'center', paddingVertical: 8 }}>
+                          <Text style={{ color: '#fff', fontWeight: '800' }}>Follow</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => router.push({ pathname: '/otherProfile', params: { userId: String(item?.user?._id || '') } })} style={{ width: 44, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f2f2f2' }}>
+                          <Ionicons name="person-outline" size={18} color="#333" />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  )}
+                />
+              </View>
+            )}
           </>
         }
         data={feed}

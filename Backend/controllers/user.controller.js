@@ -223,7 +223,7 @@ const unfollowUser = async (req, res) => {
     const onlineUsers = req.app.get("onlineUsers");
 
     // Emit socket event to user being unfollowed
-    const socketId = onlineUsers.get(userToUnfollow._id.toString());
+    const socketId = onlineUsers.get(userToUnfollow._._id?.toString?.() || userToUnfollow._id.toString());
     if (socketId) {
       io.to(socketId).emit("unfollowed", {
         unfollowerId: currentUser._id,
@@ -449,6 +449,75 @@ const getOnlineUsers = async (req, res) => {
   } catch (e) { res.status(500).json({ success: false, message: e.message }) }
 }
 
+// Suggestions based on mutual connections (friends-of-friends)
+const getSuggestions = async (req, res) => {
+  try {
+    const me = await User.findById(req.user.id).select('following blockedUsers')
+    if (!me) return res.status(404).json({ success: false, message: 'User not found' })
+    const myId = String(req.user.id)
+    const followingIds = (me.following || []).map((x) => String(x))
+    const blocked = new Set((me.blockedUsers || []).map((x) => String(x)))
+
+    // Candidates: users followed by people I follow (exclude me, already following, blocked)
+    const candidates = await User.find({
+      _id: { $ne: myId },
+      followers: { $in: followingIds },
+      // exclusion filters applied after fetch for simplicity
+    }).select('_id name username profilePic followers')
+      .limit(400)
+
+    const items = []
+    for (const u of candidates) {
+      const uid = String(u._id)
+      if (blocked.has(uid)) continue
+      if (followingIds.includes(uid)) continue
+      // mutuals = my following intersect u.followers
+      const followersArr = (u.followers || []).map((x) => String(x))
+      let count = 0
+      const mutualIds = []
+      const setMy = new Set(followingIds)
+      for (const f of followersArr) { if (setMy.has(String(f))) { count++; mutualIds.push(String(f)); } }
+      if (count === 0) continue
+      items.push({ u, count, mutualIds })
+    }
+
+    // Sort by mutual count desc and trim
+    items.sort((a, b) => b.count - a.count)
+    const top = items.slice(0, 20)
+
+    // Resolve up to two mutual names per suggestion
+    const idSet = new Set()
+    top.forEach(x => x.mutualIds.slice(0,2).forEach(id => idSet.add(id)))
+    const mutualDocs = await User.find({ _id: { $in: Array.from(idSet) } }).select('_id name username')
+    const nameById = new Map(mutualDocs.map(d => [String(d._id), d.name || d.username || 'Friend']))
+
+    const suggestions = top.map(({ u, count, mutualIds }) => ({
+      user: { _id: String(u._id), name: u.name, username: u.username, profilePic: u.profilePic || '' },
+      mutualCount: count,
+      mutualNames: mutualIds.slice(0,2).map((id) => nameById.get(String(id)) || 'Friend'),
+    }))
+
+    return res.json({ success: true, suggestions })
+  } catch (e) { return res.status(500).json({ success: false, message: e.message }) }
+}
+
+// List mutual connections with a target user
+const getMutuals = async (req, res) => {
+  try {
+    const targetId = String(req.params.id || '')
+    if (!targetId) return res.status(400).json({ success: false, message: 'id required' })
+    const me = await User.findById(req.user.id).select('following')
+    if (!me) return res.status(404).json({ success: false, message: 'User not found' })
+    const target = await User.findById(targetId).select('followers')
+    if (!target) return res.status(404).json({ success: false, message: 'Target not found' })
+    const myFollowingSet = new Set((me.following || []).map((x) => String(x)))
+    const mutualIds = (target.followers || []).map((x) => String(x)).filter((id) => myFollowingSet.has(id))
+    const limit = Math.min(30, Math.max(1, Number.parseInt(req.query.limit) || 10))
+    const docs = await User.find({ _id: { $in: mutualIds } }).select('_id name username profilePic').limit(limit)
+    return res.json({ success: true, total: mutualIds.length, users: docs })
+  } catch (e) { return res.status(500).json({ success: false, message: e.message }) }
+}
+
 module.exports = {
   register,
   login,
@@ -471,4 +540,6 @@ module.exports = {
   getNotificationPrefs,
   updateNotificationPrefs,
   getOnlineUsers,
+  getSuggestions,
+  getMutuals,
 };
