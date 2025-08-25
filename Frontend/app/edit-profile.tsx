@@ -10,6 +10,7 @@ import api from "@/services/api.service"
 export default function EditProfileScreen() {
   const router = useRouter()
   const [name, setName] = useState("")
+  const [username, setUsername] = useState("")
   const [bio, setBio] = useState("")
   const [website, setWebsite] = useState("")
   const [currentAvatar, setCurrentAvatar] = useState<string>("")
@@ -23,6 +24,7 @@ export default function EditProfileScreen() {
         const me: any = await api.getMe()
         const u = (me && (me.user || me)) || {}
         setName(u.name || "")
+        setUsername(u.username || "")
         setBio(u.bio || "")
         setWebsite(u.website || "")
         setCurrentAvatar(u.profilePic || "")
@@ -61,12 +63,16 @@ export default function EditProfileScreen() {
         avatarUrl = up?.user?.profilePic
       }
 
-      const r: any = await api.updateProfile({ name: name.trim(), bio: bio.trim(), website: website.trim(), ...(avatarUrl ? { profilePic: avatarUrl } : {}) })
+      const payload: any = { name: name.trim(), bio: bio.trim(), website: website.trim() }
+      if (username.trim()) payload.username = username.trim()
+      if (avatarUrl) payload.profilePic = avatarUrl
+
+      const r: any = await api.updateProfile(payload)
       if (r?.success) {
         try {
           const prev = await AsyncStorage.getItem("user")
           const parsed = prev ? JSON.parse(prev) : {}
-          const merged = { ...parsed, name: name.trim(), bio: bio.trim(), website: website.trim(), profilePic: avatarUrl || parsed.profilePic }
+          const merged = { ...parsed, name: name.trim(), username: username.trim(), bio: bio.trim(), website: website.trim(), profilePic: avatarUrl || parsed.profilePic }
           await AsyncStorage.setItem("user", JSON.stringify(merged))
         } catch {}
         Alert.alert("Saved", "Profile updated", [{ text: "OK", onPress: () => router.back() }])
@@ -103,6 +109,11 @@ export default function EditProfileScreen() {
       <View style={styles.formGroup}>
         <Text style={styles.label}>Name</Text>
         <TextInput value={name} onChangeText={setName} style={styles.input} placeholder="Your name" />
+      </View>
+      <View style={styles.formGroup}>
+        <Text style={styles.label}>Username</Text>
+        <TextInput value={username} onChangeText={setUsername} autoCapitalize="none" style={styles.input} placeholder="your.handle" />
+        <Text style={{ color: '#777', marginTop: 4, fontSize: 12 }}>3-30 chars; letters, numbers, dot, underscore, hyphen</Text>
       </View>
       <View style={styles.formGroup}>
         <Text style={styles.label}>Bio</Text>

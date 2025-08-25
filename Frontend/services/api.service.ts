@@ -332,8 +332,12 @@ class ApiService {
   async report(targetType: 'entry'|'user'|'message'|'post', targetId: string, reason: 'spam'|'abuse'|'nudity'|'violence'|'other', details?: string, targetUser?: string) {
     return this.request(`/safety/report`, { method: 'POST', body: JSON.stringify({ targetType, targetId, reason, details, targetUser }) }) }
 
-  async updateProfile(profileData: { name?: string; bio?: string; website?: string; profilePic?: string }) {
-    return this.request("/users/profile", { method: "PUT", body: JSON.stringify(profileData), }) }
+  async updateProfile(profileData: { name?: string; bio?: string; website?: string; profilePic?: string; username?: string }) {
+    return this.request("/users/profile", {
+      method: "PUT",
+      body: JSON.stringify(profileData),
+    })
+  }
 
   async uploadProfilePicture(fileUri: string) {
     try {
