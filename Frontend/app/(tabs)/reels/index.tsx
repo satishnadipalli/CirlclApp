@@ -26,6 +26,8 @@ export default function ReelsScreen() {
   const [commentsPost, setCommentsPost] = useState<any | null>(null)
   const [commentsLoading, setCommentsLoading] = useState<boolean>(false)
   const [commentText, setCommentText] = useState<string>('')
+  const [replyTarget, setReplyTarget] = useState<{ commentId: string; replyToName?: string } | null>(null)
+  const [commentsSort, setCommentsSort] = useState<'top'|'newest'>('top')
   const savedLocalRef = useRef<Record<string, boolean>>({})
 
   const videoRefs = useRef<Map<string, Video>>(new Map())
@@ -236,7 +238,12 @@ export default function ReelsScreen() {
     const text = commentText.trim()
     setCommentText('')
     try {
-      const res: any = await (api as any).addComment(id, text)
+      let res: any
+      if (replyTarget?.commentId) {
+        res = await (api as any).replyToComment(id, replyTarget.commentId, text)
+      } else {
+        res = await (api as any).addComment(id, text)
+      }
       if (res && (res._id || res?.success)) {
         try {
           const fresh: any = await (api as any).getPostById(id)
@@ -244,6 +251,7 @@ export default function ReelsScreen() {
         } catch {}
       }
     } catch {}
+    setReplyTarget(null)
   }
 
   const onShare = async (item: any) => {
@@ -497,31 +505,70 @@ export default function ReelsScreen() {
               <View style={{ height: 48, alignItems: 'center', justifyContent: 'center' }}>
                 <View style={{ width: 42, height: 5, borderRadius: 3, backgroundColor: '#444' }} />
               </View>
-              <View style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
+              <View style={{ paddingHorizontal: 16, paddingBottom: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                 <Text style={{ color: '#fff', fontWeight: '800', fontSize: 16 }}>Comments</Text>
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                  <TouchableOpacity onPress={() => setCommentsSort('top')}>
+                    <Text style={{ color: commentsSort === 'top' ? '#4ea1ff' : '#aaa' }}>Top</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => setCommentsSort('newest')}>
+                    <Text style={{ color: commentsSort === 'newest' ? '#4ea1ff' : '#aaa' }}>Newest</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
               <FlatList
-                data={Array.isArray(commentsPost?.comments) ? commentsPost.comments : []}
+                data={(() => {
+                  const arr = Array.isArray(commentsPost?.comments) ? commentsPost.comments : []
+                  if (commentsSort === 'newest') return [...arr].sort((a: any, b: any) => new Date(b?.createdAt || 0).getTime() - new Date(a?.createdAt || 0).getTime())
+                  return [...arr].sort((a: any, b: any) => (b?.likes?.length || 0) - (a?.likes?.length || 0))
+                })()}
                 keyExtractor={(c: any) => String(c?._id || Math.random())}
                 style={{ maxHeight: height * 0.5 }}
                 contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 12 }}
                 ListEmptyComponent={!commentsLoading ? (<Text style={{ color: '#ccc', paddingHorizontal: 16, paddingVertical: 8 }}>No comments yet</Text>) : null}
                 renderItem={({ item }) => (
-                  <View style={{ flexDirection: 'row', gap: 10, paddingVertical: 10 }}>
-                    <Image source={{ uri: item?.profilePic || 'https://i.pravatar.cc/80?img=5' }} style={{ width: 34, height: 34, borderRadius: 17 }} />
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ color: '#fff' }}>
-                        <Text style={{ fontWeight: '800' }}>{item?.name || 'User'} </Text>
-                        {String(item?.text || '')}
-                      </Text>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6, gap: 12 }}>
-                        {!!(item?.likes?.length) && <Text style={{ color: '#aaa' }}>{item.likes.length} likes</Text>}
-                        <TouchableOpacity onPress={async () => { try { await (api as any).likeComment(String(commentsOpenForId || ''), String(item?._id || '')) ; const fresh: any = await (api as any).getPostById(String(commentsOpenForId || '')); if (fresh?.success) setCommentsPost(fresh.post) } catch {} }}>
-                          <Text style={{ color: '#fff' }}>Like</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity onPress={() => setCommentText(`@${String(item?.name || '').split(' ')[0]} `)}>
-                          <Text style={{ color: '#fff' }}>Reply</Text>
-                        </TouchableOpacity>
+                  <View>
+                    <View style={{ flexDirection: 'row', gap: 10, paddingVertical: 10 }}>
+                      <Image source={{ uri: item?.profilePic || 'https://i.pravatar.cc/80?img=5' }} style={{ width: 34, height: 34, borderRadius: 17 }} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ color: '#fff' }}>
+                          <Text style={{ fontWeight: '800' }}>{item?.name || 'User'} </Text>
+                          {String(item?.text || '')}
+                        </Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6, gap: 12 }}>
+                          {!!(item?.likes?.length) && <Text style={{ color: '#aaa' }}>{item.likes.length} likes</Text>}
+                          <TouchableOpacity onPress={async () => { try { await (api as any).likeComment(String(commentsOpenForId || ''), String(item?._id || '')) ; const fresh: any = await (api as any).getPostById(String(commentsOpenForId || '')); if (fresh?.success) setCommentsPost(fresh.post) } catch {} }}>
+                            <Text style={{ color: '#fff' }}>Like</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity onPress={() => { setReplyTarget({ commentId: String(item?._id || '') , replyToName: String(item?.name || '') }); setCommentText(`@${String(item?.name || '').split(' ')[0]} `) }}>
+                            <Text style={{ color: '#fff' }}>Reply</Text>
+                          </TouchableOpacity>
+                        </View>
+                        {/* Replies */}
+                        {Array.isArray(item?.replies) && item.replies.length > 0 && (
+                          <View style={{ marginTop: 6, paddingLeft: 12, borderLeftWidth: 2, borderLeftColor: '#222' }}>
+                            {item.replies.map((r: any) => (
+                              <View key={String(r?._id || Math.random())} style={{ flexDirection: 'row', gap: 10, paddingVertical: 8 }}>
+                                <Image source={{ uri: r?.profilePic || 'https://i.pravatar.cc/80?img=6' }} style={{ width: 28, height: 28, borderRadius: 14 }} />
+                                <View style={{ flex: 1 }}>
+                                  <Text style={{ color: '#fff' }}>
+                                    <Text style={{ fontWeight: '800' }}>{r?.name || 'User'} </Text>
+                                    {String(r?.text || '')}
+                                  </Text>
+                                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 12 }}>
+                                    {!!(r?.likes?.length) && <Text style={{ color: '#aaa' }}>{r.likes.length} likes</Text>}
+                                    <TouchableOpacity onPress={async () => { try { await (api as any).likeComment(String(commentsOpenForId || ''), String(item?._id || ''), String(r?._id || '')) ; const fresh: any = await (api as any).getPostById(String(commentsOpenForId || '')); if (fresh?.success) setCommentsPost(fresh.post) } catch {} }}>
+                                      <Text style={{ color: '#fff' }}>Like</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity onPress={() => { setReplyTarget({ commentId: String(item?._id || ''), replyToName: String(r?.name || '') }); setCommentText(`@${String(r?.name || '').split(' ')[0]} `) }}>
+                                      <Text style={{ color: '#fff' }}>Reply</Text>
+                                    </TouchableOpacity>
+                                  </View>
+                                </View>
+                              </View>
+                            ))}
+                          </View>
+                        )}
                       </View>
                     </View>
                   </View>
@@ -535,6 +582,11 @@ export default function ReelsScreen() {
                   value={commentText}
                   onChangeText={setCommentText}
                 />
+                {!!replyTarget && (
+                  <TouchableOpacity onPress={() => { setReplyTarget(null); setCommentText('') }} style={{ paddingHorizontal: 10, paddingVertical: 6, backgroundColor: '#222', borderRadius: 999 }}>
+                    <Text style={{ color: '#aaa' }}>Replying to {replyTarget.replyToName ? replyTarget.replyToName.split(' ')[0] : 'comment'} ×</Text>
+                  </TouchableOpacity>
+                )}
                 <TouchableOpacity onPress={submitComment} style={{ paddingHorizontal: 12, paddingVertical: 8 }}>
                   <Text style={{ color: '#4ea1ff', fontWeight: '800' }}>Send</Text>
                 </TouchableOpacity>

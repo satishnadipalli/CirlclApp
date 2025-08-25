@@ -388,6 +388,10 @@ class ApiService {
   async addComment(postId: string, text: string) { return this.request(`/posts/${postId}/comment`, { method: 'POST', body: JSON.stringify({ text }) }) }
   async replyToComment(postId: string, commentId: string, text: string) { return this.request(`/posts/${postId}/comment/${commentId}/reply`, { method: 'POST', body: JSON.stringify({ text }) }) }
   async likeComment(postId: string, commentId: string, replyId?: string) { return this.request(`/posts/${postId}/comment/like`, { method: 'PUT', body: JSON.stringify({ commentId, ...(replyId ? { replyId } : {}) }) }) }
+  async editComment(postId: string, commentId: string, text: string) { return this.request(`/posts/${postId}/comment/${commentId}`, { method: 'PUT', body: JSON.stringify({ text }) }) }
+  async editReply(postId: string, commentId: string, replyId: string, text: string) { return this.request(`/posts/${postId}/comment/${commentId}/reply/${replyId}`, { method: 'PUT', body: JSON.stringify({ text }) }) }
+  async deleteComment(postId: string, commentId: string) { return this.request(`/posts/${postId}/comment/${commentId}`, { method: 'DELETE' }) }
+  async deleteReply(postId: string, commentId: string, replyId: string) { return this.request(`/posts/${postId}/comment/${commentId}/reply/${replyId}`, { method: 'DELETE' }) }
 
   // Profile-specific helpers
   async getMyPosts(page = 1, limit = 10) { return this.request(`/posts/me?page=${page}&limit=${limit}`) }
