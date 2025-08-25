@@ -26,6 +26,7 @@ import {
 import * as ImagePicker from 'expo-image-picker'
 import * as DocumentPicker from 'expo-document-picker'
 import { Video as ExpoVideo } from 'expo-av'
+import * as Audio from 'expo-av'
 
 import { Avatar } from "react-native-paper"
 import Icon from "react-native-vector-icons/MaterialIcons"
@@ -651,10 +652,11 @@ export default function ChatScreen() {
 
   const onAttachPress = async () => {
     try {
-      const choice = await new Promise<'gallery'|'file'|'cancel'>((resolve) => {
+      const choice = await new Promise<'gallery'|'file'|'voice'|'cancel'>((resolve) => {
         Alert.alert('Attach', 'Choose source', [
           { text: 'Gallery', onPress: () => resolve('gallery') },
           { text: 'File', onPress: () => resolve('file') },
+          { text: 'Voice note', onPress: () => resolve('voice') },
           { text: 'Cancel', style: 'cancel', onPress: () => resolve('cancel') },
         ])
       })
@@ -672,6 +674,20 @@ export default function ChatScreen() {
           const assets = [{ uri: picked.uri, name: picked.name }]
           await sendAttachment(assets)
         }
+      } else if (choice === 'voice') {
+        try {
+          const perm = await Audio.requestPermissionsAsync()
+          if (!(perm?.status === 'granted')) return
+          const rec = new Audio.Recording()
+          await rec.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY)
+          await rec.startAsync()
+          await new Promise((r) => setTimeout(r, 3000)) // record 3s quick note; in production, add UI to control
+          await rec.stopAndUnloadAsync()
+          const uri = rec.getURI()
+          if (uri) {
+            await sendAttachment([{ uri, name: 'voice-note.m4a', type: 'audio/m4a' }])
+          }
+        } catch {}
       }
     } catch {}
   }
@@ -940,6 +956,23 @@ export default function ChatScreen() {
             {message.text}
           </Text>
 
+          {/* Simple link preview */}
+          {(() => {
+            try {
+              const match = String(message.text || '').match(/https?:\/\/[^\s]+/i)
+              if (!match) return null
+              const url = match[0]
+              return (
+                <TouchableOpacity onPress={() => { try { (require('expo-web-browser') as any).openBrowserAsync(url) } catch {} }} style={{ marginTop: 8 }}>
+                  <View style={{ backgroundColor: isMyMessage ? '#e6f2ff' : '#f5f5f5', borderRadius: 10, padding: 10, maxWidth: 260 }}>
+                    <Text numberOfLines={2} style={{ color: '#1a0dab', textDecorationLine: 'underline' }}>{url}</Text>
+                    <Text style={{ color: '#555', marginTop: 4 }} numberOfLines={2}>Open link</Text>
+                  </View>
+                </TouchableOpacity>
+              )
+            } catch { return null }
+          })()}
+
           {/* Reactions bar */}
           {Array.isArray((message as any).reactions) && (message as any).reactions.length > 0 && (
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
@@ -1151,6 +1184,9 @@ export default function ChatScreen() {
           />
           <TouchableOpacity onPress={onAttachPress} style={[styles.attachButton]}>
             <Icon name="attach-file" size={22} color="#333" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={onAttachPress} style={[styles.attachButton]}>
+            <Icon name="mic" size={22} color="#333" />
           </TouchableOpacity>
           <TouchableOpacity
             onPress={sendMessage}
