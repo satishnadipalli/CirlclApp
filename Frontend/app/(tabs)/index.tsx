@@ -538,7 +538,7 @@ const styles = StyleSheet.create({
     backgroundColor: "white",
     borderBottomWidth: 0.5,
     borderBottomColor: "#dbdbdb",
-    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight- 10 : 0,
+    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight + 10: 0,
   },
   notificationButton: { padding: 8, position: 'relative' },
   storiesContainer: { paddingVertical: 0, backgroundColor: 'white', borderBottomWidth: 0.5, borderBottomColor: '#dbdbdb' },

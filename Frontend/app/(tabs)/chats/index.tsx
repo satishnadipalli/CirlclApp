@@ -6,7 +6,7 @@ import { socketService } from "@/services/socket.service"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import { useRouter } from "expo-router"
 import React, { useCallback, useEffect, useRef, useState } from "react"
-import { Alert, FlatList, LayoutAnimation, Platform, StyleSheet, Text, TextInput, UIManager, View, TouchableOpacity, StatusBar, Image, ScrollView } from "react-native"
+import { Alert, FlatList, LayoutAnimation, Platform, StyleSheet, Text, TextInput, UIManager, View, TouchableOpacity, StatusBar, Image, ScrollView, Button } from "react-native"
 import { useFocusEffect } from "@react-navigation/native"
 import { Ionicons } from "@expo/vector-icons"
 
@@ -289,7 +289,7 @@ export default function ChatsScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: "#fff" }}>
       <StatusBar barStyle="dark-content" />
-      <View style={{ paddingHorizontal: 12, paddingTop: 12, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: "#f3f3f3" }}>
+      <View style={{ paddingHorizontal: 12, paddingTop:Platform.OS == "android" ? StatusBar.currentHeight + 20 : 0, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: "#f3f3f3" }}>
         <TextInput
           value={search}
           onChangeText={setSearch}
@@ -297,6 +297,13 @@ export default function ChatsScreen() {
           placeholderTextColor="#999"
           style={{ backgroundColor: "#f2f2f2", borderRadius: 10, paddingHorizontal: 12, height: 40, color: '#000' }}
         />
+        {/* <Button
+          style={{
+
+          }}
+        >
+          <Text>Group</Text>
+        </Button> */}
       </View>
       {suggestions.length > 0 && (
         <View style={{ paddingVertical: 10 }}>
