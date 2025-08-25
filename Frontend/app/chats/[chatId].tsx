@@ -201,6 +201,12 @@ export default function ChatScreen() {
 
       socketService.registerUser(user._id)
 
+      // Seed presence map once at connect
+      try {
+        const res: any = await apiService.getOnlineUsers()
+        if (res?.success && Array.isArray(res.userIds)) setOnlineUsers(new Set(res.userIds.map(String)))
+      } catch {}
+
       const onMessageCb = (msg: any) => {
         console.log("[v0] Received socket message:", msg)
 
@@ -286,9 +292,13 @@ export default function ChatScreen() {
               (a, b) => new Date(a.createdAt || "").getTime() - new Date(b.createdAt || "").getTime(),
             )
 
-            if (!isUserAtBottomRef.current && newMessage.sender !== "me") {
+            // Decide autoscroll: if user is near bottom or message is from me, autoscroll to end
+            const shouldAuto = isUserAtBottomRef.current || newMessage.sender === 'me'
+            if (!shouldAuto && newMessage.sender !== "me") {
               setNewMessagesCount((c) => c + 1)
               setShowScrollToBottom(true)
+            } else {
+              setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 50)
             }
 
             return nextMessages
@@ -868,6 +878,14 @@ export default function ChatScreen() {
       }, 100)
     }
   }, [typingUsers, isUserAtBottom])
+
+  // Refresh presence on screen focus if available
+  useEffect(() => {
+    const sub = (require('expo-router') as any).useFocusEffect?.(() => {
+      (async () => { try { const res: any = await apiService.getOnlineUsers(); if (res?.success && Array.isArray(res.userIds)) setOnlineUsers(new Set(res.userIds.map(String))) } catch {} })()
+    })
+    return () => { try { sub && sub() } catch {} }
+  }, [])
 
   useEffect(() => {
     if (isUserAtBottom) {

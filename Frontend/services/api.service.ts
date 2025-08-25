@@ -403,6 +403,10 @@ class ApiService {
   async getNearbyFeed(lat: number, lng: number, radiusKm = 50, page = 1, limit = 18) {
     return this.request(`/posts/nearby?lat=${lat}&lng=${lng}&radiusKm=${radiusKm}&page=${page}&limit=${limit}`)
   }
+
+  async getOnlineUsers() {
+    return this.request(`/users/presence/online`)
+  }
 }
 
 const apiService = new ApiService()
