@@ -24,6 +24,7 @@ import {
 const { height, width } = Dimensions.get("window")
 
 const API_BASE_URL = require("../../constants/Config").API_BASE_URL
+const DRAFT_KEY = 'compose_post_draft_v1'
 
 export default function ComposePostScreen() {
   const router = useRouter()
@@ -37,6 +38,7 @@ export default function ComposePostScreen() {
   const [audience, setAudience] = useState("Everyone")
   const [shareOnPlatforms, setShareOnPlatforms] = useState([])
   const [isPosting, setIsPosting] = useState(false)
+  const [hasDraft, setHasDraft] = useState(false)
 
   const [mediaList, setMediaList] = useState(() => {
     try {
@@ -48,6 +50,7 @@ export default function ComposePostScreen() {
 
   const [uploadProgress, setUploadProgress] = useState(0)
   const abortRef = useRef<AbortController | null>(null)
+  const saveTimerRef = useRef<any>(null)
 
   const currentMedia = mediaList[0] // Show first media in preview
 
@@ -162,6 +165,48 @@ export default function ComposePostScreen() {
     return () => { abortRef.current?.abort?.() }
   }, [])
 
+  // Load draft on first mount if no incoming media
+  useEffect(() => {
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem(DRAFT_KEY)
+        if (!raw) { setHasDraft(false); return }
+        const draft = JSON.parse(raw)
+        // Only auto-restore if no media passed from previous step
+        if ((!mediaList || mediaList.length === 0) && Array.isArray(draft?.mediaList)) {
+          setMediaList(draft.mediaList)
+        }
+        if (typeof draft?.caption === 'string') setCaption(draft.caption)
+        if (typeof draft?.audience === 'string') setAudience(draft.audience)
+        if (typeof draft?.aiLabelEnabled === 'boolean') setAiLabelEnabled(draft.aiLabelEnabled)
+        if (draft?.location && (draft.location.lat != null || draft.location.name)) setLocation(draft.location)
+        setHasDraft(true)
+      } catch { setHasDraft(false) }
+    })()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Autosave draft (debounced)
+  useEffect(() => {
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    saveTimerRef.current = setTimeout(async () => {
+      try {
+        const payload = { caption, mediaList, audience, aiLabelEnabled, location }
+        await AsyncStorage.setItem(DRAFT_KEY, JSON.stringify(payload))
+        setHasDraft(true)
+      } catch {}
+    }, 500)
+    return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current) }
+  }, [caption, mediaList, audience, aiLabelEnabled, location])
+
+  const discardDraft = async () => {
+    try { await AsyncStorage.removeItem(DRAFT_KEY) } catch {}
+    setHasDraft(false)
+    setCaption("")
+    // Do not clear mediaList if user came from editor with selection
+    if (!mediaData) setMediaList([])
+  }
+
   const handleAddLocation = async () => {
     try {
       const place = await Location.reverseGeocodeAsync({ latitude: location?.lat || 0, longitude: location?.lng || 0 })
@@ -251,6 +296,8 @@ export default function ComposePostScreen() {
       if (lastErr) throw lastErr
 
       console.log("[v0] Post created successfully")
+      // Clear draft after successful post
+      try { await AsyncStorage.removeItem(DRAFT_KEY); setHasDraft(false) } catch {}
 
       Alert.alert("Success", "Your post has been shared!", [
         {
@@ -282,7 +329,13 @@ export default function ComposePostScreen() {
           <Ionicons name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>New post</Text>
-        <View style={styles.headerButton} />
+        {hasDraft ? (
+          <TouchableOpacity onPress={discardDraft} style={styles.headerButton}>
+            <Text style={{ color: '#ff3b30', fontWeight: '700' }}>Discard</Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.headerButton} />
+        )}
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
