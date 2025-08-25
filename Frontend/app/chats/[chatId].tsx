@@ -1001,6 +1001,8 @@ export default function ChatScreen() {
                     <TouchableOpacity onPress={() => setMediaViewer({ visible: true, url: att.url, type: 'video' })}>
                       <ExpoVideo source={{ uri: att.url }} style={{ width: 220, height: 220, borderRadius: 10, backgroundColor: '#000' }} useNativeControls resizeMode={'cover' as any} />
                     </TouchableOpacity>
+                  ) : att.type === 'audio' ? (
+                    <AudioPlayer sourceUrl={att.url} />
                   ) : (
                     <TouchableOpacity onPress={() => setMediaViewer({ visible: true, url: att.url, type: 'file' })}>
                       <Text style={{ color: '#fff', textDecorationLine: 'underline' }}>{att.name || 'file'}</Text>
@@ -1306,6 +1308,98 @@ export default function ChatScreen() {
       </KeyboardAvoidingView>
     
   )
+}
+
+function AudioPlayer({ sourceUrl }: { sourceUrl: string }) {
+  const [sound, setSound] = useState<Audio.Sound | null>(null)
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [position, setPosition] = useState(0)
+  const [duration, setDuration] = useState(1)
+  const [rate, setRate] = useState(1.0)
+
+  useEffect(() => {
+    let mounted = true
+    const setup = async () => {
+      try {
+        const { sound: s } = await Audio.Sound.createAsync({ uri: sourceUrl }, { shouldPlay: false, rate, shouldCorrectPitch: true }, (st) => {
+          if (!mounted) return
+          if (st?.isLoaded) {
+            setPosition(st.positionMillis || 0)
+            setDuration(st.durationMillis || Math.max(1, duration))
+            setIsPlaying(Boolean(st.isPlaying))
+          }
+        })
+        setSound(s)
+      } catch {}
+    }
+    setup()
+    return () => {
+      mounted = false
+      try { sound?.unloadAsync() } catch {}
+    }
+  }, [sourceUrl])
+
+  const togglePlay = async () => {
+    try {
+      if (!sound) return
+      const st: any = await sound.getStatusAsync()
+      if (st?.isPlaying) { await sound.pauseAsync() } else { await sound.playAsync() }
+    } catch {}
+  }
+
+  const cycleRate = async () => {
+    try {
+      if (!sound) return
+      const options = [1.0, 1.5, 2.0, 0.5]
+      const idx = options.indexOf(rate)
+      const next = options[(idx + 1) % options.length]
+      setRate(next)
+      try { await sound.setRateAsync(next, true) } catch {}
+    } catch {}
+  }
+
+  const onWaveformPress = async (evt: any) => {
+    try {
+      if (!sound) return
+      const width = 160
+      const x = evt?.nativeEvent?.locationX || 0
+      const frac = Math.max(0, Math.min(1, x / width))
+      const target = Math.floor(frac * duration)
+      await sound.setPositionAsync(target)
+    } catch {}
+  }
+
+  const bars = 40
+  const progress = Math.max(0, Math.min(1, duration > 0 ? position / duration : 0))
+  const activeBars = Math.round(progress * bars)
+
+  return (
+    <View style={{ width: 220, padding: 10, borderRadius: 10, backgroundColor: '#f7f7f7' }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        <TouchableOpacity onPress={togglePlay} style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#0095f6', alignItems: 'center', justifyContent: 'center', marginRight: 8 }}>
+          <Icon name={isPlaying ? 'pause' : 'play-arrow'} size={20} color="#fff" />
+        </TouchableOpacity>
+        <TouchableOpacity onPress={cycleRate} style={{ paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, backgroundColor: '#eaeaea', marginRight: 8 }}>
+          <Text style={{ fontWeight: '700', color: '#333' }}>{rate.toFixed(1)}x</Text>
+        </TouchableOpacity>
+        <Text style={{ fontVariant: ['tabular-nums'] as any, color: '#333' }}>{formatTimeShort(position)} / {formatTimeShort(duration)}</Text>
+      </View>
+      <TouchableOpacity onPress={onWaveformPress} activeOpacity={0.9} style={{ marginTop: 8, height: 36, width: 200, flexDirection: 'row', alignItems: 'flex-end' }}>
+        {Array.from({ length: bars }).map((_, i) => {
+          const h = 8 + ((i % 6) * 4) // simple repeating bars; placeholder without server-side peaks
+          const on = i < activeBars
+          return <View key={i} style={{ width: 4, height: h, marginRight: 1.5, backgroundColor: on ? '#0095f6' : '#cfcfcf', borderRadius: 2 }} />
+        })}
+      </TouchableOpacity>
+    </View>
+  )
+}
+
+function formatTimeShort(ms: number) {
+  const s = Math.floor((ms || 0) / 1000)
+  const mm = String(Math.floor(s / 60)).padStart(2, '0')
+  const ss = String(s % 60).padStart(2, '0')
+  return `${mm}:${ss}`
 }
 
 const styles = StyleSheet.create({
