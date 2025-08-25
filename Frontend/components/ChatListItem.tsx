@@ -25,6 +25,7 @@ export const ChatListItem: React.FC<ChatListItemProps> = ({ chat, currentUserId,
           lastMessage: "No messages yet",
           chatId: "unknown",
           chatType: "direct" as const,
+          presenceText: undefined,
         }
       }
 
@@ -32,12 +33,29 @@ export const ChatListItem: React.FC<ChatListItemProps> = ({ chat, currentUserId,
       const preview = chat.lastMessage?.text && chat.lastMessage.text.trim().length > 0
         ? chat.lastMessage.text
         : (hasAttachment ? (/(video)/i.test(String(chat.lastMessage?.attachments?.[0]?.type || '')) ? 'Video' : 'Photo') : 'No messages yet')
+      // Presence
+      let presenceText: string | undefined = undefined
+      const p = chat.__presence
+      if (p && typeof p === 'object') {
+        if (p.isOnline) presenceText = 'Online'
+        else if (p.lastSeen) {
+          const d = new Date(p.lastSeen)
+          const now = Date.now()
+          const diff = Math.max(0, now - d.getTime())
+          const mins = Math.floor(diff / 60000)
+          if (mins < 1) presenceText = 'Last seen just now'
+          else if (mins < 60) presenceText = `Last seen ${mins}m ago`
+          else if (mins < 60 * 24) presenceText = `Last seen ${Math.floor(mins / 60)}h ago`
+          else presenceText = `Last seen ${Math.floor(mins / (60 * 24))}d ago`
+        }
+      }
       return {
         name: participant.name || "Unknown User",
         avatar: participant.profilePic || `https://i.pravatar.cc/150?u=${participant._id}`,
         lastMessage: preview,
         chatId: participant._id,
         chatType: "direct" as const,
+        presenceText,
       }
     } else {
       if (!chat.group) {
@@ -85,10 +103,12 @@ export const ChatListItem: React.FC<ChatListItemProps> = ({ chat, currentUserId,
     })
   }
 
+  const description = typingText && typingText.length > 0 ? typingText : chatInfo.lastMessage
+
   return (
     <List.Item
       title={chatInfo.name}
-      description={typingText && typingText.length > 0 ? typingText : chatInfo.lastMessage}
+      description={chatInfo.chatType === 'direct' && chatInfo.presenceText ? chatInfo.presenceText : description}
       descriptionStyle={typingText && typingText.length > 0 ? styles.typingDescription : undefined}
       onPress={handlePress}
       left={() => <Avatar.Image size={50} source={{ uri: chatInfo.avatar }} />}
