@@ -8,6 +8,7 @@ import socketService from "@/services/socket.service";
 export default function SignupScreen() {
   const router = useRouter();
   const [name, setName] = useState("");
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -17,6 +18,10 @@ export default function SignupScreen() {
       Alert.alert("Error", "Please fill all fields");
       return;
     }
+    if (username && !/^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])$/.test(username.trim().toLowerCase())) {
+      Alert.alert("Invalid username", "Use letters, numbers, dot, underscore, hyphen (no separator at ends)");
+      return;
+    }
     setLoading(true);
     try {
       const data: any = await (api as any).register(name, email, password)
@@ -24,6 +29,20 @@ export default function SignupScreen() {
       await AsyncStorage.setItem("token", data.token)
       if (data?.refreshToken) await AsyncStorage.setItem("refreshToken", data.refreshToken)
       await AsyncStorage.setItem("user", JSON.stringify(data.user))
+
+      // Optional: set username immediately after signup
+      if (username.trim()) {
+        const up: any = await api.updateProfile({ username: username.trim() })
+        if (!up?.success && up?.message) {
+          Alert.alert("Username", up.message)
+        } else if (up?.success) {
+          try {
+            const prev = await AsyncStorage.getItem("user")
+            const parsed = prev ? JSON.parse(prev) : {}
+            await AsyncStorage.setItem("user", JSON.stringify({ ...parsed, username: username.trim() }))
+          } catch {}
+        }
+      }
 
       // Ensure socket is connected and user is registered
       try {
@@ -49,6 +68,8 @@ export default function SignupScreen() {
       <Text style={styles.subtitle}>Sign up to get started</Text>
 
       <TextInput style={styles.input} placeholder="Full Name" placeholderTextColor="#999" value={name} onChangeText={setName} />
+      <TextInput style={styles.input} placeholder="Username (optional)" autoCapitalize="none" placeholderTextColor="#999" value={username} onChangeText={setUsername} />
+      <Text style={{ color: '#777', marginBottom: 8, alignSelf: 'flex-start' }}>3-30 chars; letters, numbers, dot, underscore, hyphen</Text>
       <TextInput style={styles.input} placeholder="Email" placeholderTextColor="#999" value={email} onChangeText={setEmail} keyboardType="email-address" />
       <TextInput style={styles.input} placeholder="Password" placeholderTextColor="#999" value={password} onChangeText={setPassword} secureTextEntry />
 

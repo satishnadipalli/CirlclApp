@@ -332,8 +332,12 @@ class ApiService {
   async report(targetType: 'entry'|'user'|'message'|'post', targetId: string, reason: 'spam'|'abuse'|'nudity'|'violence'|'other', details?: string, targetUser?: string) {
     return this.request(`/safety/report`, { method: 'POST', body: JSON.stringify({ targetType, targetId, reason, details, targetUser }) }) }
 
-  async updateProfile(profileData: { name?: string; bio?: string; website?: string; profilePic?: string }) {
-    return this.request("/users/profile", { method: "PUT", body: JSON.stringify(profileData), }) }
+  async updateProfile(profileData: { name?: string; bio?: string; website?: string; profilePic?: string; username?: string }) {
+    return this.request("/users/profile", {
+      method: "PUT",
+      body: JSON.stringify(profileData),
+    })
+  }
 
   async uploadProfilePicture(fileUri: string) {
     try {
@@ -372,6 +376,9 @@ class ApiService {
 
   async getPostById(id: string) { return this.request(`/posts/${id}`) }
   async getFeed(page = 1, limit = 10) { return this.request(`/posts?page=${page}&limit=${limit}`) }
+  async getFollowingFeed(page = 1, limit = 10) {
+    return this.request(`/posts/following?page=${page}&limit=${limit}`)
+  }
   async getReels(page = 1, limit = 8) { return this.request(`/posts/reels?page=${page}&limit=${limit}`) }
   async getSavedPosts() { return this.request(`/posts/saved`) }
   async likePost(postId: string) { return this.request(`/posts/${postId}/like`, { method: 'PUT' }) }

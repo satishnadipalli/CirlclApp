@@ -129,12 +129,20 @@ const getProfile = async (req, res) => {
 
 const updateProfile = async (req, res) => {
   try {
-    const { name, bio, website, profilePic } = req.body
+    const { name, bio, website, profilePic, username } = req.body
     const updates = {}
     if (typeof name === 'string') updates.name = name
     if (typeof bio === 'string') updates.bio = bio
     if (typeof website === 'string') updates.website = website
     if (typeof profilePic === 'string') updates.profilePic = profilePic
+    if (typeof username === 'string') {
+      const raw = username.trim().toLowerCase()
+      if (raw.length < 3 || raw.length > 30) return res.status(400).json({ success: false, message: 'Username must be 3-30 characters' })
+      if (!/^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])$/.test(raw)) return res.status(400).json({ success: false, message: 'Username can contain letters, numbers, dot, underscore, hyphen; cannot start/end with separator' })
+      const exists = await User.findOne({ username: raw, _id: { $ne: req.user.id } }).select('_id')
+      if (exists) return res.status(409).json({ success: false, message: 'Username already taken' })
+      updates.username = raw
+    }
 
     const updated = await User.findByIdAndUpdate(req.user.id, { $set: updates }, { new: true }).select('-password')
     res.json({ success: true, user: updated })

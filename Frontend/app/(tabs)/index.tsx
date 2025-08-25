@@ -191,10 +191,13 @@ export default function HomeScreen() {
     if (feedLoadingMore && !replace) return
     setFeedLoadingMore(true)
     try {
-      const res: any = await (api as any).getFeed(p, 10)
+      let res: any = await (api as any).getFollowingFeed(p, 10)
+      if (res?.success === false || !Array.isArray(res?.posts)) {
+        res = await (api as any).getFeed(p, 10)
+      }
       const items: any[] = Array.isArray(res?.posts) ? res.posts : []
       setFeed((prev) => (replace ? items : p === 1 ? items : [...prev, ...items]))
-      const totalPages = Number(res?.totalPages || 1)
+      const totalPages = Number(res?.totalPages || Math.ceil((Number(res?.total || 0) || 0) / 10) || 1)
       setFeedHasMore((res?.success !== false) && p < totalPages)
       setFeedPage(p)
     } catch {
