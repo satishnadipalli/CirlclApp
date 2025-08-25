@@ -56,6 +56,10 @@ router.put("/:id/comment/:commentId", protect, postController.editComment);
 // Edit reply
 router.put("/:id/comment/:commentId/reply/:replyId", protect, postController.editReply);
 
+// Pin / Unpin comment (post author only)
+router.post('/:id/comment/:commentId/pin', protect, postController.pinComment);
+router.post('/:id/comment/:commentId/unpin', protect, postController.unpinComment);
+
 // Save Post
 router.put("/:id/save", protect, postController.savePost);
 

@@ -965,6 +965,39 @@ const getFollowingFeed = async (req, res) => {
   }
 }
 
+// Pin a comment (author only)
+const pinComment = async (req, res) => {
+  try {
+    const { id, commentId } = req.params
+    const post = await Post.findById(id)
+    if (!post) return res.status(404).json({ success: false, message: 'Post not found' })
+    if (String(post.user) !== String(req.user.id)) return res.status(403).json({ success: false, message: 'Only author can pin' })
+    post.pinnedComments = Array.isArray(post.pinnedComments) ? post.pinnedComments : []
+    if (!post.pinnedComments.some((c) => String(c) === String(commentId))) {
+      post.pinnedComments.push(commentId)
+      await post.save()
+    }
+    return res.json({ success: true, pinnedComments: post.pinnedComments })
+  } catch (e) {
+    return res.status(500).json({ success: false, message: e.message })
+  }
+}
+
+// Unpin a comment (author only)
+const unpinComment = async (req, res) => {
+  try {
+    const { id, commentId } = req.params
+    const post = await Post.findById(id)
+    if (!post) return res.status(404).json({ success: false, message: 'Post not found' })
+    if (String(post.user) !== String(req.user.id)) return res.status(403).json({ success: false, message: 'Only author can unpin' })
+    post.pinnedComments = (post.pinnedComments || []).filter((c) => String(c) !== String(commentId))
+    await post.save()
+    return res.json({ success: true, pinnedComments: post.pinnedComments })
+  } catch (e) {
+    return res.status(500).json({ success: false, message: e.message })
+  }
+}
+
 module.exports = {
   createPost,
   getAllPosts,
@@ -988,4 +1021,6 @@ module.exports = {
   getFollowingFeed,
   getPlaceFeed,
   getNearbyFeed,
+  pinComment,
+  unpinComment,
 };

@@ -37,6 +37,7 @@ const postSchema = new mongoose.Schema(
     mentions: [String],
     likes: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     comments: [commentSchema],
+    pinnedComments: [{ type: mongoose.Schema.Types.ObjectId }],
     locationName: { type: String, default: "" },
     geo: {
       type: { type: String, enum: ["Point"] },

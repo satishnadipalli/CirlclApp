@@ -532,6 +532,9 @@ export default function ReelsScreen() {
                           <Text style={{ fontWeight: '800' }}>{item?.name || 'User'} </Text>
                           {String(item?.text || '')}
                         </Text>
+                        {Array.isArray(commentsPost?.pinnedComments) && commentsPost.pinnedComments.some((cid: any) => String(cid) === String(item?._id)) && (
+                          <Text style={{ color: '#ffc107', marginTop: 2, fontWeight: '700' }}>Pinned</Text>
+                        )}
                         <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6, gap: 12 }}>
                           {!!(item?.likes?.length) && <Text style={{ color: '#aaa' }}>{item.likes.length} likes</Text>}
                           <TouchableOpacity onPress={async () => { try { await (api as any).likeComment(String(commentsOpenForId || ''), String(item?._id || '')) ; const fresh: any = await (api as any).getPostById(String(commentsOpenForId || '')); if (fresh?.success) setCommentsPost(fresh.post) } catch {} }}>
@@ -540,6 +543,18 @@ export default function ReelsScreen() {
                           <TouchableOpacity onPress={() => { setReplyTarget({ commentId: String(item?._id || '') , replyToName: String(item?.name || '') }); setCommentText(`@${String(item?.name || '').split(' ')[0]} `) }}>
                             <Text style={{ color: '#fff' }}>Reply</Text>
                           </TouchableOpacity>
+                          {/* Author-only pin/unpin */}
+                          {String((commentsPost?.user?._id || commentsPost?.user)) === String(currentUserId || '') && (
+                            Array.isArray(commentsPost?.pinnedComments) && commentsPost.pinnedComments.some((cid: any) => String(cid) === String(item?._id)) ? (
+                              <TouchableOpacity onPress={async () => { try { await (api as any).unpinComment(String(commentsOpenForId || ''), String(item?._id || '')) ; const fresh: any = await (api as any).getPostById(String(commentsOpenForId || '')); if (fresh?.success) setCommentsPost(fresh.post) } catch {} }}>
+                                <Text style={{ color: '#ffc107' }}>Unpin</Text>
+                              </TouchableOpacity>
+                            ) : (
+                              <TouchableOpacity onPress={async () => { try { await (api as any).pinComment(String(commentsOpenForId || ''), String(item?._id || '')) ; const fresh: any = await (api as any).getPostById(String(commentsOpenForId || '')); if (fresh?.success) setCommentsPost(fresh.post) } catch {} }}>
+                                <Text style={{ color: '#ffc107' }}>Pin</Text>
+                              </TouchableOpacity>
+                            )
+                          )}
                         </View>
                         {/* Replies */}
                         {Array.isArray(item?.replies) && item.replies.length > 0 && (

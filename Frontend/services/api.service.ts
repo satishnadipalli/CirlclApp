@@ -392,6 +392,8 @@ class ApiService {
   async editReply(postId: string, commentId: string, replyId: string, text: string) { return this.request(`/posts/${postId}/comment/${commentId}/reply/${replyId}`, { method: 'PUT', body: JSON.stringify({ text }) }) }
   async deleteComment(postId: string, commentId: string) { return this.request(`/posts/${postId}/comment/${commentId}`, { method: 'DELETE' }) }
   async deleteReply(postId: string, commentId: string, replyId: string) { return this.request(`/posts/${postId}/comment/${commentId}/reply/${replyId}`, { method: 'DELETE' }) }
+  async pinComment(postId: string, commentId: string) { return this.request(`/posts/${postId}/comment/${commentId}/pin`, { method: 'POST' }) }
+  async unpinComment(postId: string, commentId: string) { return this.request(`/posts/${postId}/comment/${commentId}/unpin`, { method: 'POST' }) }
 
   // Profile-specific helpers
   async getMyPosts(page = 1, limit = 10) { return this.request(`/posts/me?page=${page}&limit=${limit}`) }
