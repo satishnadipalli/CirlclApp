@@ -26,7 +26,7 @@ import {
 import * as ImagePicker from 'expo-image-picker'
 import * as DocumentPicker from 'expo-document-picker'
 import { Video as ExpoVideo } from 'expo-av'
-import * as Audio from 'expo-av'
+import { Audio } from 'expo-av'
 
 import { Avatar } from "react-native-paper"
 import Icon from "react-native-vector-icons/MaterialIcons"
@@ -675,21 +675,35 @@ export default function ChatScreen() {
           await sendAttachment(assets)
         }
       } else if (choice === 'voice') {
-        try {
-          const perm = await Audio.requestPermissionsAsync()
-          if (!(perm?.status === 'granted')) return
-          const rec = new Audio.Recording()
-          await rec.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY)
-          await rec.startAsync()
-          await new Promise((r) => setTimeout(r, 3000)) // record 3s quick note; in production, add UI to control
-          await rec.stopAndUnloadAsync()
-          const uri = rec.getURI()
-          if (uri) {
-            await sendAttachment([{ uri, name: 'voice-note.m4a', type: 'audio/m4a' }])
-          }
-        } catch {}
+        await recordAndSendVoiceNote()
       }
     } catch {}
+  }
+
+  const recordAndSendVoiceNote = async () => {
+    try {
+      const perm = await Audio.requestPermissionsAsync()
+      if (!(perm?.granted || perm?.status === 'granted')) {
+        Alert.alert('Microphone', 'Recording permission is required')
+        return
+      }
+      await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true, staysActiveInBackground: false, interruptionModeIOS: 1 as any, shouldDuckAndroid: true, interruptionModeAndroid: 1 as any, playThroughEarpieceAndroid: false })
+      const rec = new Audio.Recording()
+      await rec.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY)
+      await rec.startAsync()
+      // Simple 3-second quick note. TODO: replace with hold-to-record UI.
+      await new Promise((r) => setTimeout(r, 3000))
+      await rec.stopAndUnloadAsync()
+      const uri = rec.getURI()
+      if (uri) {
+        await sendAttachment([{ uri, name: 'voice-note.m4a', type: 'audio/m4a' }])
+        Alert.alert('Voice note', 'Sent')
+      } else {
+        Alert.alert('Voice note', 'No audio captured')
+      }
+    } catch (e: any) {
+      Alert.alert('Recording failed', e?.message || 'Unable to record audio')
+    }
   }
 
   const isToday = (date: Date): boolean => {
@@ -1185,7 +1199,7 @@ export default function ChatScreen() {
           <TouchableOpacity onPress={onAttachPress} style={[styles.attachButton]}>
             <Icon name="attach-file" size={22} color="#333" />
           </TouchableOpacity>
-          <TouchableOpacity onPress={onAttachPress} style={[styles.attachButton]}>
+          <TouchableOpacity onPress={recordAndSendVoiceNote} style={[styles.attachButton]}>
             <Icon name="mic" size={22} color="#333" />
           </TouchableOpacity>
           <TouchableOpacity
