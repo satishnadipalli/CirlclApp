@@ -81,6 +81,10 @@ export default function ChatScreen() {
   const [showScrollToBottom, setShowScrollToBottom] = useState(false)
   const [newMessagesCount, setNewMessagesCount] = useState(0)
   const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null)
+  const [isRecording, setIsRecording] = useState(false)
+  const recordingRef = useRef<Audio.Recording | null>(null)
+  const [recordingMs, setRecordingMs] = useState(0)
+  const recordingTimerRef = useRef<any>(null)
 
   const flatListRef = useRef<FlatList>(null)
   const socketRef = useRef<any>(null)
@@ -687,7 +691,7 @@ export default function ChatScreen() {
         Alert.alert('Microphone', 'Recording permission is required')
         return
       }
-      await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true, staysActiveInBackground: false, interruptionModeIOS: 1 as any, shouldDuckAndroid: true, interruptionModeAndroid: 1 as any, playThroughEarpieceAndroid: false })
+      await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true, shouldDuckAndroid: true, playThroughEarpieceAndroid: false })
       const rec = new Audio.Recording()
       await rec.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY)
       await rec.startAsync()
@@ -703,6 +707,61 @@ export default function ChatScreen() {
       }
     } catch (e: any) {
       Alert.alert('Recording failed', e?.message || 'Unable to record audio')
+    }
+  }
+
+  const formatDuration = (ms: number) => {
+    const s = Math.floor(ms / 1000)
+    const mm = String(Math.floor(s / 60)).padStart(2, '0')
+    const ss = String(s % 60).padStart(2, '0')
+    return `${mm}:${ss}`
+  }
+
+  const startHoldRecording = async () => {
+    try {
+      if (isRecording) return
+      const perm = await Audio.requestPermissionsAsync()
+      if (!(perm?.granted || perm?.status === 'granted')) { Alert.alert('Microphone', 'Recording permission is required'); return }
+      await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true, shouldDuckAndroid: true, playThroughEarpieceAndroid: false })
+      const rec = new Audio.Recording()
+      await rec.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY)
+      await rec.startAsync()
+      recordingRef.current = rec
+      setRecordingMs(0)
+      setIsRecording(true)
+      if (recordingTimerRef.current) try { clearInterval(recordingTimerRef.current) } catch {}
+      recordingTimerRef.current = setInterval(async () => {
+        try {
+          const st: any = await rec.getStatusAsync()
+          if (st?.isRecording && typeof st?.durationMillis === 'number') setRecordingMs(st.durationMillis)
+        } catch {}
+      }, 200)
+    } catch (e: any) {
+      setIsRecording(false)
+    }
+  }
+
+  const stopHoldRecording = async (send: boolean) => {
+    try {
+      const rec = recordingRef.current
+      if (!rec) { setIsRecording(false); return }
+      await rec.stopAndUnloadAsync()
+      if (recordingTimerRef.current) { try { clearInterval(recordingTimerRef.current) } catch {} ; recordingTimerRef.current = null }
+      const uri = rec.getURI()
+      const dur = recordingMs
+      setIsRecording(false)
+      recordingRef.current = null
+      setRecordingMs(0)
+      if (send && uri && dur > 400) {
+        const name = uri.split('/').pop() || 'voice-note.m4a'
+        const type = name.endsWith('.3gp') ? 'audio/3gpp' : (name.endsWith('.m4a') ? 'audio/m4a' : 'audio/aac')
+        await sendAttachment([{ uri, name, type }])
+      }
+    } catch {
+      setIsRecording(false)
+      recordingRef.current = null
+      if (recordingTimerRef.current) { try { clearInterval(recordingTimerRef.current) } catch {} ; recordingTimerRef.current = null }
+      setRecordingMs(0)
     }
   }
 
@@ -1187,19 +1246,31 @@ export default function ChatScreen() {
               </TouchableOpacity>
             </View>
           )}
-          <TextInput
-            style={styles.input}
-            placeholder="Message..."
-            placeholderTextColor="#999"
-            value={inputText}
-            onChangeText={handleTextChange}
-            multiline
-            maxLength={500}
-          />
+          {isRecording ? (
+            <View style={[styles.input, { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff0f0', borderColor: '#f5a3a3' } as any]}>
+              <Icon name="fiber-manual-record" size={16} color="#e53935" />
+              <Text style={{ marginLeft: 8, color: '#e53935', fontWeight: '700' }}>{formatDuration(recordingMs)}</Text>
+              <Text style={{ marginLeft: 8, color: '#666' }}>Release to send</Text>
+              <View style={{ flex: 1 }} />
+              <TouchableOpacity onPress={() => stopHoldRecording(false)}>
+                <Icon name="delete" size={20} color="#666" />
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TextInput
+              style={styles.input}
+              placeholder="Message..."
+              placeholderTextColor="#999"
+              value={inputText}
+              onChangeText={handleTextChange}
+              multiline
+              maxLength={500}
+            />
+          )}
           <TouchableOpacity onPress={onAttachPress} style={[styles.attachButton]}>
             <Icon name="attach-file" size={22} color="#333" />
           </TouchableOpacity>
-          <TouchableOpacity onPress={recordAndSendVoiceNote} style={[styles.attachButton]}>
+          <TouchableOpacity onPressIn={startHoldRecording} onPressOut={() => stopHoldRecording(true)} style={[styles.attachButton]}>
             <Icon name="mic" size={22} color="#333" />
           </TouchableOpacity>
           <TouchableOpacity
