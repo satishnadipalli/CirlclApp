@@ -85,6 +85,7 @@ export default function ChatScreen() {
   const [showScrollToBottom, setShowScrollToBottom] = useState(false)
   const [newMessagesCount, setNewMessagesCount] = useState(0)
   const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null)
+  const [reactingTo, setReactingTo] = useState<ChatMessage | null>(null)
   const [isRecording, setIsRecording] = useState(false)
   const recordingRef = useRef<Audio.Recording | null>(null)
   const [recordingMs, setRecordingMs] = useState(0)
@@ -998,6 +999,7 @@ export default function ChatScreen() {
         activeOpacity={0.7}
         onLongPress={() => {
           const opts: any[] = [
+            { text: 'React…', onPress: () => setReactingTo(message) },
             { text: '❤️', onPress: async () => { try { await apiService.request('/messages/'+message.id+'/react', { method:'POST', body: JSON.stringify({ type: '❤️' }) }) } catch {} } },
             { text: '😂', onPress: async () => { try { await apiService.request('/messages/'+message.id+'/react', { method:'POST', body: JSON.stringify({ type: '😂' }) }) } catch {} } },
             { text: '🔥', onPress: async () => { try { await apiService.request('/messages/'+message.id+'/react', { method:'POST', body: JSON.stringify({ type: '🔥' }) }) } catch {} } },
