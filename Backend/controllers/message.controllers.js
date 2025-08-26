@@ -58,13 +58,21 @@ const sendMessage = async (req, res) => {
         })
       }
 
-      // Check if recipient exists
-      const recipient = await User.findById(to)
+      // Check if recipient exists and DM permission
+      const recipient = await User.findById(to).select('privacy followers')
       if (!recipient) {
         return res.status(404).json({
           success: false,
           message: "Recipient not found",
         })
+      }
+      const allow = recipient?.privacy?.allowDMsFrom || 'everyone'
+      if (allow === 'none') {
+        return res.status(403).json({ success: false, message: 'User does not accept DMs' })
+      }
+      if (allow === 'followers') {
+        const isFollower = Array.isArray(recipient.followers) && recipient.followers.some((id) => String(id) === String(from))
+        if (!isFollower) return res.status(403).json({ success: false, message: 'Only followers can DM this user' })
       }
 
       message = new Message({
@@ -375,18 +383,23 @@ const markDirectRead = async (req, res) => {
   try {
     const userId = req.user.id
     const { peerId } = req.params
+    // Respect reader's privacy for read receipts
+    const me = await require('../models/user.models').findById(userId).select('privacy')
+    const allowReads = me?.privacy?.sendReadReceipts !== false
     await Message.updateMany(
       { messageType: "direct", from: peerId, to: userId, isRead: false },
-      { $set: { isRead: true }, $addToSet: { readBy: userId } },
+      allowReads ? { $set: { isRead: true }, $addToSet: { readBy: userId } } : {},
     )
     try {
       const io = req.app.get('io')
       const onlineUsers = req.app.get('onlineUsers')
       const to1 = onlineUsers.get(String(userId))
       const to2 = onlineUsers.get(String(peerId))
-      const payload = { chatType: 'direct', readerId: String(userId), peerId: String(peerId), at: new Date().toISOString() }
-      if (to1) io.to(to1).emit('messagesRead', payload)
-      if (to2) io.to(to2).emit('messagesRead', payload)
+      if (allowReads) {
+        const payload = { chatType: 'direct', readerId: String(userId), peerId: String(peerId), at: new Date().toISOString() }
+        if (to1) io.to(to1).emit('messagesRead', payload)
+        if (to2) io.to(to2).emit('messagesRead', payload)
+      }
     } catch {}
     res.json({ success: true })
   } catch (e) {
@@ -399,13 +412,15 @@ const markGroupRead = async (req, res) => {
   try {
     const userId = req.user.id
     const { groupId } = req.params
+    const me = await require('../models/user.models').findById(userId).select('privacy')
+    const allowReads = me?.privacy?.sendReadReceipts !== false
     await Message.updateMany(
       { messageType: "group", group: groupId, from: { $ne: userId } },
-      { $addToSet: { readBy: userId } },
+      allowReads ? { $addToSet: { readBy: userId } } : {},
     )
     try {
       const io = req.app.get('io')
-      io.to(`group_${groupId}`).emit('messagesRead', { chatType: 'group', groupId: String(groupId), readerId: String(userId), at: new Date().toISOString() })
+      if (allowReads) io.to(`group_${groupId}`).emit('messagesRead', { chatType: 'group', groupId: String(groupId), readerId: String(userId), at: new Date().toISOString() })
     } catch {}
     res.json({ success: true })
   } catch (e) {

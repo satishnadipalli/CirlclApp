@@ -31,6 +31,9 @@ router.post("/:id/unblock", auth, unblockUser)
 // Notification preferences
 router.get('/me/notification-prefs', auth, getNotificationPrefs)
 router.put('/me/notification-prefs', auth, updateNotificationPrefs)
+// Privacy
+router.get('/me/privacy', auth, require('../controllers/user.controller').getPrivacy)
+router.put('/me/privacy', auth, require('../controllers/user.controller').updatePrivacy)
 // Presence
 router.get('/presence/online', auth, getOnlineUsers)
 router.get('/:id/last-seen', auth, getLastSeen)

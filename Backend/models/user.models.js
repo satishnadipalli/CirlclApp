@@ -36,6 +36,14 @@ const userSchema = new mongoose.Schema({
     save: { type: Boolean, default: true },
     daily: { type: Boolean, default: true },
   }, { _id: false }),
+  // Privacy controls
+  privacy: new mongoose.Schema({
+    showOnline: { type: Boolean, default: true },
+    showLastSeen: { type: Boolean, default: true },
+    sendTypingIndicators: { type: Boolean, default: true },
+    sendReadReceipts: { type: Boolean, default: true },
+    allowDMsFrom: { type: String, enum: ['everyone', 'followers', 'none'], default: 'everyone' },
+  }, { _id: false }),
   lastActiveAt: { type: Date, default: Date.now },
 }, { timestamps: true });
 

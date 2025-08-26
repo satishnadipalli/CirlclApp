@@ -105,7 +105,11 @@ io.on("connection", (socket) => {
     if (!userId) return;
     onlineUsers.set(userId, socket.id);
     socketToUser.set(socket.id, userId);
-    io.emit("userStatusChange", { userId, status: "online" });
+    try {
+      const u = await User.findById(userId).select('privacy')
+      const showOnline = u?.privacy?.showOnline !== false
+      if (showOnline) io.emit("userStatusChange", { userId, status: "online" });
+    } catch {}
     try { await User.findByIdAndUpdate(userId, { $set: { lastActiveAt: new Date() } }) } catch {}
   });
 
@@ -132,16 +136,28 @@ io.on("connection", (socket) => {
   // Typing indicators
   socket.on("typing", ({ from, to }) => {
     const recipientSocketId = onlineUsers.get(to);
-    if (recipientSocketId) {
+    if (!recipientSocketId) return
+    Promise.all([
+      User.findById(from).select('privacy'),
+      User.findById(to).select('blockedUsers'),
+    ]).then(([sender, receiver]) => {
+      if (sender?.privacy?.sendTypingIndicators === false) return
+      if (Array.isArray(receiver?.blockedUsers) && receiver.blockedUsers.some((id) => String(id) === String(from))) return
       io.to(recipientSocketId).emit("typing", { from });
-    }
+    }).catch(() => {})
   });
 
   socket.on("stopTyping", ({ from, to }) => {
     const recipientSocketId = onlineUsers.get(to);
-    if (recipientSocketId) {
+    if (!recipientSocketId) return
+    Promise.all([
+      User.findById(from).select('privacy'),
+      User.findById(to).select('blockedUsers'),
+    ]).then(([sender, receiver]) => {
+      if (sender?.privacy?.sendTypingIndicators === false) return
+      if (Array.isArray(receiver?.blockedUsers) && receiver.blockedUsers.some((id) => String(id) === String(from))) return
       io.to(recipientSocketId).emit("stopTyping", { from });
-    }
+    }).catch(() => {})
   });
 
   // Group typing
@@ -166,7 +182,11 @@ io.on("connection", (socket) => {
     if (!userId) return;
     onlineUsers.delete(userId);
     socketToUser.delete(socket.id);
-    io.emit("userStatusChange", { userId, status: "offline" });
+    try {
+      const u = await User.findById(userId).select('privacy')
+      const showOnline = u?.privacy?.showOnline !== false
+      if (showOnline) io.emit("userStatusChange", { userId, status: "offline" });
+    } catch {}
     try { await User.findByIdAndUpdate(userId, { $set: { lastActiveAt: new Date() } }) } catch {}
     //here thihs userStatus Chage helps us to chage the status of the user to make the status to noarmal to probable stuff and it eliminates the other user info profiles to a broging stuff
   });

@@ -420,6 +420,30 @@ const updateNotificationPrefs = async (req, res) => {
   } catch (e) { res.status(500).json({ success: false, message: e.message }) }
 }
 
+// Privacy
+const getPrivacy = async (req, res) => {
+  try {
+    const me = await User.findById(req.user.id).select('privacy')
+    const defaults = { showOnline: true, showLastSeen: true, sendTypingIndicators: true, sendReadReceipts: true, allowDMsFrom: 'everyone' }
+    const out = me?.privacy || defaults
+    res.json({ success: true, privacy: out })
+  } catch (e) { res.status(500).json({ success: false, message: e.message }) }
+}
+
+const updatePrivacy = async (req, res) => {
+  try {
+    const body = req.body || {}
+    const set = {}
+    if (typeof body.showOnline === 'boolean') set['privacy.showOnline'] = body.showOnline
+    if (typeof body.showLastSeen === 'boolean') set['privacy.showLastSeen'] = body.showLastSeen
+    if (typeof body.sendTypingIndicators === 'boolean') set['privacy.sendTypingIndicators'] = body.sendTypingIndicators
+    if (typeof body.sendReadReceipts === 'boolean') set['privacy.sendReadReceipts'] = body.sendReadReceipts
+    if (['everyone','followers','none'].includes(String(body.allowDMsFrom || ''))) set['privacy.allowDMsFrom'] = String(body.allowDMsFrom)
+    const me = await User.findByIdAndUpdate(req.user.id, { $set: set }, { new: true }).select('privacy')
+    res.json({ success: true, privacy: me?.privacy })
+  } catch (e) { res.status(500).json({ success: false, message: e.message }) }
+}
+
 // Block / Unblock
 const blockUser = async (req, res) => {
   try {
@@ -518,13 +542,14 @@ const getMutuals = async (req, res) => {
   } catch (e) { return res.status(500).json({ success: false, message: e.message }) }
 }
 
-// Last seen timestamp for a user
+// Last seen timestamp for a user (respect target's privacy.showLastSeen)
 const getLastSeen = async (req, res) => {
   try {
     const { id } = req.params
-    const user = await User.findById(id).select('_id lastActiveAt')
+    const user = await User.findById(id).select('_id lastActiveAt privacy')
     if (!user) return res.status(404).json({ success: false, message: 'User not found' })
-    res.json({ success: true, lastActiveAt: user.lastActiveAt })
+    const allowed = user?.privacy?.showLastSeen !== false
+    res.json({ success: true, lastActiveAt: allowed ? user.lastActiveAt : null })
   } catch (e) { res.status(500).json({ success: false, message: e.message }) }
 }
 
@@ -549,6 +574,8 @@ module.exports = {
   unblockUser,
   getNotificationPrefs,
   updateNotificationPrefs,
+  getPrivacy,
+  updatePrivacy,
   getOnlineUsers,
   getSuggestions,
   getMutuals,
