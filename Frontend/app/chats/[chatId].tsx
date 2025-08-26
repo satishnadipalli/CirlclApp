@@ -111,6 +111,7 @@ export default function ChatScreen() {
   const isUserAtBottomRef = useRef<boolean>(true)
   const router = useRouter()
   const params = useLocalSearchParams() as unknown as ChatParams
+  const draftKey = `chat_draft_${params.chatType}_${params.chatId}`
 
   const dot1Opacity = useRef(new Animated.Value(0.3)).current
   const dot2Opacity = useRef(new Animated.Value(0.3)).current
@@ -165,6 +166,25 @@ export default function ChatScreen() {
   useEffect(() => {
     currentUserRef.current = currentUser
   }, [currentUser])
+
+  // Load draft on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const d = await AsyncStorage.getItem(draftKey)
+        if (d != null) setInputText(d)
+      } catch {}
+    })()
+    return () => {}
+  }, [])
+
+  // Persist draft on input change (debounced)
+  useEffect(() => {
+    const t = setTimeout(() => {
+      AsyncStorage.setItem(draftKey, inputText).catch(() => {})
+    }, 250)
+    return () => clearTimeout(t)
+  }, [inputText])
 
   useEffect(() => {
     otherUserRef.current = otherUser
@@ -584,6 +604,7 @@ export default function ChatScreen() {
 
     const messageText = inputText.trim()
     setInputText("")
+    try { await AsyncStorage.setItem(draftKey, "") } catch {}
     const tempId = `temp-${Date.now()}`
     const tempMessage: ChatMessage = {
       id: tempId,
