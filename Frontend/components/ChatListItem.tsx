@@ -5,6 +5,7 @@ import { useRouter } from "expo-router"
 import type React from "react"
 import { StyleSheet, Text, View } from "react-native"
 import { Avatar, Badge, List } from "react-native-paper"
+import PresenceBadge from "./PresenceBadge"
 
 interface ChatListItemProps {
   chat: any
@@ -105,17 +106,26 @@ export const ChatListItem: React.FC<ChatListItemProps> = ({ chat, currentUserId,
 
   const description = typingText && typingText.length > 0 ? typingText : chatInfo.lastMessage
 
+  const presence = chat.chatType === 'direct' ? (chat.__presence || {}) : null
+  const isOnline = !!presence?.isOnline
+  const lastSeen = presence?.lastSeen
+
   return (
     <List.Item
       title={chatInfo.name}
-      description={chatInfo.chatType === 'direct' && chatInfo.presenceText ? chatInfo.presenceText : description}
-      descriptionStyle={typingText && typingText.length > 0 ? styles.typingDescription : undefined}
+      description={() => (
+        chatInfo.chatType === 'direct' ? (
+          <PresenceBadge isOnline={isOnline} lastSeen={lastSeen} size="sm" />
+        ) : (
+          <Text numberOfLines={1} style={typingText && typingText.length > 0 ? styles.typingDescription : undefined}>{description}</Text>
+        )
+      )}
+      descriptionStyle={undefined}
       onPress={handlePress}
       left={() => <Avatar.Image size={50} source={{ uri: chatInfo.avatar }} />}
       right={() => (
         <View style={styles.rightContainer}>
           <Text style={styles.timeText}>{time}</Text>
-          {/* Details button removed; tap header in chat to navigate to info */}
           {chat.unreadCount && chat.unreadCount > 0 ? <Badge size={20}>{String(chat.unreadCount)}</Badge> : null}
         </View>
       )}

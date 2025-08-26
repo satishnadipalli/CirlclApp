@@ -31,6 +31,7 @@ import { Audio } from 'expo-av'
 
 import { Avatar } from "react-native-paper"
 import Icon from "react-native-vector-icons/MaterialIcons"
+import PresenceBadge from "@/components/PresenceBadge"
 
 interface ChatMessage {
   id: string
@@ -1145,9 +1146,28 @@ export default function ChatScreen() {
               }
             })()}
             {isMyMessage && (message as any).status && (
-              <Text style={{ fontSize: 12, color: (message as any).status === 'failed' ? '#e53935' : '#888' }}>
-                {(message as any).status === 'sending' ? 'Sending…' : (message as any).status === 'failed' ? 'Failed' : ''}
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Text style={{ fontSize: 12, color: (message as any).status === 'failed' ? '#e53935' : '#888' }}>
+                  {(message as any).status === 'sending' ? 'Sending…' : (message as any).status === 'failed' ? 'Failed' : 'Sent'}
+                </Text>
+                {(message as any).status === 'failed' && (
+                  <TouchableOpacity onPress={async () => {
+                    try {
+                      const body = { text: (message as any).text, messageType: params.chatType as any }
+                      if (params.chatType === 'direct') Object.assign(body, { to: String(params.chatId) })
+                      else Object.assign(body, { group: String(params.chatId) })
+                      setMessages((prev) => prev.map((m) => (m.id === message.id ? { ...(m as any), status: 'sending' } : m)))
+                      const res = await apiService.request('/messages', { method: 'POST', body: JSON.stringify(body) })
+                      if (!(res as any)?.success) throw new Error((res as any)?.message || 'Retry failed')
+                      setMessages((prev) => prev.map((m) => (m.id === message.id ? { ...(m as any), status: 'sent' } : m)))
+                    } catch {
+                      setMessages((prev) => prev.map((m) => (m.id === message.id ? { ...(m as any), status: 'failed' } : m)))
+                    }
+                  }}>
+                    <Text style={{ fontSize: 12, color: '#0095f6', fontWeight: '700' }}>Retry</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             )}
           </View>
           {(isMyMessage && typeof (message as any).uploadProgress === 'number' && (message as any).uploadProgress >= 0 && (message as any).uploadProgress < 100) && (
@@ -1269,21 +1289,22 @@ export default function ChatScreen() {
   const headerInfo = getHeaderInfo()
 
   return (
-  
-      <KeyboardAvoidingView
-        style={styles.container}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={90}
+    <View style={styles.container}>
+      {/* Header */}
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: 12,
+          borderBottomWidth: 1,
+          borderBottomColor: "#f3f3f3",
+        }}
       >
-        <TouchableOpacity
-          style={styles.topBar}
-          onPress={() => {
-            if (params.chatType === "group") {
-              router.push({ pathname: `/groups/${params.chatId}` })
-            }
-          }}
-          disabled={params.chatType === "direct"}
-        >
+        <TouchableOpacity onPress={() => router.back()}>
+          <Icon name="chevron-left" size={28} color="#333" />
+        </TouchableOpacity>
+        <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
           <View>
             <Avatar.Image size={40} source={{ uri: headerInfo.avatar }} />
             {params.chatType === 'direct' && onlineUsers.has(params.chatId) && (
@@ -1292,143 +1313,146 @@ export default function ChatScreen() {
           </View>
           <View style={{ marginLeft: 10, flex: 1 }}>
             <Text style={styles.nameText}>{headerInfo.name}</Text>
-            <Text style={[styles.statusText, params.chatType === 'direct' ? (onlineUsers.has(params.chatId) ? { color: '#4CAF50', fontWeight: '700' } : { color: '#999' }) : null]}>{headerInfo.status}</Text>
+            {params.chatType === 'direct' ? (
+              <PresenceBadge isOnline={onlineUsers.has(params.chatId)} lastSeen={undefined} size="sm" />
+            ) : (
+              <Text style={[styles.statusText]}>{headerInfo.status}</Text>
+            )}
           </View>
           {params.chatType === "group" && <Icon name="chevron-right" size={24} color="#666" />}
-          <View style={[styles.connectionStatus, { backgroundColor: isConnected ? "#4CAF50" : "#F44336" }]} />
-        </TouchableOpacity>
-
-        <FlatList
-          ref={flatListRef}
-          data={chatItems}
-          keyExtractor={(item) => item.id}
-          renderItem={renderItem}
-          contentContainerStyle={{ padding: 10 }}
-          showsVerticalScrollIndicator={false}
-          onScroll={handleScroll}
-          scrollEventThrottle={16}
-          ListFooterComponent={() =>
-            typingUsers.length > 0 ? (
-              <View style={styles.typingIndicatorInList}>
-                <TypingIndicator />
-              </View>
-            ) : null
-          }
-          maintainVisibleContentPosition={{
-            minIndexForVisible: 0,
-            autoscrollToTopThreshold: 10,
-          }}
-        />
-
-        {showScrollToBottom && (
-          <TouchableOpacity style={styles.scrollToBottomButton} onPress={() => {
-            flatListRef.current?.scrollToEnd({ animated: true })
-            setShowScrollToBottom(false)
-            setNewMessagesCount(0)
-            setIsUserAtBottom(true)
-            isUserAtBottomRef.current = true
-          }}>
-            <Icon name="arrow-downward" size={20} color="#fff" />
-            {newMessagesCount > 0 && <Text style={styles.scrollToBottomText}>{newMessagesCount}</Text>}
-          </TouchableOpacity>
-        )}
-
-        <View style={styles.inputContainer}>
-          {replyingTo && (
-            <View style={styles.replyPreview}>
-              <View style={[styles.replyBar, { backgroundColor: "#0095f6" }]} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.replyName}>{replyingTo.from.name}</Text>
-                <Text style={styles.replyText} numberOfLines={1}>{replyingTo.text}</Text>
-              </View>
-              <TouchableOpacity onPress={() => setReplyingTo(null)}>
-                <Icon name="close" size={18} color="#666" />
-              </TouchableOpacity>
-            </View>
-          )}
-          {isRecording ? (
-            <View style={[styles.input, { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff0f0', borderColor: '#f5a3a3' } as any]}>
-              <Icon name="fiber-manual-record" size={16} color="#e53935" />
-              <Text style={{ marginLeft: 8, color: '#e53935', fontWeight: '700' }}>{formatDuration(recordingMs)}</Text>
-              <Text style={{ marginLeft: 8, color: '#666' }}>Release to send</Text>
-              <View style={{ flex: 1 }} />
-              <TouchableOpacity onPress={() => stopHoldRecording(false)}>
-                <Icon name="delete" size={20} color="#666" />
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <TextInput
-              style={styles.input}
-              placeholder="Message..."
-              placeholderTextColor="#999"
-              value={inputText}
-              onChangeText={handleTextChange}
-              multiline
-              maxLength={500}
-            />
-          )}
-          <TouchableOpacity onPress={onAttachPress} style={[styles.attachButton]}>
-            <Icon name="attach-file" size={22} color="#333" />
-          </TouchableOpacity>
-          <TouchableOpacity onPressIn={startHoldRecording} onPressOut={() => stopHoldRecording(true)} style={[styles.attachButton]}>
-            <Icon name="mic" size={22} color="#333" />
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={sendMessage}
-            style={[
-              styles.sendButton,
-              { opacity: inputText.trim() ? 1 : 0.5 },
-            ]}
-            disabled={!inputText.trim()}
-          >
-            <Icon name="send" size={20} color="#fff" />
-          </TouchableOpacity>
         </View>
-        {params.chatType === "group" && <GroupInfoModal />}
-        {mediaViewer.visible && (
-          <Modal visible transparent animationType="fade" onRequestClose={() => setMediaViewer({ visible: false, url: '', type: 'image' })}>
-            <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' }}>
-              <TouchableOpacity onPress={() => setMediaViewer({ visible: false, url: '', type: 'image' })} style={{ position: 'absolute', top: 40, right: 20 }}>
-                <Icon name="close" size={28} color="#fff" />
-              </TouchableOpacity>
-              {mediaViewer.type === 'image' ? (
-                <Image source={{ uri: mediaViewer.url }} style={{ width: '92%', height: '70%', resizeMode: 'contain' as any }} />
-              ) : mediaViewer.type === 'video' ? (
-                <ExpoVideo source={{ uri: mediaViewer.url }} style={{ width: '92%', height: '70%' }} useNativeControls resizeMode={'contain' as any} shouldPlay={false} isLooping={false} />
-              ) : (
-                <TouchableOpacity onPress={() => { try { (require('expo-web-browser') as any).openBrowserAsync(mediaViewer.url) } catch {} }}>
-                  <Text style={{ color: '#fff', textDecorationLine: 'underline' }}>Open file</Text>
-                </TouchableOpacity>
-              )}
+      </View>
+
+      <FlatList
+        ref={flatListRef}
+        data={chatItems}
+        keyExtractor={(item) => item.id}
+        renderItem={renderItem}
+        contentContainerStyle={{ padding: 10 }}
+        showsVerticalScrollIndicator={false}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+        ListFooterComponent={() =>
+          typingUsers.length > 0 ? (
+            <View style={styles.typingIndicatorInList}>
+              <TypingIndicator />
             </View>
-          </Modal>
+          ) : null
+        }
+        maintainVisibleContentPosition={{
+          minIndexForVisible: 0,
+          autoscrollToTopThreshold: 10,
+        }}
+      />
+
+      {showScrollToBottom && (
+        <TouchableOpacity style={styles.scrollToBottomButton} onPress={() => {
+          flatListRef.current?.scrollToEnd({ animated: true })
+          setShowScrollToBottom(false)
+          setNewMessagesCount(0)
+          setIsUserAtBottom(true)
+          isUserAtBottomRef.current = true
+        }}>
+          <Icon name="arrow-downward" size={20} color="#fff" />
+          {newMessagesCount > 0 && <Text style={styles.scrollToBottomText}>{newMessagesCount}</Text>}
+        </TouchableOpacity>
+      )}
+
+      <View style={styles.inputContainer}>
+        {replyingTo && (
+          <View style={styles.replyPreview}>
+            <View style={[styles.replyBar, { backgroundColor: "#0095f6" }]} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.replyName}>{replyingTo.from.name}</Text>
+              <Text style={styles.replyText} numberOfLines={1}>{replyingTo.text}</Text>
+            </View>
+            <TouchableOpacity onPress={() => setReplyingTo(null)}>
+              <Icon name="close" size={18} color="#666" />
+            </TouchableOpacity>
+          </View>
         )}
-        {/* Quick Reactions Modal */}
-        <Modal visible={!!reactingTo} transparent animationType="fade" onRequestClose={() => setReactingTo(null)}>
-          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.2)' }}>
-            <View style={{ flexDirection: 'row', backgroundColor: '#fff', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 8 }}>
-              {['❤️','👍','😂','😮','😢','🔥'].map((emoji) => (
-                <TouchableOpacity key={emoji} style={{ paddingHorizontal: 8, paddingVertical: 6 }} onPress={async () => {
-                  const msgId = (reactingTo as any)?.id
-                  try { await apiService.request(`/messages/${msgId}/react`, { method: 'POST', body: JSON.stringify({ type: emoji }) }) } catch {}
-                  setReactingTo(null)
-                }}>
-                  <Text style={{ fontSize: 20 }}>{emoji}</Text>
-                </TouchableOpacity>
-              ))}
-              <TouchableOpacity style={{ paddingHorizontal: 8, paddingVertical: 6, marginLeft: 6 }} onPress={async () => {
-                const msgId = (reactingTo as any)?.id
-                try { await apiService.request(`/messages/${msgId}/react`, { method: 'POST', body: JSON.stringify({ type: null }) }) } catch {}
-                setReactingTo(null)
-              }}>
-                <Text style={{ fontSize: 14, color: '#e53935', fontWeight: '700' }}>Remove</Text>
+        {isRecording ? (
+          <View style={[styles.input, { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff0f0', borderColor: '#f5a3a3' } as any]}>
+            <Icon name="fiber-manual-record" size={16} color="#e53935" />
+            <Text style={{ marginLeft: 8, color: '#e53935', fontWeight: '700' }}>{formatDuration(recordingMs)}</Text>
+            <Text style={{ marginLeft: 8, color: '#666' }}>Release to send</Text>
+            <View style={{ flex: 1 }} />
+            <TouchableOpacity onPress={() => stopHoldRecording(false)}>
+              <Icon name="delete" size={20} color="#666" />
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TextInput
+            style={styles.input}
+            placeholder="Message..."
+            placeholderTextColor="#999"
+            value={inputText}
+            onChangeText={handleTextChange}
+            multiline
+            maxLength={500}
+          />
+        )}
+        <TouchableOpacity onPress={onAttachPress} style={[styles.attachButton]}>
+          <Icon name="attach-file" size={22} color="#333" />
+        </TouchableOpacity>
+        <TouchableOpacity onPressIn={startHoldRecording} onPressOut={() => stopHoldRecording(true)} style={[styles.attachButton]}>
+          <Icon name="mic" size={22} color="#333" />
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={sendMessage}
+          style={[
+            styles.sendButton,
+            { opacity: inputText.trim() ? 1 : 0.5 },
+          ]}
+          disabled={!inputText.trim()}
+        >
+          <Icon name="send" size={20} color="#fff" />
+        </TouchableOpacity>
+      </View>
+      {params.chatType === "group" && <GroupInfoModal />}
+      {mediaViewer.visible && (
+        <Modal visible transparent animationType="fade" onRequestClose={() => setMediaViewer({ visible: false, url: '', type: 'image' })}>
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' }}>
+            <TouchableOpacity onPress={() => setMediaViewer({ visible: false, url: '', type: 'image' })} style={{ position: 'absolute', top: 40, right: 20 }}>
+              <Icon name="close" size={28} color="#fff" />
+            </TouchableOpacity>
+            {mediaViewer.type === 'image' ? (
+              <Image source={{ uri: mediaViewer.url }} style={{ width: '92%', height: '70%', resizeMode: 'contain' as any }} />
+            ) : mediaViewer.type === 'video' ? (
+              <ExpoVideo source={{ uri: mediaViewer.url }} style={{ width: '92%', height: '70%' }} useNativeControls resizeMode={'contain' as any} shouldPlay={false} isLooping={false} />
+            ) : (
+              <TouchableOpacity onPress={() => { try { (require('expo-web-browser') as any).openBrowserAsync(mediaViewer.url) } catch {} }}>
+                <Text style={{ color: '#fff', textDecorationLine: 'underline' }}>Open file</Text>
               </TouchableOpacity>
-            </View>
-            <TouchableOpacity style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }} onPress={() => setReactingTo(null)} />
+            )}
           </View>
         </Modal>
-      </KeyboardAvoidingView>
-    
+      )}
+      {/* Quick Reactions Modal */}
+      <Modal visible={!!reactingTo} transparent animationType="fade" onRequestClose={() => setReactingTo(null)}>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.2)' }}>
+          <View style={{ flexDirection: 'row', backgroundColor: '#fff', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 8 }}>
+            {['❤️','👍','😂','😮','😢','🔥'].map((emoji) => (
+              <TouchableOpacity key={emoji} style={{ paddingHorizontal: 8, paddingVertical: 6 }} onPress={async () => {
+                const msgId = (reactingTo as any)?.id
+                try { await apiService.request(`/messages/${msgId}/react`, { method: 'POST', body: JSON.stringify({ type: emoji }) }) } catch {}
+                setReactingTo(null)
+              }}>
+                <Text style={{ fontSize: 20 }}>{emoji}</Text>
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity style={{ paddingHorizontal: 8, paddingVertical: 6, marginLeft: 6 }} onPress={async () => {
+              const msgId = (reactingTo as any)?.id
+              try { await apiService.request(`/messages/${msgId}/react`, { method: 'POST', body: JSON.stringify({ type: null }) }) } catch {}
+              setReactingTo(null)
+            }}>
+              <Text style={{ fontSize: 14, color: '#e53935', fontWeight: '700' }}>Remove</Text>
+            </TouchableOpacity>
+          </View>
+          <TouchableOpacity style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }} onPress={() => setReactingTo(null)} />
+        </View>
+      </Modal>
+    </View>
   )
 }
 

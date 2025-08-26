@@ -263,6 +263,26 @@ export default function ChatsScreen() {
     }
   }, [])
 
+  // Periodically refresh last-seen for top direct chats
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        const directs = (chats || []).filter(c => c.chatType === 'direct').slice(0, 10)
+        const entries: Record<string, string> = {}
+        await Promise.all(directs.map(async (c: any) => {
+          const pid = String((c.user || c.participant)?._id || '')
+          if (!pid) return
+          try {
+            const r: any = await apiService.getLastSeen(pid)
+            if (r?.success && r?.lastActiveAt) entries[pid] = r.lastActiveAt
+          } catch {}
+        }))
+        if (Object.keys(entries).length > 0) setLastSeenMap((prev) => ({ ...prev, ...entries }))
+      } catch {}
+    }, 60 * 1000)
+    return () => clearInterval(interval)
+  }, [chats])
+
   useFocusEffect(
     useCallback(() => {
       fetchChats() // fetch once on focus; rely on socket realtime updates afterward
