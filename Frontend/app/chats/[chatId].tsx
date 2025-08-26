@@ -230,7 +230,7 @@ export default function ChatScreen() {
           const baseMessage: ChatMessage = {
             id: msg._id || `socket-${Date.now()}-${Math.random()}`,
             text: msg.text,
-            sender: fromUserId === user._id ? "me" : "other",
+            sender: String(fromUserId) === String(user._id) ? "me" : "other",
             from: resolveFromUser(msg.from),
             to: msg.to,
             group: msg.group,
@@ -280,8 +280,8 @@ export default function ChatScreen() {
                   String((m as any).id || '').startsWith('temp-') &&
                   (m as any).text === (newMessage as any).text &&
                   (m as any).messageType === (newMessage as any).messageType &&
-                  (newGroupId ? mGroupId === newGroupId : true) &&
-                  (newToId ? mToId === newToId : true) &&
+                  (newGroupId ? String(mGroupId) === String(newGroupId) : true) &&
+                  (newToId ? String(mToId) === String(newToId) : true) &&
                   Math.abs(new Date((m as any).createdAt || 0).getTime() - new Date((newMessage as any).createdAt || 0).getTime()) < 15000
                 )
               })
@@ -463,7 +463,7 @@ export default function ChatScreen() {
         const formattedMessages: ChatMessage[] = messages.map((msg: any) => ({
           id: msg._id,
           text: msg.text,
-          sender: msg.from === user._id ? "me" : "other",
+          sender: ((typeof msg.from === 'object' ? msg.from?._id : msg.from) === user._id) ? "me" : "other",
           from: resolveFromUser(msg.from),
           to: resolveFromUser(msg.to),
           messageType: "direct",
