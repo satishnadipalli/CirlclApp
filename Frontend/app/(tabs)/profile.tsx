@@ -517,6 +517,15 @@ export default function ProfileScreen() {
               <TouchableOpacity style={[styles.button, { backgroundColor: Brand.muted }]} onPress={handleShareProfile}>
                 <Text style={[styles.buttonText, { color: Brand.text }]}>Share Profile</Text>
               </TouchableOpacity>
+              <TouchableOpacity style={[styles.button, { backgroundColor: '#eee' }]} onPress={async () => {
+                try {
+                  const text = 'Be right back'
+                  const api = (await import('@/services/api.service')).apiService
+                  await (api as any).setCustomStatus(text, '✨', 60)
+                } catch {}
+              }}>
+                <Text style={[styles.buttonText, { color: '#333' }]}>Set Status</Text>
+              </TouchableOpacity>
               <TouchableOpacity style={[styles.button, { backgroundColor: '#eee' }]} onPress={async () => { try { await AsyncStorage.multiRemove(["token","user"]); router.push("/login"); } catch {} }}>
                 <Text style={[styles.buttonText, { color: '#333' }]}>Logout</Text>
               </TouchableOpacity>

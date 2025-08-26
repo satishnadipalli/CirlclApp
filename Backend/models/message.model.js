@@ -63,12 +63,15 @@ const messageSchema = new mongoose.Schema(
       image: { type: String, default: '' },
       siteName: { type: String, default: '' },
     }, { _id: false }),
+    // Ephemeral TTL
+    expiresAt: { type: Date },
   },
   { timestamps: true },
 )
 
 messageSchema.index({ messageType: 1, to: 1, createdAt: -1 })
 messageSchema.index({ messageType: 1, group: 1, createdAt: -1 })
+messageSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 })
 
 // Validation: message must have either 'to' or 'group', not both
 messageSchema.pre("save", function (next) {

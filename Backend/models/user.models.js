@@ -35,6 +35,16 @@ const userSchema = new mongoose.Schema({
     follow: { type: Boolean, default: true },
     save: { type: Boolean, default: true },
     daily: { type: Boolean, default: true },
+    quiet: new mongoose.Schema({
+      enabled: { type: Boolean, default: false },
+      start: { type: String, default: '22:00' },
+      end: { type: String, default: '07:00' },
+    }, { _id: false }),
+  }, { _id: false }),
+  customStatus: new mongoose.Schema({
+    text: { type: String, default: '' },
+    emoji: { type: String, default: '' },
+    expiresAt: { type: Date },
   }, { _id: false }),
   // Privacy controls
   privacy: new mongoose.Schema({

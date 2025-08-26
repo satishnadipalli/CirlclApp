@@ -7,7 +7,7 @@ export default function NotificationSettings() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [prefs, setPrefs] = useState<{ like: boolean; comment: boolean; reply: boolean; mention: boolean; follow: boolean; save: boolean; daily: boolean }>({ like: true, comment: true, reply: true, mention: true, follow: true, save: true, daily: true })
+  const [prefs, setPrefs] = useState<{ like: boolean; comment: boolean; reply: boolean; mention: boolean; follow: boolean; save: boolean; daily: boolean; quiet?: { enabled?: boolean; start?: string; end?: string } }>({ like: true, comment: true, reply: true, mention: true, follow: true, save: true, daily: true, quiet: { enabled: false, start: '22:00', end: '07:00' } })
 
   useEffect(() => {
     ;(async () => {
@@ -53,6 +53,18 @@ export default function NotificationSettings() {
           <Switch value={!!prefs[k]} onValueChange={onToggle(k)} />
         </View>
       ))}
+      <View style={styles.row}>
+        <Text style={styles.label}>Quiet hours</Text>
+        <Switch value={!!prefs.quiet?.enabled} onValueChange={(v) => setPrefs((p) => ({ ...p, quiet: { ...(p.quiet || {}), enabled: v } }))} />
+      </View>
+      {prefs.quiet?.enabled && (
+        <View style={{ paddingHorizontal: 16, paddingVertical: 8 }}>
+          <Text style={{ color: '#666', marginBottom: 6 }}>Start (HH:MM)</Text>
+          <TouchableOpacity onPress={() => setPrefs((p) => ({ ...p, quiet: { ...(p.quiet || {}), start: p.quiet?.start === '22:00' ? '21:00' : '22:00' } }))}><Text style={styles.link}>{prefs.quiet?.start}</Text></TouchableOpacity>
+          <Text style={{ color: '#666', marginVertical: 6 }}>End (HH:MM)</Text>
+          <TouchableOpacity onPress={() => setPrefs((p) => ({ ...p, quiet: { ...(p.quiet || {}), end: p.quiet?.end === '07:00' ? '08:00' : '07:00' } }))}><Text style={styles.link}>{prefs.quiet?.end}</Text></TouchableOpacity>
+        </View>
+      )}
     </View>
   )
 }

@@ -637,9 +637,11 @@ export default function ChatScreen() {
     try {
       let response
       if (params.chatType === "direct") {
-        response = await apiService.sendDirectMessage(params.chatId, messageText, replyingTo?.id)
+        if ((global as any).EPHEMERAL_MODE === true) response = await apiService.sendDirectEphemeral(params.chatId, messageText, 60, replyingTo?.id)
+        else response = await apiService.sendDirectMessage(params.chatId, messageText, replyingTo?.id)
       } else {
-        response = await apiService.sendGroupMessage(params.chatId, messageText, replyingTo?.id)
+        if ((global as any).EPHEMERAL_MODE === true) response = await apiService.sendGroupEphemeral(params.chatId, messageText, 60, replyingTo?.id)
+        else response = await apiService.sendGroupMessage(params.chatId, messageText, replyingTo?.id)
       }
 
       if (!response.success) {

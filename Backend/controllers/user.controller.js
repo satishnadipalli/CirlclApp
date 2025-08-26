@@ -402,7 +402,7 @@ const registerPushToken = async (req, res) => {
 const getNotificationPrefs = async (req, res) => {
   try {
     const me = await User.findById(req.user.id).select('notificationPrefs')
-    const prefs = me?.notificationPrefs || { like: true, comment: true, reply: true, mention: true, follow: true, save: true, daily: true }
+    const prefs = me?.notificationPrefs || { like: true, comment: true, reply: true, mention: true, follow: true, save: true, daily: true, quiet: { enabled: false, start: '22:00', end: '07:00' } }
     res.json({ success: true, prefs })
   } catch (e) { res.status(500).json({ success: false, message: e.message }) }
 }
@@ -415,8 +415,32 @@ const updateNotificationPrefs = async (req, res) => {
     for (const k of allowed) {
       if (typeof body[k] === 'boolean') set[`notificationPrefs.${k}`] = body[k]
     }
+    if (body?.quiet && typeof body.quiet === 'object') {
+      if (typeof body.quiet.enabled === 'boolean') set['notificationPrefs.quiet.enabled'] = body.quiet.enabled
+      if (typeof body.quiet.start === 'string') set['notificationPrefs.quiet.start'] = body.quiet.start
+      if (typeof body.quiet.end === 'string') set['notificationPrefs.quiet.end'] = body.quiet.end
+    }
     const me = await User.findByIdAndUpdate(req.user.id, { $set: set }, { new: true }).select('notificationPrefs')
     res.json({ success: true, prefs: me?.notificationPrefs })
+  } catch (e) { res.status(500).json({ success: false, message: e.message }) }
+}
+
+// Custom status
+const setCustomStatus = async (req, res) => {
+  try {
+    const { text = '', emoji = '', durationMinutes } = req.body || {}
+    let expiresAt = null
+    if (durationMinutes && !Number.isNaN(Number(durationMinutes))) {
+      expiresAt = new Date(Date.now() + Number(durationMinutes) * 60000)
+    }
+    const update = { 'customStatus.text': String(text || '').slice(0, 60), 'customStatus.emoji': String(emoji || '').slice(0, 8), 'customStatus.expiresAt': expiresAt }
+    const me = await User.findByIdAndUpdate(req.user.id, { $set: update }, { new: true }).select('customStatus')
+    // Best-effort presence broadcast
+    try {
+      const io = req.app.get('io')
+      io.emit('userStatusChange', { userId: String(req.user.id), status: 'online', customStatus: me?.customStatus || null })
+    } catch {}
+    res.json({ success: true, customStatus: me?.customStatus })
   } catch (e) { res.status(500).json({ success: false, message: e.message }) }
 }
 

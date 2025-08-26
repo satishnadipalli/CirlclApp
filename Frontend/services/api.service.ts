@@ -138,6 +138,11 @@ class ApiService {
     return this.request(`/users/me/privacy`, { method: 'PUT', body: JSON.stringify(p) })
   }
 
+  // Custom status
+  async setCustomStatus(text: string, emoji?: string, durationMinutes?: number) {
+    return this.request(`/users/me/custom-status`, { method: 'POST', body: JSON.stringify({ text, emoji, durationMinutes }) })
+  }
+
   // Suggestions & Mutuals
   async getSuggestions() { return this.request(`/users/me/suggestions`) }
   async getMutuals(userId: string, limit = 10) { return this.request(`/users/${userId}/mutuals?limit=${limit}`) }
@@ -293,6 +298,16 @@ class ApiService {
   async getGroupMessages(groupId) { return this.request(`/groups/${groupId}/messages`) }
   async sendGroupMessage(groupId, text, replyTo) {
     return this.request("/messages", { method: "POST", body: JSON.stringify({ group: groupId, text, messageType: "group", replyTo, }), }) }
+
+  // Ephemeral messages
+  async sendDirectEphemeral(toUserId: string, text: string, ttlSeconds = 60, replyTo?: string) {
+    const ttl = Math.max(10, Math.min(7*24*3600, ttlSeconds))
+    return this.request("/messages", { method: 'POST', body: JSON.stringify({ to: toUserId, text, messageType: 'direct', replyTo, expiresInSeconds: ttl }) })
+  }
+  async sendGroupEphemeral(groupId: string, text: string, ttlSeconds = 60, replyTo?: string) {
+    const ttl = Math.max(10, Math.min(7*24*3600, ttlSeconds))
+    return this.request("/messages", { method: 'POST', body: JSON.stringify({ group: groupId, text, messageType: 'group', replyTo, expiresInSeconds: ttl }) })
+  }
   async addGroupMembers(groupId, memberIds) { return this.request(`/groups/${groupId}/members`, { method: "POST", body: JSON.stringify({ members: memberIds, }), }) }
   async removeGroupMember(groupId, memberId) { return this.request(`/groups/${groupId}/members/${memberId}`, { method: "DELETE", }) }
   async promoteToAdmin(groupId, memberId) { return this.request(`/groups/${groupId}/admins/${memberId}`, { method: "POST", }) }

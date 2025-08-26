@@ -99,7 +99,7 @@ const createNotification = async ({
         type === 'comment' ? 'commented on your post' :
         type === 'reply' ? 'replied to your comment' :
         type === 'save' ? 'saved your post' : 'interacted with you'
-      await sendExpoPush({ tokens, title, body, data: { type, postId, commentId, replyId, actionLink } })
+      await sendExpoPush({ tokens, title, body, data: { type, postId, commentId, replyId, actionLink }, receiverId })
     }
   } catch {}
 

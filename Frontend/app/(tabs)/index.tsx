@@ -289,17 +289,22 @@ export default function HomeScreen() {
           <>
             <View style={styles.header}>
               <Image source={logo} resizeMethod="contain" style={styles.logo} />
-              <TouchableOpacity style={styles.notificationButton} onPress={() => router.push('/notifications')}>
-                <Ionicons name="heart-outline" size={28} color="#262626" />
-                {unreadCount > 0 && (
-                  <View style={styles.unreadBadge}>
-                    <Text style={styles.unreadText}>{Math.min(99, unreadCount)}</Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.notificationButton, { marginLeft: 6 }]} onPress={() => router.push('/highlights')}>
-                <Ionicons name="bookmark-outline" size={26} color="#262626" />
-              </TouchableOpacity>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <TouchableOpacity style={styles.notificationButton} onPress={() => router.push('/notifications')}>
+                  <Ionicons name="heart-outline" size={28} color="#262626" />
+                  {unreadCount > 0 && (
+                    <View style={styles.unreadBadge}>
+                      <Text style={styles.unreadText}>{Math.min(99, unreadCount)}</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.notificationButton, { marginLeft: 6 }]} onPress={() => router.push('/highlights')}>
+                  <Ionicons name="bookmark-outline" size={26} color="#262626" />
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.notificationButton, { marginLeft: 6 }]} onPress={() => router.push('/settings/privacy')}>
+                  <Ionicons name="shield-outline" size={24} color="#262626" />
+                </TouchableOpacity>
+              </View>
             </View>
 
             <View style={styles.storiesContainer}>

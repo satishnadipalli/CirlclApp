@@ -31,7 +31,7 @@ async function fetchLinkPreview(url) {
 // Send message (both direct and group)
 const sendMessage = async (req, res) => {
   try {
-    const { text, to, group, messageType, replyTo } = req.body
+    const { text, to, group, messageType, replyTo, expiresInSeconds } = req.body
     const from = req.user.id
 
     const txt = typeof text === 'string' ? text : ''
@@ -144,6 +144,10 @@ const sendMessage = async (req, res) => {
       } catch {}
     }
 
+    if (expiresInSeconds && !Number.isNaN(Number(expiresInSeconds))) {
+      const ttl = Math.max(10, Math.min(7 * 24 * 3600, Number(expiresInSeconds)))
+      message.expiresAt = new Date(Date.now() + ttl * 1000)
+    }
     await message.save()
     await message.populate("from", "name profilePic")
     await message.populate({

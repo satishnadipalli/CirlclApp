@@ -34,6 +34,8 @@ router.put('/me/notification-prefs', auth, updateNotificationPrefs)
 // Privacy
 router.get('/me/privacy', auth, require('../controllers/user.controller').getPrivacy)
 router.put('/me/privacy', auth, require('../controllers/user.controller').updatePrivacy)
+// Custom status
+router.post('/me/custom-status', auth, require('../controllers/user.controller').setCustomStatus)
 // Presence
 router.get('/presence/online', auth, getOnlineUsers)
 router.get('/:id/last-seen', auth, getLastSeen)
