@@ -1058,34 +1058,6 @@ export default function ChatScreen() {
       <SwipeReply onSwipeLeft={() => setReplyingTo(message)} onSwipeRight={() => setReplyingTo(message)}>
       <TouchableOpacity
         activeOpacity={0.7}
-        onLongPress={() => {
-          const opts: any[] = [
-            { text: 'React…', onPress: (evt?: any) => {
-              setReactingTo(message)
-              try {
-                const y = (evt?.nativeEvent?.pageY || 100) - 60
-                const x = (evt?.nativeEvent?.pageX || 160)
-                setReactionAnchor({ x, y })
-              } catch { setReactionAnchor({ x: 160, y: 120 }) }
-            } },
-            { text: '❤️', onPress: async () => { try { await apiService.request('/messages/'+message.id+'/react', { method:'POST', body: JSON.stringify({ type: '❤️' }) }) } catch {} } },
-            { text: '😂', onPress: async () => { try { await apiService.request('/messages/'+message.id+'/react', { method:'POST', body: JSON.stringify({ type: '😂' }) }) } catch {} } },
-            { text: '🔥', onPress: async () => { try { await apiService.request('/messages/'+message.id+'/react', { method:'POST', body: JSON.stringify({ type: '🔥' }) }) } catch {} } },
-            { text: 'Reply', onPress: () => setReplyingTo(message) },
-          ]
-          if (isMyMessage) {
-            opts.push({ text: 'Edit', onPress: async () => {
-              try {
-                const prompt = (global as any).prompt || (()=>null)
-                const t = prompt ? prompt('Edit message', message.text || '') : ''
-                if (typeof t === 'string') await apiService.request('/messages/'+message.id, { method:'PUT', body: JSON.stringify({ text: t }) })
-              } catch {}
-            } })
-            opts.push({ text: 'Delete', style: 'destructive', onPress: async () => { try { await apiService.request('/messages/'+message.id, { method:'DELETE' }) } catch {} } })
-          }
-          opts.push({ text: 'Cancel', style: 'cancel' })
-          Alert.alert('Message', 'Choose action', opts)
-        }}
         style={[styles.messageRow, isMyMessage ? styles.myMessageRow : styles.otherMessageRow]}
       >
         {params.chatType === "group" && !isMyMessage && (
@@ -1239,6 +1211,18 @@ export default function ChatScreen() {
               <View style={{ height: 4, width: `${Math.round((message as any).uploadProgress)}%`, backgroundColor: '#4ea1ff' }} />
             </View>
           )}
+          <View style={{ flexDirection: 'row', marginTop: 6, alignItems: 'center', justifyContent: isMyMessage ? 'flex-end' : 'flex-start' }}>
+            <TouchableOpacity onPress={(evt: any) => {
+              setReactingTo(message)
+              try {
+                const y = (evt?.nativeEvent?.pageY || 100) - 50
+                const x = (evt?.nativeEvent?.pageX || 160)
+                setReactionAnchor({ x, y })
+              } catch { setReactionAnchor({ x: 160, y: 120 }) }
+            }} style={{ backgroundColor: '#f5f5f5', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 }}>
+              <Text style={{ fontSize: 12 }}>😊</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </TouchableOpacity>
       </SwipeReply>
@@ -1520,10 +1504,18 @@ export default function ChatScreen() {
           x={reactionAnchor.x}
           y={reactionAnchor.y}
           onSelect={async (emoji) => {
-            try {
-              const msgId = (reactingTo as any)?.id
-              await apiService.request(`/messages/${msgId}/react`, { method: 'POST', body: JSON.stringify({ type: emoji }) })
-            } catch {}
+            const msgId = (reactingTo as any)?.id
+            // optimistic UI update
+            setMessages((prev) => prev.map((m) => {
+              if (m.id !== msgId) return m
+              const cur = Array.isArray((m as any).reactions) ? (m as any).reactions.slice() : []
+              const mineId = String(currentUser?._id || '')
+              const filtered = cur.filter((r: any) => String(r?.userId || r?.user) !== mineId)
+              filtered.push({ type: emoji, userId: mineId })
+              return { ...(m as any), reactions: filtered }
+            }))
+            // fire and forget server
+            try { await apiService.request(`/messages/${msgId}/react`, { method: 'POST', body: JSON.stringify({ type: emoji }) }) } catch {}
             setReactingTo(null)
             setReactionAnchor(null)
           }}
@@ -1696,19 +1688,23 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 14,
   },
-  messageContainer: {
-    maxWidth: "80%",
-    padding: 10,
-    borderRadius: 15,
+  messageContent: {
+    maxWidth: "86%",
+    padding: 12,
+    borderRadius: 18,
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
   },
-  myMessage: {
-    backgroundColor: "#DCF8C6",
+  myMessageContent: {
+    backgroundColor: "#E6F7FF",
+    borderTopRightRadius: 4,
   },
-  otherMessage: {
-    backgroundColor: "#ECECEC",
-  },
-  groupOtherMessage: {
-    backgroundColor: "#ECECEC",
+  otherMessageContent: {
+    backgroundColor: "#F4F5F7",
+    borderTopLeftRadius: 4,
   },
   senderName: {
     fontSize: 14,
@@ -1875,9 +1871,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     padding: 10,
+    backgroundColor: "#fafafa",
     borderTopWidth: 1,
-    borderTopColor: "#ddd",
-    backgroundColor: "#fff",
+    borderTopColor: "#eee",
   },
   replyPreview: {
     position: "absolute",
@@ -1921,27 +1917,26 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     padding: 10,
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 20,
+    borderWidth: 0,
+    borderRadius: 14,
     marginRight: 10,
     minHeight: 40,
     maxHeight: 120,
     backgroundColor: "#fff",
   },
   attachButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 20,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#f2f2f2',
+    backgroundColor: '#f0f0f0',
     marginRight: 8,
   },
   sendButton: {
     backgroundColor: "#007AFF",
     paddingVertical: 10,
     paddingHorizontal: 12,
-    borderRadius: 20,
+    borderRadius: 12,
   },
 })
