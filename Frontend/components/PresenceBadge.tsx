@@ -7,6 +7,7 @@ interface PresenceBadgeProps {
   colorOnline?: string
   colorOffline?: string
   size?: "sm" | "md"
+  customStatus?: { text?: string; emoji?: string } | null
 }
 
 function formatLastSeen(iso?: string | Date | null): string {
@@ -31,13 +32,17 @@ export const PresenceBadge: React.FC<PresenceBadgeProps> = ({
   colorOnline = "#4CAF50",
   colorOffline = "#666",
   size = "md",
+  customStatus,
 }) => {
   const textStyle = size === "sm" ? { fontSize: 12 } : { fontSize: 14 }
   if (isOnline) {
     return (
       <View style={{ flexDirection: "row", alignItems: "center" }}>
         <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colorOnline, marginRight: 6 }} />
-        <Text style={[{ color: colorOnline, fontWeight: "700" }, textStyle]}>Online</Text>
+        <Text style={[{ color: colorOnline, fontWeight: "700" }, textStyle]}>
+          {customStatus?.emoji ? `${customStatus.emoji} ` : ''}
+          {customStatus?.text ? customStatus.text : 'Online'}
+        </Text>
       </View>
     )
   }

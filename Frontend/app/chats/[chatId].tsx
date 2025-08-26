@@ -98,6 +98,7 @@ export default function ChatScreen() {
   const [searchQuery, setSearchQuery] = useState("")
   const [searchMatches, setSearchMatches] = useState<number[]>([])
   const [searchIndex, setSearchIndex] = useState(0)
+  const [ephemeralMode, setEphemeralMode] = useState(false)
   const [cancelHintVisible, setCancelHintVisible] = useState(false)
   const [holdDx, setHoldDx] = useState(0)
 
@@ -637,10 +638,10 @@ export default function ChatScreen() {
     try {
       let response
       if (params.chatType === "direct") {
-        if ((global as any).EPHEMERAL_MODE === true) response = await apiService.sendDirectEphemeral(params.chatId, messageText, 60, replyingTo?.id)
+        if (ephemeralMode) response = await apiService.sendDirectEphemeral(params.chatId, messageText, 60, replyingTo?.id)
         else response = await apiService.sendDirectMessage(params.chatId, messageText, replyingTo?.id)
       } else {
-        if ((global as any).EPHEMERAL_MODE === true) response = await apiService.sendGroupEphemeral(params.chatId, messageText, 60, replyingTo?.id)
+        if (ephemeralMode) response = await apiService.sendGroupEphemeral(params.chatId, messageText, 60, replyingTo?.id)
         else response = await apiService.sendGroupMessage(params.chatId, messageText, replyingTo?.id)
       }
 
@@ -1370,7 +1371,7 @@ export default function ChatScreen() {
           <View style={{ marginLeft: 10, flex: 1 }}>
             <Text style={styles.nameText}>{headerInfo.name}</Text>
             {params.chatType === 'direct' ? (
-              <PresenceBadge isOnline={onlineUsers.has(params.chatId)} lastSeen={undefined} size="sm" />
+              <PresenceBadge isOnline={onlineUsers.has(params.chatId)} lastSeen={undefined} size="sm" customStatus={undefined} />
             ) : (
               <Text style={[styles.statusText]}>{headerInfo.status}</Text>
             )}
@@ -1462,6 +1463,9 @@ export default function ChatScreen() {
             maxLength={500}
           />
         )}
+        <TouchableOpacity onPress={() => setEphemeralMode((v) => !v)} style={[styles.attachButton]}>
+          <Icon name={ephemeralMode ? 'timer' : 'timer-off'} size={22} color={ephemeralMode ? '#d32f2f' : '#333'} />
+        </TouchableOpacity>
         <TouchableOpacity onPress={onAttachPress} style={[styles.attachButton]}>
           <Icon name="attach-file" size={22} color="#333" />
         </TouchableOpacity>
