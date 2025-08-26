@@ -110,7 +110,14 @@ io.on("connection", (socket) => {
       const showOnline = u?.privacy?.showOnline !== false
       if (showOnline) io.emit("userStatusChange", { userId, status: "online" });
     } catch {}
-    try { await User.findByIdAndUpdate(userId, { $set: { lastActiveAt: new Date() } }) } catch {}
+    try {
+      await User.findByIdAndUpdate(userId, { $set: { lastActiveAt: new Date() } })
+      const u = await User.findById(userId).select('customStatus privacy')
+      const showOnline = u?.privacy?.showOnline !== false
+      if (showOnline && (u?.customStatus?.text || u?.customStatus?.emoji)) {
+        io.emit("userStatusChange", { userId, status: "online", customStatus: { text: u.customStatus.text || '', emoji: u.customStatus.emoji || '' } })
+      }
+    } catch {}
   });
 
   // Direct messaging (no-op; REST controller will emit after persistence)
@@ -134,14 +141,20 @@ io.on("connection", (socket) => {
   });
 
   // Typing indicators
+  // Simple in-memory cache for privacy checks to reduce DB hits
+  const privacyCache = new Map(); // key: userId -> { sendTypingIndicators, ts }
   socket.on("typing", ({ from, to }) => {
     const recipientSocketId = onlineUsers.get(to);
     if (!recipientSocketId) return
+    const now = Date.now()
+    const cached = privacyCache.get(String(from))
+    const checkSender = cached && (now - cached.ts < 30000) ? Promise.resolve({ privacy: { sendTypingIndicators: cached.sendTypingIndicators } }) : User.findById(from).select('privacy').then((u) => { privacyCache.set(String(from), { sendTypingIndicators: u?.privacy?.sendTypingIndicators !== false, ts: now }); return u })
     Promise.all([
-      User.findById(from).select('privacy'),
+      checkSender,
       User.findById(to).select('blockedUsers'),
     ]).then(([sender, receiver]) => {
-      if (sender?.privacy?.sendTypingIndicators === false) return
+      const allow = (sender?.privacy?.sendTypingIndicators !== false)
+      if (!allow) return
       if (Array.isArray(receiver?.blockedUsers) && receiver.blockedUsers.some((id) => String(id) === String(from))) return
       io.to(recipientSocketId).emit("typing", { from });
     }).catch(() => {})

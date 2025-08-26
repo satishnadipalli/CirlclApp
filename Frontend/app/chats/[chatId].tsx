@@ -120,6 +120,7 @@ export default function ChatScreen() {
   const router = useRouter()
   const params = useLocalSearchParams() as unknown as ChatParams
   const draftKey = `chat_draft_${params.chatType}_${params.chatId}`
+  const ephemeralKey = `chat_ephemeral_${params.chatType}_${params.chatId}`
 
   const dot1Opacity = useRef(new Animated.Value(0.3)).current
   const dot2Opacity = useRef(new Animated.Value(0.3)).current
@@ -150,6 +151,8 @@ export default function ChatScreen() {
           apiService.setToken(token)
         }
 
+        // Restore per-chat ephemeral preference
+        try { const rawEphemeral = await AsyncStorage.getItem(ephemeralKey); if (rawEphemeral) setEphemeralMode(rawEphemeral === '1') } catch {}
         // Seed other user (for brand new chats with no history yet)
         if (params.chatType === "direct" && params.chatId) {
           const seededOther: User = {
@@ -461,7 +464,7 @@ export default function ChatScreen() {
         stopTypingListenerRef.current = onGroupStopTypingCb
       }
 
-      const onUserStatusChangeCb = (data: { userId: string; status: "online" | "offline" }) => {
+      const onUserStatusChangeCb = (data: { userId: string; status: "online" | "offline"; customStatus?: { text?: string; emoji?: string } }) => {
         console.log("[v0] User status change:", data)
         setOnlineUsers((prev) => {
           const newSet = new Set(prev)
@@ -472,6 +475,10 @@ export default function ChatScreen() {
           }
           return newSet
         })
+        if (params.chatType === 'direct' && String(params.chatId) === String(data.userId)) {
+          // Force rerender of header where PresenceBadge is used
+          setTypingUsers((prev) => [...prev])
+        }
       }
       socketService.onUserStatusChange(onUserStatusChangeCb)
       userStatusListenerRef.current = onUserStatusChangeCb
@@ -1463,7 +1470,7 @@ export default function ChatScreen() {
             maxLength={500}
           />
         )}
-        <TouchableOpacity onPress={() => setEphemeralMode((v) => !v)} style={[styles.attachButton]}>
+        <TouchableOpacity onPress={async () => { setEphemeralMode((v) => { const nv = !v; try { AsyncStorage.setItem(ephemeralKey, nv ? '1' : '0') } catch {}; return nv }) }} style={[styles.attachButton]}>
           <Icon name={ephemeralMode ? 'timer' : 'timer-off'} size={22} color={ephemeralMode ? '#d32f2f' : '#333'} />
         </TouchableOpacity>
         <TouchableOpacity onPress={onAttachPress} style={[styles.attachButton]}>

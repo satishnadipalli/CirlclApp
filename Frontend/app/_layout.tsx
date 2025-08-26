@@ -18,6 +18,12 @@ export default function RootLayout() {
     const parsedUser = JSON.parse(userData);
     console.log(parsedUser)
     await socketService.connect();
+    try {
+      const res: any = await (await import('@/services/api.service')).apiService.getPrivacy()
+      if (res?.success && res?.privacy) {
+        socketService.setClientPrivacy({ sendTypingIndicators: res.privacy.sendTypingIndicators !== false })
+      }
+    } catch {}
     socketService.registerUser(parsedUser.id);
 
     console.log("[v0] Socket initialized globally:", parsedUser.id);
