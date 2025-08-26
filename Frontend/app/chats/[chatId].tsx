@@ -331,6 +331,16 @@ export default function ChatScreen() {
               (a, b) => new Date(a.createdAt || "").getTime() - new Date(b.createdAt || "").getTime(),
             )
 
+            // Schedule removal for ephemeral
+            if ((msg as any)?.expiresAt) {
+              const ms = new Date((msg as any).expiresAt).getTime() - Date.now()
+              if (ms > 0 && ms < 7*24*3600*1000) {
+                setTimeout(() => {
+                  setMessages((cur) => cur.filter((m) => m.id !== (newMessage as any).id))
+                }, ms)
+              }
+            }
+
             // Decide autoscroll: if user is near bottom or message is from me, autoscroll to end
             const shouldAuto = isUserAtBottomRef.current || newMessage.sender === 'me'
             if (!shouldAuto && newMessage.sender !== "me") {

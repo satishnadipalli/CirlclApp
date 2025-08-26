@@ -178,6 +178,7 @@ const sendMessage = async (req, res) => {
           attachments: message.attachments || [],
           linkPreview: message.linkPreview || null,
           _id: message._id,
+          expiresAt: message.expiresAt || null,
         }
         if (recipientSocketId) io.to(recipientSocketId).emit("receiveDirectMessage", payload)
         const senderSocketId = onlineUsers.get((req.user.id || "").toString())
@@ -193,6 +194,7 @@ const sendMessage = async (req, res) => {
           attachments: message.attachments || [],
           linkPreview: message.linkPreview || null,
           _id: message._id,
+          expiresAt: message.expiresAt || null,
         }
         io.to(`group_${message.group?._id || message.group}`).emit("receiveGroupMessage", payload)
         const senderSocketId = onlineUsers.get((req.user.id || "").toString())
