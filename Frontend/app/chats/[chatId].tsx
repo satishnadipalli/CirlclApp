@@ -93,6 +93,10 @@ export default function ChatScreen() {
   const [recordingMs, setRecordingMs] = useState(0)
   const recordingTimerRef = useRef<any>(null)
   const [reactionAnchor, setReactionAnchor] = useState<{ x: number; y: number } | null>(null)
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [searchMatches, setSearchMatches] = useState<number[]>([])
+  const [searchIndex, setSearchIndex] = useState(0)
 
   const flatListRef = useRef<FlatList>(null)
   const socketRef = useRef<any>(null)
@@ -884,19 +888,46 @@ export default function ChatScreen() {
   useEffect(() => {
     // Interleave date headers and transform system messages into centered chips
     const withDates = processMessagesWithDates(messages)
-    const processedItems: ChatItem[] = withDates.map((item) => {
+    const processedItems: ChatItem[] = withDates.map((item, idx) => {
       if ((item as any)?.system) {
-        return {
-          id: (item as any).id,
-          type: "system",
-          text: (item as any).text,
-          createdAt: (item as any).createdAt || new Date().toISOString(),
+        return { ...(item as any), text: (item as any).text } as any
+      }
+      if (searchQuery && (item as any)?.text) {
+        const hit = String((item as any).text || '').toLowerCase().includes(searchQuery.toLowerCase())
+        if (hit) {
+          // record index for navigation
+          setSearchMatches((prev) => {
+            const next = prev.slice()
+            if (!next.includes(idx)) next.push(idx)
+            return next
+          })
         }
       }
       return item
     })
     setChatItems(processedItems)
   }, [messages])
+
+  useEffect(() => {
+    // recompute matches when query changes
+    if (!searchQuery) { setSearchMatches([]); setSearchIndex(0); return }
+    const hits: number[] = []
+    chatItems.forEach((it: any, i: number) => {
+      if (it?.type || !(it?.text)) return
+      if (String(it.text).toLowerCase().includes(searchQuery.toLowerCase())) hits.push(i)
+    })
+    setSearchMatches(hits)
+    setSearchIndex(0)
+    if (hits.length > 0) setTimeout(() => { try { flatListRef.current?.scrollToIndex({ index: hits[0], animated: true }) } catch {} }, 50)
+  }, [searchQuery])
+
+  const jumpToMatch = (delta: number) => {
+    if (searchMatches.length === 0) return
+    const next = (searchIndex + delta + searchMatches.length) % searchMatches.length
+    setSearchIndex(next)
+    const idx = searchMatches[next]
+    try { flatListRef.current?.scrollToIndex({ index: idx, animated: true }) } catch {}
+  }
 
   useEffect(() => {
     loadUserAndInitialize()
@@ -1348,9 +1379,23 @@ export default function ChatScreen() {
               <Text style={[styles.statusText]}>{headerInfo.status}</Text>
             )}
           </View>
-          {params.chatType === "group" && <Icon name="chevron-right" size={24} color="#666" />}
+          <TouchableOpacity onPress={() => setSearchOpen((v) => !v)}>
+            <Icon name={searchOpen ? "close" : "search"} size={22} color="#666" />
+          </TouchableOpacity>
         </View>
       </View>
+
+      {searchOpen && (
+        <View style={{ paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#f3f3f3', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#f2f2f2', borderRadius: 10, paddingHorizontal: 10 }}>
+            <Icon name="search" size={18} color="#777" />
+            <TextInput value={searchQuery} onChangeText={setSearchQuery} placeholder="Search in conversation" placeholderTextColor="#999" style={{ flex: 1, height: 38, color: '#000', marginLeft: 6 }} />
+          </View>
+          <TouchableOpacity onPress={() => jumpToMatch(-1)} disabled={searchMatches.length === 0}><Icon name="keyboard-arrow-up" size={22} color={searchMatches.length ? '#333' : '#bbb'} /></TouchableOpacity>
+          <TouchableOpacity onPress={() => jumpToMatch(1)} disabled={searchMatches.length === 0}><Icon name="keyboard-arrow-down" size={22} color={searchMatches.length ? '#333' : '#bbb'} /></TouchableOpacity>
+          <Text style={{ color: '#666', width: 52, textAlign: 'right' }}>{searchMatches.length ? `${searchIndex + 1}/${searchMatches.length}` : ''}</Text>
+        </View>
+      )}
 
       <FlatList
         ref={flatListRef}
