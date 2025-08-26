@@ -447,13 +447,24 @@ const markGroupRead = async (req, res) => {
     const { groupId } = req.params
     const me = await require('../models/user.models').findById(userId).select('privacy')
     const allowReads = me?.privacy?.sendReadReceipts !== false
-    await Message.updateMany(
+    const MessageModel = require('../models/message.model')
+    await MessageModel.updateMany(
       { messageType: "group", group: groupId, from: { $ne: userId } },
       allowReads ? { $addToSet: { readBy: userId } } : {},
     )
     try {
       const io = req.app.get('io')
       if (allowReads) io.to(`group_${groupId}`).emit('messagesRead', { chatType: 'group', groupId: String(groupId), readerId: String(userId), at: new Date().toISOString() })
+      // Burn-after-read for group messages
+      try {
+        const msgs = await MessageModel.find({ messageType: 'group', group: groupId, from: { $ne: userId }, burnAfterReadSeconds: { $gt: 0 } }).select('_id burnAfterReadSeconds')
+        for (const m of msgs) {
+          const delay = Math.max(0, Number(m.burnAfterReadSeconds || 0) * 1000)
+          setTimeout(async () => {
+            try { await MessageModel.deleteOne({ _id: m._id }); io.to(`group_${groupId}`).emit('messageDeleted', { _id: String(m._id) }) } catch {}
+          }, delay)
+        }
+      } catch {}
     } catch {}
     res.json({ success: true })
   } catch (e) {

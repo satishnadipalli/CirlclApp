@@ -127,6 +127,7 @@ export default function ChatScreen() {
   const dot3Opacity = useRef(new Animated.Value(0.3)).current
 
   const [mediaViewer, setMediaViewer] = useState<{ visible: boolean; url: string; type: 'image' | 'video' | 'file' }>({ visible: false, url: '', type: 'image' })
+  const [showTtlPicker, setShowTtlPicker] = useState(false)
 
   console.log("params",params);
 
@@ -1512,15 +1513,7 @@ export default function ChatScreen() {
           <Icon name={ephemeralMode ? 'timer' : 'timer-off'} size={22} color={ephemeralMode ? '#d32f2f' : '#333'} />
         </TouchableOpacity>
         {ephemeralMode && (
-          <TouchableOpacity onPress={async () => {
-            const key = `${ephemeralKey}_ttl`
-            try {
-              const cur = Number(await AsyncStorage.getItem(key) || '60')
-              const options = [30,60,300,3600]
-              const idx = (options.indexOf(cur) + 1) % options.length
-              await AsyncStorage.setItem(key, String(options[idx]))
-            } catch {}
-          }} style={[styles.attachButton]}> 
+          <TouchableOpacity onPress={async () => setShowTtlPicker(true)} style={[styles.attachButton]}> 
             <Icon name="update" size={20} color="#333" />
           </TouchableOpacity>
         )}
@@ -1565,6 +1558,23 @@ export default function ChatScreen() {
                 <Text style={{ color: '#fff', textDecorationLine: 'underline' }}>Open file</Text>
               </TouchableOpacity>
             )}
+          </View>
+        </Modal>
+      )}
+      {showTtlPicker && (
+        <Modal transparent animationType="fade" visible onRequestClose={() => setShowTtlPicker(false)}>
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' }}>
+            <View style={{ backgroundColor: '#fff', padding: 16, borderRadius: 12, width: 260 }}>
+              <Text style={{ fontWeight: '800', fontSize: 16, marginBottom: 8, color: '#000' }}>Ephemeral duration</Text>
+              {[30,60,300,3600].map((opt) => (
+                <TouchableOpacity key={opt} onPress={async () => { try { await AsyncStorage.setItem(`${ephemeralKey}_ttl`, String(opt)); setShowTtlPicker(false) } catch {} }} style={{ paddingVertical: 10 }}>
+                  <Text style={{ color: '#000' }}>{opt < 60 ? `${opt}s` : opt < 3600 ? `${opt/60}m` : `${opt/3600}h`}</Text>
+                </TouchableOpacity>
+              ))}
+              <TouchableOpacity onPress={() => setShowTtlPicker(false)} style={{ marginTop: 10, alignSelf: 'flex-end' }}>
+                <Text style={{ color: '#007aff', fontWeight: '700' }}>Close</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </Modal>
       )}
