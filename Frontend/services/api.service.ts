@@ -130,6 +130,14 @@ class ApiService {
     return this.request(`/users/me/notification-prefs`, { method: 'PUT', body: JSON.stringify(prefs) })
   }
 
+  // Privacy settings
+  async getPrivacy() {
+    return this.request(`/users/me/privacy`)
+  }
+  async updatePrivacy(p: Partial<{ showOnline: boolean; showLastSeen: boolean; sendTypingIndicators: boolean; sendReadReceipts: boolean; allowDMsFrom: 'everyone'|'followers'|'none' }>) {
+    return this.request(`/users/me/privacy`, { method: 'PUT', body: JSON.stringify(p) })
+  }
+
   // Suggestions & Mutuals
   async getSuggestions() { return this.request(`/users/me/suggestions`) }
   async getMutuals(userId: string, limit = 10) { return this.request(`/users/${userId}/mutuals?limit=${limit}`) }

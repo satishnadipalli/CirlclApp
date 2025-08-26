@@ -50,9 +50,14 @@ export default function TabLayout() {
           headerShown: true,
           headerTitle: "Explore",
           headerRight: () => (
-            <TouchableOpacity onPress={() => router.push('/settings/notifications')} style={{ paddingHorizontal: 12 }}>
-              <Ionicons name="settings-outline" size={22} color="#000" />
-            </TouchableOpacity>
+            <>
+              <TouchableOpacity onPress={() => router.push('/settings/privacy')} style={{ paddingHorizontal: 12 }}>
+                <Ionicons name="shield-outline" size={22} color="#000" />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => router.push('/settings/notifications')} style={{ paddingHorizontal: 12 }}>
+                <Ionicons name="settings-outline" size={22} color="#000" />
+              </TouchableOpacity>
+            </>
           ),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="search-outline" size={28} color={color} />

@@ -26,6 +26,7 @@ class SocketService {
     this.messageReadListeners = [];
     this.currentUserId = null;
     this.heartbeatInterval = null as any;
+    this.clientPrivacy = { sendTypingIndicators: true } as any
   }
 
   async connect() {
@@ -261,6 +262,7 @@ class SocketService {
 
   // typing (direct)
   sendTyping(toUserId, fromUserId, fromName) {
+    if (this.clientPrivacy?.sendTypingIndicators === false) return
     this.socket?.emit("typing", {
       to: toUserId,
       from: fromUserId,
@@ -268,11 +270,13 @@ class SocketService {
     });
   }
   sendStopTyping(toUserId, fromUserId) {
+    if (this.clientPrivacy?.sendTypingIndicators === false) return
     this.socket?.emit("stopTyping", { to: toUserId, from: fromUserId });
   }
 
   // typing (group)
   sendGroupTyping(groupId, fromUserId, fromName) {
+    if (this.clientPrivacy?.sendTypingIndicators === false) return
     this.socket?.emit("groupTyping", {
       groupId,
       userId: fromUserId,
@@ -280,7 +284,13 @@ class SocketService {
     });
   }
   sendGroupStopTyping(groupId, fromUserId) {
+    if (this.clientPrivacy?.sendTypingIndicators === false) return
     this.socket?.emit("groupStopTyping", { groupId, userId: fromUserId });
+  }
+
+  // Update local client privacy (used to avoid emitting typing)
+  setClientPrivacy(p) {
+    this.clientPrivacy = { ...(this.clientPrivacy || {}), ...(p || {}) }
   }
 
   // (duplicate method removed)
