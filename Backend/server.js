@@ -143,6 +143,7 @@ io.on("connection", (socket) => {
   // Typing indicators
   // Simple in-memory cache for privacy checks to reduce DB hits
   const privacyCache = new Map(); // key: userId -> { sendTypingIndicators, ts }
+  let lastRelayByKey = new Map()
   socket.on("typing", ({ from, to }) => {
     const recipientSocketId = onlineUsers.get(to);
     if (!recipientSocketId) return
@@ -156,6 +157,10 @@ io.on("connection", (socket) => {
       const allow = (sender?.privacy?.sendTypingIndicators !== false)
       if (!allow) return
       if (Array.isArray(receiver?.blockedUsers) && receiver.blockedUsers.some((id) => String(id) === String(from))) return
+      const key = `${from}->${to}`
+      const last = lastRelayByKey.get(key) || 0
+      if (now - last < 200) return
+      lastRelayByKey.set(key, now)
       io.to(recipientSocketId).emit("typing", { from });
     }).catch(() => {})
   });

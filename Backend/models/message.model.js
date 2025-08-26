@@ -65,6 +65,7 @@ const messageSchema = new mongoose.Schema(
     }, { _id: false }),
     // Ephemeral TTL
     expiresAt: { type: Date },
+    burnAfterReadSeconds: { type: Number, default: null },
   },
   { timestamps: true },
 )

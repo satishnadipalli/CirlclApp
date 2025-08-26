@@ -31,7 +31,7 @@ async function fetchLinkPreview(url) {
 // Send message (both direct and group)
 const sendMessage = async (req, res) => {
   try {
-    const { text, to, group, messageType, replyTo, expiresInSeconds } = req.body
+    const { text, to, group, messageType, replyTo, expiresInSeconds, burnAfterReadSeconds } = req.body
     const from = req.user.id
 
     const txt = typeof text === 'string' ? text : ''
@@ -148,6 +148,13 @@ const sendMessage = async (req, res) => {
       const ttl = Math.max(10, Math.min(7 * 24 * 3600, Number(expiresInSeconds)))
       message.expiresAt = new Date(Date.now() + ttl * 1000)
     }
+    if (expiresInSeconds && !Number.isNaN(Number(expiresInSeconds))) {
+      const ttl = Math.max(10, Math.min(7 * 24 * 3600, Number(expiresInSeconds)))
+      message.expiresAt = new Date(Date.now() + ttl * 1000)
+    }
+    if (burnAfterReadSeconds && !Number.isNaN(Number(burnAfterReadSeconds))) {
+      message.burnAfterReadSeconds = Math.max(5, Math.min(3600, Number(burnAfterReadSeconds)))
+    }
     await message.save()
     await message.populate("from", "name profilePic")
     await message.populate({
@@ -179,6 +186,7 @@ const sendMessage = async (req, res) => {
           linkPreview: message.linkPreview || null,
           _id: message._id,
           expiresAt: message.expiresAt || null,
+          burnAfterReadSeconds: message.burnAfterReadSeconds || null,
         }
         if (recipientSocketId) io.to(recipientSocketId).emit("receiveDirectMessage", payload)
         const senderSocketId = onlineUsers.get((req.user.id || "").toString())
@@ -195,6 +203,7 @@ const sendMessage = async (req, res) => {
           linkPreview: message.linkPreview || null,
           _id: message._id,
           expiresAt: message.expiresAt || null,
+          burnAfterReadSeconds: message.burnAfterReadSeconds || null,
         }
         io.to(`group_${message.group?._id || message.group}`).emit("receiveGroupMessage", payload)
         const senderSocketId = onlineUsers.get((req.user.id || "").toString())
@@ -392,7 +401,8 @@ const markDirectRead = async (req, res) => {
     // Respect reader's privacy for read receipts
     const me = await require('../models/user.models').findById(userId).select('privacy')
     const allowReads = me?.privacy?.sendReadReceipts !== false
-    await Message.updateMany(
+    const MessageModel = require('../models/message.model')
+    await MessageModel.updateMany(
       { messageType: "direct", from: peerId, to: userId, isRead: false },
       allowReads ? { $set: { isRead: true }, $addToSet: { readBy: userId } } : {},
     )
@@ -405,6 +415,23 @@ const markDirectRead = async (req, res) => {
         const payload = { chatType: 'direct', readerId: String(userId), peerId: String(peerId), at: new Date().toISOString() }
         if (to1) io.to(to1).emit('messagesRead', payload)
         if (to2) io.to(to2).emit('messagesRead', payload)
+        // Burn-after-read: schedule deletion
+        try {
+          const msgs = await MessageModel.find({ messageType: 'direct', from: peerId, to: userId, burnAfterReadSeconds: { $gt: 0 } }).select('_id burnAfterReadSeconds')
+          for (const m of msgs) {
+            const delay = Math.max(0, Number(m.burnAfterReadSeconds || 0) * 1000)
+            setTimeout(async () => {
+              try {
+                await MessageModel.deleteOne({ _id: m._id })
+                const online = req.app.get('onlineUsers')
+                const s1 = online.get(String(userId)); const s2 = online.get(String(peerId))
+                const p = { _id: String(m._id) }
+                if (s1) io.to(s1).emit('messageDeleted', p)
+                if (s2) io.to(s2).emit('messageDeleted', p)
+              } catch {}
+            }, delay)
+          }
+        } catch {}
       }
     } catch {}
     res.json({ success: true })

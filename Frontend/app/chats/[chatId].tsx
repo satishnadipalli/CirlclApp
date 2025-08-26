@@ -590,14 +590,20 @@ export default function ChatScreen() {
     dot3Opacity.setValue(0.3)
   }
 
+  // Throttle typing emits to at most once per 300ms
+  const lastTypingSentRef = useRef<number>(0)
   const handleTextChange = (text: string) => {
     setInputText(text)
 
     if (currentUser) {
-      if (params.chatType === "direct") {
-        socketService.sendTyping(params.chatId, currentUser._id, currentUser.name)
-      } else {
-        socketService.sendGroupTyping(params.chatId, currentUser._id, currentUser.name)
+      const now = Date.now()
+      if (now - (lastTypingSentRef.current || 0) >= 300) {
+        lastTypingSentRef.current = now
+        if (params.chatType === "direct") {
+          socketService.sendTyping(params.chatId, currentUser._id, currentUser.name)
+        } else {
+          socketService.sendGroupTyping(params.chatId, currentUser._id, currentUser.name)
+        }
       }
 
       if (typingTimeoutRef.current) {
@@ -655,10 +661,18 @@ export default function ChatScreen() {
     try {
       let response
       if (params.chatType === "direct") {
-        if (ephemeralMode) response = await apiService.sendDirectEphemeral(params.chatId, messageText, 60, replyingTo?.id)
+        if (ephemeralMode) {
+          let ttl = 60
+          try { const raw = await AsyncStorage.getItem(`${ephemeralKey}_ttl`); if (raw) ttl = Math.max(10, Math.min(7*24*3600, Number(raw))) } catch {}
+          response = await apiService.sendDirectEphemeral(params.chatId, messageText, ttl, replyingTo?.id)
+        }
         else response = await apiService.sendDirectMessage(params.chatId, messageText, replyingTo?.id)
       } else {
-        if (ephemeralMode) response = await apiService.sendGroupEphemeral(params.chatId, messageText, 60, replyingTo?.id)
+        if (ephemeralMode) {
+          let ttl = 60
+          try { const raw = await AsyncStorage.getItem(`${ephemeralKey}_ttl`); if (raw) ttl = Math.max(10, Math.min(7*24*3600, Number(raw))) } catch {}
+          response = await apiService.sendGroupEphemeral(params.chatId, messageText, ttl, replyingTo?.id)
+        }
         else response = await apiService.sendGroupMessage(params.chatId, messageText, replyingTo?.id)
       }
 
@@ -1191,7 +1205,21 @@ export default function ChatScreen() {
           )}
 
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
-            <Text style={[styles.timeText, isMyMessage ? styles.myTimeText : styles.otherTimeText]}>{messageTime}</Text>
+            <Text style={[styles.timeText, isMyMessage ? styles.myTimeText : styles.otherTimeText]}>
+              {messageTime}
+              {(() => {
+                try {
+                  const exp = (message as any).expiresAt || (message as any).expiresAt
+                  if (!exp) return ''
+                  const ms = new Date(exp).getTime() - Date.now()
+                  if (ms <= 0) return ' · expired'
+                  const s = Math.floor(ms/1000)
+                  if (s < 60) return ` · ${s}s`
+                  const m = Math.floor(s/60)
+                  return ` · ${m}m`
+                } catch { return '' }
+              })()}
+            </Text>
             {isMyMessage && (() => {
               // direct: double if peer id present in readBy; group: double if any member besides me present
               const rb = new Set<string>((Array.isArray((message as any).readBy) ? (message as any).readBy : []).map(String))
@@ -1483,6 +1511,19 @@ export default function ChatScreen() {
         <TouchableOpacity onPress={async () => { setEphemeralMode((v) => { const nv = !v; try { AsyncStorage.setItem(ephemeralKey, nv ? '1' : '0') } catch {}; return nv }) }} style={[styles.attachButton]}>
           <Icon name={ephemeralMode ? 'timer' : 'timer-off'} size={22} color={ephemeralMode ? '#d32f2f' : '#333'} />
         </TouchableOpacity>
+        {ephemeralMode && (
+          <TouchableOpacity onPress={async () => {
+            const key = `${ephemeralKey}_ttl`
+            try {
+              const cur = Number(await AsyncStorage.getItem(key) || '60')
+              const options = [30,60,300,3600]
+              const idx = (options.indexOf(cur) + 1) % options.length
+              await AsyncStorage.setItem(key, String(options[idx]))
+            } catch {}
+          }} style={[styles.attachButton]}> 
+            <Icon name="update" size={20} color="#333" />
+          </TouchableOpacity>
+        )}
         <TouchableOpacity onPress={onAttachPress} style={[styles.attachButton]}>
           <Icon name="attach-file" size={22} color="#333" />
         </TouchableOpacity>
