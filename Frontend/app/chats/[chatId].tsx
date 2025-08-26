@@ -97,6 +97,8 @@ export default function ChatScreen() {
   const [searchQuery, setSearchQuery] = useState("")
   const [searchMatches, setSearchMatches] = useState<number[]>([])
   const [searchIndex, setSearchIndex] = useState(0)
+  const [cancelHintVisible, setCancelHintVisible] = useState(false)
+  const [holdDx, setHoldDx] = useState(0)
 
   const flatListRef = useRef<FlatList>(null)
   const socketRef = useRef<any>(null)
@@ -787,8 +789,7 @@ export default function ChatScreen() {
     try {
       if (isRecording) return
       const perm = await Audio.requestPermissionsAsync()
-      if (!(perm?.granted || perm?.status === 'granted')) { Alert.alert('Microphone', 'Recording permission is required'); return }
-      await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true, shouldDuckAndroid: true, playThroughEarpieceAndroid: false })
+      if (!perm.granted) return
       const rec = new Audio.Recording()
       await rec.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY)
       await rec.startAsync()
@@ -802,9 +803,9 @@ export default function ChatScreen() {
           if (st?.isRecording && typeof st?.durationMillis === 'number') setRecordingMs(st.durationMillis)
         } catch {}
       }, 200)
-    } catch (e: any) {
-      setIsRecording(false)
-    }
+      setCancelHintVisible(true)
+      setHoldDx(0)
+    } catch {}
   }
 
   const stopHoldRecording = async (send: boolean) => {
@@ -818,6 +819,8 @@ export default function ChatScreen() {
       setIsRecording(false)
       recordingRef.current = null
       setRecordingMs(0)
+      setCancelHintVisible(false)
+      setHoldDx(0)
       if (send && uri && dur > 400) {
         const name = uri.split('/').pop() || 'voice-note.m4a'
         const type = name.endsWith('.3gp') ? 'audio/3gpp' : (name.endsWith('.m4a') ? 'audio/m4a' : 'audio/aac')
@@ -828,6 +831,8 @@ export default function ChatScreen() {
       recordingRef.current = null
       if (recordingTimerRef.current) { try { clearInterval(recordingTimerRef.current) } catch {} ; recordingTimerRef.current = null }
       setRecordingMs(0)
+      setCancelHintVisible(false)
+      setHoldDx(0)
     }
   }
 
@@ -1469,7 +1474,15 @@ export default function ChatScreen() {
         <TouchableOpacity onPress={onAttachPress} style={[styles.attachButton]}>
           <Icon name="attach-file" size={22} color="#333" />
         </TouchableOpacity>
-        <TouchableOpacity onPressIn={startHoldRecording} onPressOut={() => stopHoldRecording(true)} style={[styles.attachButton]}>
+        <TouchableOpacity
+          onPressIn={startHoldRecording}
+          onPressOut={() => stopHoldRecording(holdDx > -60)}
+          onPress={(e: any) => { try { setHoldDx(e?.nativeEvent?.pageX || 0) } catch {} }}
+          onLongPress={() => {}}
+          delayLongPress={50}
+          onResponderMove={(evt: any) => { try { setHoldDx(Math.min(0, (evt?.nativeEvent?.locationX || 0) - 80)) } catch {} }}
+          style={[styles.attachButton]}
+        >
           <Icon name="mic" size={22} color="#333" />
         </TouchableOpacity>
         <TouchableOpacity
@@ -1516,6 +1529,20 @@ export default function ChatScreen() {
           }}
           onClose={() => { setReactingTo(null); setReactionAnchor(null) }}
         />
+      )}
+      {cancelHintVisible && isRecording && (
+        <View style={{ position: 'absolute', left: 0, right: 0, bottom: 120, alignItems: 'center' }}>
+          <View style={{ backgroundColor: 'rgba(0,0,0,0.7)', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999 }}>
+            <Text style={{ color: '#fff', fontWeight: '700' }}>{holdDx <= -60 ? 'Release to cancel' : 'Slide left to cancel'}</Text>
+          </View>
+          <View style={{ flexDirection: 'row', gap: 2, marginTop: 8 }}>
+            {Array.from({ length: 32 }).map((_, i) => {
+              const h = 8 + ((i % 6) * 3)
+              const pulse = Math.max(0.5, Math.min(1.4, 0.5 + Math.sin((Date.now()/120 + i) % (Math.PI*2))))
+              return <View key={i} style={{ width: 3, height: Math.round(h * pulse), backgroundColor: '#ff6b6b', borderRadius: 2 }} />
+            })}
+          </View>
+        </View>
       )}
     </View>
   )
