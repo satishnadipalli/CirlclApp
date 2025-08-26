@@ -32,6 +32,8 @@ import { Audio } from 'expo-av'
 import { Avatar } from "react-native-paper"
 import Icon from "react-native-vector-icons/MaterialIcons"
 import PresenceBadge from "@/components/PresenceBadge"
+import ReactionsBar from "@/components/ReactionsBar"
+import SwipeReply from "@/components/SwipeReply"
 
 interface ChatMessage {
   id: string
@@ -90,6 +92,7 @@ export default function ChatScreen() {
   const recordingRef = useRef<Audio.Recording | null>(null)
   const [recordingMs, setRecordingMs] = useState(0)
   const recordingTimerRef = useRef<any>(null)
+  const [reactionAnchor, setReactionAnchor] = useState<{ x: number; y: number } | null>(null)
 
   const flatListRef = useRef<FlatList>(null)
   const socketRef = useRef<any>(null)
@@ -995,11 +998,19 @@ export default function ChatScreen() {
     const isMyMessage = message.sender === "me"
 
     return (
+      <SwipeReply onSwipeLeft={() => setReplyingTo(message)} onSwipeRight={() => setReplyingTo(message)}>
       <TouchableOpacity
         activeOpacity={0.7}
         onLongPress={() => {
           const opts: any[] = [
-            { text: 'React…', onPress: () => setReactingTo(message) },
+            { text: 'React…', onPress: (evt?: any) => {
+              setReactingTo(message)
+              try {
+                const y = (evt?.nativeEvent?.pageY || 100) - 60
+                const x = (evt?.nativeEvent?.pageX || 160)
+                setReactionAnchor({ x, y })
+              } catch { setReactionAnchor({ x: 160, y: 120 }) }
+            } },
             { text: '❤️', onPress: async () => { try { await apiService.request('/messages/'+message.id+'/react', { method:'POST', body: JSON.stringify({ type: '❤️' }) }) } catch {} } },
             { text: '😂', onPress: async () => { try { await apiService.request('/messages/'+message.id+'/react', { method:'POST', body: JSON.stringify({ type: '😂' }) }) } catch {} } },
             { text: '🔥', onPress: async () => { try { await apiService.request('/messages/'+message.id+'/react', { method:'POST', body: JSON.stringify({ type: '🔥' }) }) } catch {} } },
@@ -1025,19 +1036,13 @@ export default function ChatScreen() {
             {message.from.profilePic ? (
               <Avatar.Image size={32} source={{ uri: message.from.profilePic }} />
             ) : (
-              <View style={[styles.initialsAvatar, { backgroundColor: getUserColor(message.from._id) }]}>
-                <Text style={styles.initialsText}>{getUserInitials(message.from.name)}</Text>
+              <View style={[styles.initialsAvatar, { backgroundColor: getUserColor(message.from._id) }]}> 
+                <Text style={styles.initialsText}>{(message.from.name || 'U').slice(0,1).toUpperCase()}</Text>
               </View>
             )}
           </View>
         )}
-
-        <View
-          style={[
-            styles.messageContainer,
-            isMyMessage ? styles.myMessage : styles.otherMessage,
-            params.chatType === "group" && !isMyMessage ? styles.groupOtherMessage : {},
-          ]}
+        <View style={[styles.messageContent, isMyMessage ? styles.myMessageContent : styles.otherMessageContent]}
         >
           {params.chatType === "group" && !isMyMessage && (
             <Text style={[styles.senderName, { color: getUserColor(message.from._id) }]}>{message.from.name}</Text>
@@ -1179,6 +1184,7 @@ export default function ChatScreen() {
           )}
         </View>
       </TouchableOpacity>
+      </SwipeReply>
     )
   }
 
@@ -1430,30 +1436,21 @@ export default function ChatScreen() {
           </View>
         </Modal>
       )}
-      {/* Quick Reactions Modal */}
-      <Modal visible={!!reactingTo} transparent animationType="fade" onRequestClose={() => setReactingTo(null)}>
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.2)' }}>
-          <View style={{ flexDirection: 'row', backgroundColor: '#fff', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 8 }}>
-            {['❤️','👍','😂','😮','😢','🔥'].map((emoji) => (
-              <TouchableOpacity key={emoji} style={{ paddingHorizontal: 8, paddingVertical: 6 }} onPress={async () => {
-                const msgId = (reactingTo as any)?.id
-                try { await apiService.request(`/messages/${msgId}/react`, { method: 'POST', body: JSON.stringify({ type: emoji }) }) } catch {}
-                setReactingTo(null)
-              }}>
-                <Text style={{ fontSize: 20 }}>{emoji}</Text>
-              </TouchableOpacity>
-            ))}
-            <TouchableOpacity style={{ paddingHorizontal: 8, paddingVertical: 6, marginLeft: 6 }} onPress={async () => {
+      {reactingTo && reactionAnchor && (
+        <ReactionsBar
+          x={reactionAnchor.x}
+          y={reactionAnchor.y}
+          onSelect={async (emoji) => {
+            try {
               const msgId = (reactingTo as any)?.id
-              try { await apiService.request(`/messages/${msgId}/react`, { method: 'POST', body: JSON.stringify({ type: null }) }) } catch {}
-              setReactingTo(null)
-            }}>
-              <Text style={{ fontSize: 14, color: '#e53935', fontWeight: '700' }}>Remove</Text>
-            </TouchableOpacity>
-          </View>
-          <TouchableOpacity style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }} onPress={() => setReactingTo(null)} />
-        </View>
-      </Modal>
+              await apiService.request(`/messages/${msgId}/react`, { method: 'POST', body: JSON.stringify({ type: emoji }) })
+            } catch {}
+            setReactingTo(null)
+            setReactionAnchor(null)
+          }}
+          onClose={() => { setReactingTo(null); setReactionAnchor(null) }}
+        />
+      )}
     </View>
   )
 }
