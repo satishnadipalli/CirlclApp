@@ -34,6 +34,7 @@ import Icon from "react-native-vector-icons/MaterialIcons"
 import PresenceBadge from "@/components/PresenceBadge"
 import ReactionsBar from "@/components/ReactionsBar"
 import SwipeReply from "@/components/SwipeReply"
+import { LinearGradient } from "expo-linear-gradient"
 
 interface ChatMessage {
   id: string
@@ -1071,7 +1072,11 @@ export default function ChatScreen() {
             )}
           </View>
         )}
-        <View style={[styles.messageContent, isMyMessage ? styles.myMessageContent : styles.otherMessageContent]}
+        <LinearGradient
+          colors={isMyMessage ? ['#DFF6FF', '#EAF4FF'] : ['#F7F8FA', '#EEF1F7']}
+          start={[0, 0]}
+          end={[1, 1]}
+          style={[styles.messageContent, isMyMessage ? styles.myMessageGradient : styles.otherMessageGradient]}
         >
           {params.chatType === "group" && !isMyMessage && (
             <Text style={[styles.senderName, { color: getUserColor(message.from._id) }]}>{message.from.name}</Text>
@@ -1223,7 +1228,7 @@ export default function ChatScreen() {
               <Text style={{ fontSize: 12 }}>😊</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </LinearGradient>
       </TouchableOpacity>
       </SwipeReply>
     )
@@ -1698,12 +1703,10 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     elevation: 1,
   },
-  myMessageContent: {
-    backgroundColor: "#E6F7FF",
+  myMessageGradient: {
     borderTopRightRadius: 4,
   },
-  otherMessageContent: {
-    backgroundColor: "#F4F5F7",
+  otherMessageGradient: {
     borderTopLeftRadius: 4,
   },
   senderName: {
