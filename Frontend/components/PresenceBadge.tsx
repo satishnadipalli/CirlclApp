@@ -1,4 +1,4 @@
-import React from "react"
+import React, { useEffect, useState } from "react"
 import { View, Text } from "react-native"
 
 interface PresenceBadgeProps {
@@ -34,6 +34,11 @@ export const PresenceBadge: React.FC<PresenceBadgeProps> = ({
   size = "md",
   customStatus,
 }) => {
+  const [tick, setTick] = useState(0)
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 30000)
+    return () => clearInterval(id)
+  }, [])
   const textStyle = size === "sm" ? { fontSize: 12 } : { fontSize: 14 }
   if (isOnline) {
     return (
