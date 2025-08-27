@@ -87,6 +87,7 @@ export default function ChatScreen() {
   const [showGroupInfo, setShowGroupInfo] = useState(false)
   const [showScrollToBottom, setShowScrollToBottom] = useState(false)
   const [newMessagesCount, setNewMessagesCount] = useState(0)
+  const [isScreenFocused, setIsScreenFocused] = useState(false)
   const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null)
   const [reactingTo, setReactingTo] = useState<ChatMessage | null>(null)
   const [isRecording, setIsRecording] = useState(false)
@@ -276,8 +277,8 @@ export default function ChatScreen() {
             attachments: msg.attachments,
           }
 
-          // Mark as read immediately when a new incoming message arrives while viewing this conversation
-          if (fromUserId !== user._id) {
+          // Mark as read only when actively viewing (focused and at bottom)
+          if (fromUserId !== user._id && isScreenFocused && isUserAtBottomRef.current) {
             if (params.chatType === "direct") {
               try { apiService.markDirectRead(params.chatId) } catch {}
             } else {
@@ -1007,6 +1008,7 @@ export default function ChatScreen() {
   // Refresh presence on screen focus using a proper hook
   useFocusEffect(
     useCallback(() => {
+      setIsScreenFocused(true)
       let cancelled = false
       ;(async () => {
         try {
@@ -1016,7 +1018,7 @@ export default function ChatScreen() {
           }
         } catch {}
       })()
-      return () => { cancelled = true }
+      return () => { cancelled = true; setIsScreenFocused(false) }
     }, [])
   )
 
