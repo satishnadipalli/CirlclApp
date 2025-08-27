@@ -1253,13 +1253,12 @@ export default function ChatScreen() {
             })()}
             {isMyMessage && (message as any).status && (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Text style={{ fontSize: 12, color: (message as any).status === 'failed' ? '#e53935' : '#888' }}>
-                  {(message as any).status === 'sending' ? 'Sending…' : (message as any).status === 'failed' ? 'Failed' : 'Sent'}
-                </Text>
+                {(message as any).status === 'sending' && <Icon name="schedule" size={14} color="#888" />}
+                {(message as any).status === 'failed' && <Icon name="error-outline" size={16} color="#e53935" />}
                 {(message as any).status === 'failed' && (
                   <TouchableOpacity onPress={async () => {
                     try {
-                      const body = { text: (message as any).text, messageType: params.chatType as any }
+                      const body: any = { text: String((message as any).text || ''), messageType: params.chatType as any, replyTo: (message as any)?.replyTo?.id }
                       if (params.chatType === 'direct') Object.assign(body, { to: String(params.chatId) })
                       else Object.assign(body, { group: String(params.chatId) })
                       setMessages((prev) => prev.map((m) => (m.id === message.id ? { ...(m as any), status: 'sending' } : m)))
@@ -1270,7 +1269,7 @@ export default function ChatScreen() {
                       setMessages((prev) => prev.map((m) => (m.id === message.id ? { ...(m as any), status: 'failed' } : m)))
                     }
                   }}>
-                    <Text style={{ fontSize: 12, color: '#0095f6', fontWeight: '700' }}>Retry</Text>
+                    <Icon name="refresh" size={14} color="#e53935" />
                   </TouchableOpacity>
                 )}
               </View>
@@ -1515,15 +1514,20 @@ export default function ChatScreen() {
             </TouchableOpacity>
           </View>
         ) : (
-          <TextInput
-            style={styles.input}
-            placeholder="Message..."
-            placeholderTextColor="#999"
-            value={inputText}
-            onChangeText={handleTextChange}
-            multiline
-            maxLength={500}
-          />
+          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+            <TouchableOpacity onPress={() => setInputText((t) => t + ' 😀')} style={[styles.attachButton]}>
+              <Icon name="insert-emoticon" size={22} color="#333" />
+            </TouchableOpacity>
+            <TextInput
+              style={[styles.input, { flex: 1 }]}
+              placeholder="Message..."
+              placeholderTextColor="#999"
+              value={inputText}
+              onChangeText={handleTextChange}
+              multiline
+              maxLength={500}
+            />
+          </View>
         )}
         <TouchableOpacity onPress={async () => { setEphemeralMode((v) => { const nv = !v; try { AsyncStorage.setItem(ephemeralKey, nv ? '1' : '0') } catch {}; return nv }) }} style={[styles.attachButton]}>
           <Icon name={ephemeralMode ? 'timer' : 'timer-off'} size={22} color={ephemeralMode ? '#d32f2f' : '#333'} />
