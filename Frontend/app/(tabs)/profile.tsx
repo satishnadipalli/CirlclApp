@@ -21,6 +21,7 @@ import { Brand } from "@/constants/Colors"
 import { LinearGradient } from "expo-linear-gradient"
 import SetStatusModal from "@/components/SetStatusModal"
 import { Video } from "expo-av"
+import MasonryGrid from "@/components/MasonryGrid"
 const { width } = Dimensions.get("window")
 
 interface User {
@@ -306,43 +307,21 @@ export default function ProfileScreen() {
     if (posts && posts.length > 0) {
       return (
         <View style={styles.tabContentContainer}>
-          <FlatList
-            data={posts}
-            keyExtractor={(item) => item._id}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={styles.postContainer}
-                onPress={() => {
-                  Alert.alert("Post", `${item.title || "Post"}\n${item.description || ""}`)
-                }}
-              >
-                <Image source={{ uri: item.image }} style={styles.postImage} />
-                <View style={styles.postOverlay}>
-                  <View style={styles.postStats}>
-                    <Text style={styles.postStatText}>❤️ {item.likes?.length || 0}</Text>
-                    <Text style={styles.postStatText}>💬 {item.comments?.length || 0}</Text>
-                  </View>
-                </View>
-              </TouchableOpacity>
-            )}
-            numColumns={3}
-            scrollEnabled={true}
-            onEndReached={loadMorePosts}
-            onEndReachedThreshold={0.1}
-            removeClippedSubviews
-            getItemLayout={(_, index) => ({ length: Math.floor(width / 3), offset: Math.floor(width / 3) * index, index })}
-            ListFooterComponent={() => {
-              if (loadingMore && hasMorePosts) {
-                return (
-                  <View style={styles.loadingMore}>
-                    <ActivityIndicator size="small" color="#007bff" />
-                    <Text style={styles.loadingMoreText}>Loading more posts...</Text>
-                  </View>
-                )
-              }
-              return null
+          <MasonryGrid
+            items={posts.map((p) => ({ id: p._id, uri: p.image }))}
+            numColumns={2}
+            gap={8}
+            onPressItem={(it) => {
+              const post = posts.find((p) => p._id === it.id)
+              if (post) Alert.alert("Post", `${post.title || "Post"}\n${post.description || ""}`)
             }}
           />
+          {loadingMore && hasMorePosts && (
+            <View style={styles.loadingMore}>
+              <ActivityIndicator size="small" color="#007bff" />
+              <Text style={styles.loadingMoreText}>Loading more posts...</Text>
+            </View>
+          )}
         </View>
       )
     } else {
