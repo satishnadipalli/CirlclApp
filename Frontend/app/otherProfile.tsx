@@ -18,6 +18,8 @@ import {
 } from "react-native"
 import socketService from "@/services/socket.service"
 import PresenceBadge from "@/components/PresenceBadge"
+import Skeleton from "@/components/Skeleton"
+import { useTheme } from "@/contexts/ThemeContext"
 const { width } = Dimensions.get("window")
 
 const highlights = [
@@ -28,6 +30,7 @@ const highlights = [
 ]
 
 export default function ProfileScreen() {
+  const { colors } = useTheme()
   const [user, setUser] = useState(null)
   const [currentUser, setCurrentUser] = useState(null)
   const [posts, setPosts] = useState([])
@@ -462,37 +465,37 @@ export default function ProfileScreen() {
   }, [userId])
 
   const renderProfileHeader = () => (
-    <View>
+    <View style={{ backgroundColor: colors.background }}>
       {/* Top Section */}
-      <View style={styles.topSection}>
+      <View style={[styles.topSection, { borderBottomColor: colors.border }]}>
         <View>
-          <Image source={{ uri: user.profilePic || "https://i.pravatar.cc/150?img=30" }} style={styles.profilePic} />
+          <Image source={{ uri: user.profilePic || "https://i.pravatar.cc/150?img=30" }} style={[styles.profilePic, { borderColor: colors.border }]} />
         </View>
         <View style={styles.stats}>
           <View style={styles.stat}>
-            <Text style={styles.statNumber}>{posts?.length || 0}</Text>
-            <Text style={styles.statLabel}>Posts</Text>
+            <Text style={[styles.statNumber, { color: colors.text }]}>{posts?.length || 0}</Text>
+            <Text style={[styles.statLabel, { color: colors.muted }]}>Posts</Text>
           </View>
           <TouchableOpacity style={styles.stat} onPress={() => router.push(`/followers/${(user as any)?._id || (userId as any)}`)}>
-            <Text style={styles.statNumber}>{(user as any)?.followers?.length || 0}</Text>
-            <Text style={styles.statLabel}>Followers</Text>
+            <Text style={[styles.statNumber, { color: colors.text }]}>{(user as any)?.followers?.length || 0}</Text>
+            <Text style={[styles.statLabel, { color: colors.muted }]}>Followers</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.stat} onPress={() => router.push(`/following/${(user as any)?._id || (userId as any)}`)}>
-            <Text style={styles.statNumber}>{(user as any)?.following?.length || 0}</Text>
-            <Text style={styles.statLabel}>Following</Text>
+            <Text style={[styles.statNumber, { color: colors.text }]}>{(user as any)?.following?.length || 0}</Text>
+            <Text style={[styles.statLabel, { color: colors.muted }]}>Following</Text>
           </TouchableOpacity>
         </View>
       </View>
 
       {/* Bio Section */}
-      <View style={styles.bioSection}>
-        <Text style={styles.username}>{user?.name}</Text>
-        <Text style={styles.bio}>{user?.bio || "📍 Traveler | 📸 Photographer | ☕ Coffee Lover"}</Text>
-        {user?.website && <Text style={styles.bioLink}>{user?.website}</Text>}
+      <View style={[styles.bioSection, { borderBottomColor: colors.border }]}>
+        <Text style={[styles.username, { color: colors.text }]}>{user?.name}</Text>
+        <Text style={[styles.bio, { color: colors.text }]}>{user?.bio || "📍 Traveler | 📸 Photographer | ☕ Coffee Lover"}</Text>
+        {user?.website && <Text style={[styles.bioLink, { color: colors.primary }]}>{user?.website}</Text>}
         <View style={{ marginTop: 6 }}>
           <PresenceBadge isOnline={presenceOnline} lastSeen={presenceLastSeen} size="sm" />
           {!!(user as any)?.customStatus && (
-            <Text style={{ color: '#333', marginTop: 4 }}>
+            <Text style={{ color: colors.muted, marginTop: 4 }}>
               {((user as any).customStatus?.emoji ? `${(user as any).customStatus.emoji} ` : '') + ((user as any).customStatus?.text || '')}
             </Text>
           )}
@@ -503,25 +506,25 @@ export default function ProfileScreen() {
       <View style={styles.buttonsRow}>
         {isOwnProfile ? (
           <>
-            <TouchableOpacity style={styles.button} onPress={handleEditProfile}>
-              <Text style={styles.buttonText}>Edit Profile</Text>
+            <TouchableOpacity style={[styles.button, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={handleEditProfile}>
+              <Text style={[styles.buttonText, { color: colors.text }]}>Edit Profile</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.button} onPress={handleShareProfile}>
-              <Text style={styles.buttonText}>Share Profile</Text>
+            <TouchableOpacity style={[styles.button, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={handleShareProfile}>
+              <Text style={[styles.buttonText, { color: colors.text }]}>Share Profile</Text>
             </TouchableOpacity>
           </>
         ) : (
           <>
             <TouchableOpacity
-              style={[styles.button, isFollowing ? styles.followingButton : styles.followButton]}
+              style={[styles.button, isFollowing ? { backgroundColor: colors.surface } : { backgroundColor: colors.primary }, { borderColor: colors.border }]}
               onPress={handleFollowToggle}
             >
-              <Text style={[styles.buttonText, isFollowing ? styles.followingButtonText : styles.followButtonText]}>
+              <Text style={[styles.buttonText, { color: isFollowing ? colors.text : '#fff' }]}>
                 {isFollowing ? "Following" : "Follow"}
               </Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.button} onPress={handleMessage}>
-              <Text style={styles.buttonText}>Message</Text>
+            <TouchableOpacity style={[styles.button, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={handleMessage}>
+              <Text style={[styles.buttonText, { color: colors.text }]}>Message</Text>
             </TouchableOpacity>
           </>
         )}
@@ -543,27 +546,27 @@ export default function ProfileScreen() {
       />
 
       {/* Instagram-like tabs */}
-      <View style={styles.tabsContainer}>
+      <View style={[styles.tabsContainer, { borderTopColor: colors.border, backgroundColor: colors.background }]}>
         <TouchableOpacity
-          style={[styles.tab, activeTab === "posts" && styles.activeTab]}
+          style={[styles.tab, activeTab === "posts" && { borderBottomColor: colors.text } ]}
           onPress={() => setActiveTab("posts")}
         >
-          <Text style={[styles.tabIcon, activeTab === "posts" && styles.activeTabIcon]}>⊞</Text>
+          <Text style={[styles.tabIcon, { color: colors.muted }, activeTab === "posts" && { color: colors.text }]}>⊞</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.tab, activeTab === "reels" && styles.activeTab]}
+          style={[styles.tab, activeTab === "reels" && { borderBottomColor: colors.text }]}
           onPress={() => setActiveTab("reels")}
         >
-          <Text style={[styles.tabIcon, activeTab === "reels" && styles.activeTabIcon]}>▶</Text>
+          <Text style={[styles.tabIcon, { color: colors.muted }, activeTab === "reels" && { color: colors.text }]}>▶</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.tab, activeTab === "tagged" && styles.activeTab]}
+          style={[styles.tab, activeTab === "tagged" && { borderBottomColor: colors.text }]}
           onPress={() => {
             console.log("[v0] Switching to tagged tab")
             setActiveTab("tagged")
           }}
         >
-          <Text style={[styles.tabIcon, activeTab === "tagged" && styles.activeTabIcon]}>👤</Text>
+          <Text style={[styles.tabIcon, { color: colors.muted }, activeTab === "tagged" && { color: colors.text }]}>👤</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -571,9 +574,39 @@ export default function ProfileScreen() {
 
   if (loading) {
     return (
-      <View style={[styles.container, styles.centered]}>
-        <ActivityIndicator size="large" color="#007bff" />
-        <Text style={styles.loadingText}>Loading profile...</Text>
+      <View style={[styles.container, styles.centered, { backgroundColor: colors.background }]}>
+        <View style={{ width: '100%', paddingHorizontal: 16 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', paddingTop: 50 }}>
+            <Skeleton width={90} height={90} radius={45} />
+            <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'space-around' }}>
+              <View style={{ alignItems: 'center' }}>
+                <Skeleton width={40} height={18} />
+                <Skeleton width={50} height={12} style={{ marginTop: 6 }} />
+              </View>
+              <View style={{ alignItems: 'center' }}>
+                <Skeleton width={40} height={18} />
+                <Skeleton width={70} height={12} style={{ marginTop: 6 }} />
+              </View>
+              <View style={{ alignItems: 'center' }}>
+                <Skeleton width={40} height={18} />
+                <Skeleton width={70} height={12} style={{ marginTop: 6 }} />
+              </View>
+            </View>
+          </View>
+          <View style={{ marginTop: 16 }}>
+            <Skeleton width={'40%'} height={16} />
+            <Skeleton width={'80%'} height={12} style={{ marginTop: 8 }} />
+          </View>
+          <View style={{ flexDirection: 'row', gap: 8, marginTop: 16 }}>
+            <Skeleton width={160} height={36} radius={8} />
+            <Skeleton width={160} height={36} radius={8} />
+          </View>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 24 }}>
+            {Array.from({ length: 9 }).map((_, i) => (
+              <Skeleton key={i} width={width/3} height={width/3} style={{ marginBottom: 1 }} />
+            ))}
+          </View>
+        </View>
       </View>
     )
   }
@@ -592,7 +625,7 @@ export default function ProfileScreen() {
   const isOwnProfile = !userId || (currentUser && user?._id === currentUser?._id)
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <FlatList
         data={[{ key: "content" }]}
         keyExtractor={(item) => item.key}

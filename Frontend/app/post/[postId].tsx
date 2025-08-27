@@ -5,8 +5,10 @@ import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacit
 import { useLocalSearchParams, useRouter } from "expo-router"
 import api from "@/services/api.service"
 import { Video } from "expo-av"
+import { useTheme } from "@/contexts/ThemeContext"
 
 export default function PostDetailScreen() {
+  const { colors } = useTheme()
   const { postId, focusCommentId } = useLocalSearchParams() as { postId: string; focusCommentId?: string }
   const router = useRouter()
   const [loading, setLoading] = useState(true)
@@ -45,17 +47,17 @@ export default function PostDetailScreen() {
 
   if (loading) {
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#007AFF" />
+      <View style={[styles.centered, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     )
   }
 
   if (!post) {
     return (
-      <View style={styles.centered}>
-        <Text style={styles.error}>Post not found</Text>
-        <TouchableOpacity onPress={() => router.back()}><Text style={styles.link}>Go back</Text></TouchableOpacity>
+      <View style={[styles.centered, { backgroundColor: colors.background }]}>
+        <Text style={[styles.error, { color: colors.danger }]}>Post not found</Text>
+        <TouchableOpacity onPress={() => router.back()}><Text style={[styles.link, { color: colors.primary }]}>Go back</Text></TouchableOpacity>
       </View>
     )
   }
@@ -100,10 +102,10 @@ export default function PostDetailScreen() {
   }
 
   return (
-    <ScrollView ref={scrollRef} contentContainerStyle={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}><Text style={styles.link}>Back</Text></TouchableOpacity>
-        <Text style={styles.title}>{post?.user?.name || "Post"}</Text>
+    <ScrollView ref={scrollRef} contentContainerStyle={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={[styles.header, { borderBottomColor: colors.border }]}>
+        <TouchableOpacity onPress={() => router.back()}><Text style={[styles.link, { color: colors.primary }]}>Back</Text></TouchableOpacity>
+        <Text style={[styles.title, { color: colors.text }]}>{post?.user?.name || "Post"}</Text>
         <View style={{ width: 50 }} />
       </View>
 
@@ -134,33 +136,33 @@ export default function PostDetailScreen() {
       <View style={styles.metaRow}>
         <Image source={{ uri: post?.user?.profilePic || "https://i.pravatar.cc/150?img=5" }} style={styles.avatar} />
         <View style={{ flex: 1, marginLeft: 10 }}>
-          <Text style={styles.author}>{post?.user?.name}</Text>
-          <Text style={styles.timestamp}>{new Date(post.createdAt).toLocaleString()}</Text>
+          <Text style={[styles.author, { color: colors.text }]}>{post?.user?.name}</Text>
+          <Text style={[styles.timestamp, { color: colors.muted }]}>{new Date(post.createdAt).toLocaleString()}</Text>
         </View>
       </View>
 
-      {!!post.title && <Text style={styles.postTitle}>{post.title}</Text>}
-      {!!post.description && <Text style={styles.postDesc}>{post.description}</Text>}
+      {!!post.title && <Text style={[styles.postTitle, { color: colors.text }]}>{post.title}</Text>}
+      {!!post.description && <Text style={[styles.postDesc, { color: colors.text }]}>{post.description}</Text>}
 
       <View style={styles.counters}>
-        <Text style={styles.counterText}>❤️ {post.likes?.length || 0}</Text>
-        <Text style={styles.counterText}>💬 {post.comments?.length || 0}</Text>
-        <TouchableOpacity style={styles.likeBtn} onPress={onLike} disabled={liking}><Text style={styles.likeText}>{liking ? 'Liking…' : 'Like'}</Text></TouchableOpacity>
+        <Text style={[styles.counterText, { color: colors.text }]}>❤️ {post.likes?.length || 0}</Text>
+        <Text style={[styles.counterText, { color: colors.text }]}>💬 {post.comments?.length || 0}</Text>
+        <TouchableOpacity style={[styles.likeBtn, { backgroundColor: colors.primary }]} onPress={onLike} disabled={liking}><Text style={styles.likeText}>{liking ? 'Liking…' : 'Like'}</Text></TouchableOpacity>
       </View>
 
       {Array.isArray(post.comments) && post.comments.length > 0 && (
         <View style={styles.commentsBox}>
-          <Text style={styles.sectionTitle}>Comments</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Comments</Text>
           {post.comments.map((c: any) => (
             <View key={String(c._id)} onLayout={(e) => { commentY.current[String(c._id)] = e.nativeEvent.layout.y }}>
-              <View style={[styles.commentRow, focusCommentId === String(c._id) && styles.commentHighlight]}>
+              <View style={[styles.commentRow, focusCommentId === String(c._id) && { backgroundColor: colors.accent, borderRadius: 12, padding: 6 }]}>
                 <Image source={{ uri: c?.user?.profilePic || "https://i.pravatar.cc/150?img=1" }} style={styles.commentAvatar} />
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.commentAuthor}>{c?.user?.name || "User"}</Text>
-                  <Text style={styles.commentText}>{c.text}</Text>
+                  <Text style={[styles.commentAuthor, { color: colors.text }]}>{c?.user?.name || "User"}</Text>
+                  <Text style={[styles.commentText, { color: colors.text }]}>{c.text}</Text>
                   <View style={styles.commentActions}>
-                    <TouchableOpacity onPress={() => setReplyFor(String(c._id))}><Text style={styles.link}>Reply</Text></TouchableOpacity>
-                    <TouchableOpacity onPress={() => onLikeComment(String(c._id))}><Text style={styles.link}>Like</Text></TouchableOpacity>
+                    <TouchableOpacity onPress={() => setReplyFor(String(c._id))}><Text style={[styles.link, { color: colors.primary }]}>Reply</Text></TouchableOpacity>
+                    <TouchableOpacity onPress={() => onLikeComment(String(c._id))}><Text style={[styles.link, { color: colors.primary }]}>Like</Text></TouchableOpacity>
                   </View>
                   {replyFor === String(c._id) && (
                     <View style={styles.replyComposer}>
@@ -168,10 +170,10 @@ export default function PostDetailScreen() {
                         value={replyText[String(c._id)] || ""}
                         onChangeText={(t) => setReplyText((m) => ({ ...m, [String(c._id)]: t }))}
                         placeholder="Reply…"
-                        style={styles.commentInput}
+                        style={[styles.commentInput, { borderColor: colors.border, backgroundColor: colors.surface, color: colors.text }]}
                       />
                       <TouchableOpacity onPress={() => onReply(String(c._id))} disabled={!((replyText[String(c._id)] || "").trim())}>
-                        <Text style={[styles.link, !((replyText[String(c._id)] || "").trim()) && { opacity: 0.4 }]}>Post</Text>
+                        <Text style={[styles.link, { color: colors.primary }, !((replyText[String(c._id)] || "").trim()) && { opacity: 0.4 }]}>Post</Text>
                       </TouchableOpacity>
                     </View>
                   )}
@@ -182,10 +184,10 @@ export default function PostDetailScreen() {
                         <View key={String(r._id)} style={styles.replyRow}>
                           <Image source={{ uri: r?.user?.profilePic || "https://i.pravatar.cc/150?img=2" }} style={styles.replyAvatar} />
                           <View style={{ flex: 1 }}>
-                            <Text style={styles.replyAuthor}>{r?.user?.name || "User"}</Text>
-                            <Text style={styles.replyText}>{r.text}</Text>
+                            <Text style={[styles.replyAuthor, { color: colors.text }]}>{r?.user?.name || "User"}</Text>
+                            <Text style={[styles.replyText, { color: colors.text }]}>{r.text}</Text>
                             <View style={styles.commentActions}>
-                              <TouchableOpacity onPress={() => onLikeComment(String(c._id), String(r._id))}><Text style={styles.link}>Like</Text></TouchableOpacity>
+                              <TouchableOpacity onPress={() => onLikeComment(String(c._id), String(r._id))}><Text style={[styles.link, { color: colors.primary }]}>Like</Text></TouchableOpacity>
                             </View>
                           </View>
                         </View>
@@ -199,15 +201,15 @@ export default function PostDetailScreen() {
         </View>
       )}
 
-      <View style={styles.commentComposer}>
+      <View style={[styles.commentComposer, { borderTopColor: colors.border }]}>
         <TextInput
           value={commentText}
           onChangeText={setCommentText}
           placeholder="Add a comment…"
-          style={styles.commentInput}
+          style={[styles.commentInput, { borderColor: colors.border, backgroundColor: colors.surface, color: colors.text }]}
         />
         <TouchableOpacity onPress={onAddComment} disabled={!commentText.trim()}>
-          <Text style={[styles.link, !commentText.trim() && { opacity: 0.4 }]}>Post</Text>
+          <Text style={[styles.link, { color: colors.primary }, !commentText.trim() && { opacity: 0.4 }]}>Post</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>

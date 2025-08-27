@@ -5,10 +5,12 @@ import AsyncStorage from "@react-native-async-storage/async-storage"
 import { useLocalSearchParams, useRouter } from "expo-router"
 import React, { useEffect, useMemo, useState } from "react"
 import { ActivityIndicator, FlatList, Image, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native"
+import { useTheme } from "@/contexts/ThemeContext"
 
 interface UserLite { _id: string; name: string; profilePic?: string; username?: string }
 
 export default function FollowersScreen() {
+  const { colors } = useTheme()
   const { userId } = useLocalSearchParams<{ userId: string }>()
   const router = useRouter()
 
@@ -98,41 +100,42 @@ export default function FollowersScreen() {
   const renderItem = ({ item }: { item: UserLite }) => {
     const followed = myFollowing.has(item._id)
     return (
-      <View style={styles.row}>
+      <View style={[styles.row, { backgroundColor: colors.background }]}>
         <TouchableOpacity onPress={() => router.push(`/otherProfile?userId=${item._id}`)} style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
           <Image source={{ uri: item.profilePic || "https://i.pravatar.cc/100?img=12" }} style={styles.avatar} />
           <View style={{ flex: 1 }}>
-            <Text style={styles.name}>{item.name}</Text>
-            {!!item.username && <Text style={styles.username}>@{item.username}</Text>}
+            <Text style={[styles.name, { color: colors.text }]}>{item.name}</Text>
+            {!!item.username && <Text style={[styles.username, { color: colors.muted }]}>@{item.username}</Text>}
           </View>
         </TouchableOpacity>
         <TouchableOpacity onPress={() => toggleFollow(item._id)}>
-          <Text style={[followed ? styles.followingBtn : styles.followBtn]}>{followed ? "Following" : "Follow"}</Text>
+          <Text style={[followed ? styles.followingBtn : styles.followBtn, followed ? { color: colors.primary, borderColor: colors.primary } : { backgroundColor: colors.primary }]}>{followed ? "Following" : "Follow"}</Text>
         </TouchableOpacity>
       </View>
     )
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}><Text style={styles.back}>{"‹"}</Text></TouchableOpacity>
-        <Text style={styles.title}>Followers</Text>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={[styles.header, { borderBottomColor: colors.border }]}>
+        <TouchableOpacity onPress={() => router.back()}><Text style={[styles.back, { color: colors.text }]}>{"‹"}</Text></TouchableOpacity>
+        <Text style={[styles.title, { color: colors.text }]}>Followers</Text>
         <View style={{ width: 24 }} />
       </View>
 
       {loading ? (
-        <View style={{ paddingTop: 30 }}><ActivityIndicator /></View>
+        <View style={{ paddingTop: 30 }}><ActivityIndicator color={colors.primary} /></View>
       ) : (
         <FlatList
           data={followers}
           keyExtractor={(u) => u._id}
           renderItem={renderItem}
-          ItemSeparatorComponent={() => <View style={styles.sep} />}
+          ItemSeparatorComponent={() => <View style={[styles.sep, { backgroundColor: colors.border }]} />}
           onEndReached={loadMore}
           onEndReachedThreshold={0.2}
           ListFooterComponent={loadingMore ? <View style={{ paddingVertical: 12 }}><ActivityIndicator /></View> : null}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          ListEmptyComponent={!loading ? <View style={{ padding: 24, alignItems: 'center' }}><Text style={{ color: colors.muted }}>No followers yet</Text></View> : null}
         />
       )}
     </View>
