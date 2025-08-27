@@ -7,12 +7,15 @@ import AsyncStorage from "@react-native-async-storage/async-storage"
 import { useRouter } from "expo-router"
 import React, { useCallback, useEffect, useRef, useState } from "react"
 import { Alert, FlatList, LayoutAnimation, Platform, StyleSheet, Text, TextInput, UIManager, View, TouchableOpacity, StatusBar, Image, ScrollView, Button } from "react-native"
+import Skeleton from "@/components/Skeleton"
+import { useTheme } from "@/contexts/ThemeContext"
 import { useFocusEffect } from "@react-navigation/native"
 import { Ionicons } from "@expo/vector-icons"
 
 type AnyChat = any
 
 export default function ChatsScreen() {
+  const { colors } = useTheme()
   const [search, setSearch] = useState("")
   const [chats, setChats] = useState<AnyChat[]>([])
   const [loading, setLoading] = useState(true)
@@ -308,36 +311,27 @@ export default function ChatsScreen() {
   const keyExtractor = (item: AnyChat) => (item.chatType === "direct" ? `direct_${(item.user || item.participant)?._id}` : `group_${item.group?._id}`)
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#fff" }}>
-      <StatusBar barStyle="dark-content" />
-      <View style={{ paddingHorizontal: 12, paddingTop:Platform.OS == "android" ? StatusBar.currentHeight + 20 : 0, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: "#f3f3f3" }}>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <StatusBar barStyle={colors.background === '#0B0F14' ? 'light-content' : 'dark-content'} />
+      <View style={{ paddingHorizontal: 12, paddingTop:Platform.OS == "android" ? (StatusBar.currentHeight || 0) + 20 : 0, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: colors.background }}>
         <TextInput
           value={search}
           onChangeText={setSearch}
           placeholder="Search"
-          placeholderTextColor="#999"
-          style={{ backgroundColor: "#f2f2f2", borderRadius: 10, paddingHorizontal: 12, height: 40, color: '#000' }}
+          placeholderTextColor={colors.muted}
+          style={{ backgroundColor: colors.surface, borderRadius: 10, paddingHorizontal: 12, height: 40, color: colors.text, borderWidth: 1, borderColor: colors.border }}
         />
-        {/* <Button
-          style={{
-
-          }}
-        >
-          <Text>Group</Text>
-        </Button> */}
       </View>
       {suggestions.length > 0 && (
         <View style={{ paddingVertical: 10 }}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 12, gap: 12 }}>
             {suggestions.slice(0, 12).map((s, idx) => (
-              <View key={String(s?.user?._id || idx)} style={{ width: 180, borderWidth: 1, borderColor: '#eee', borderRadius: 12, padding: 10 }}>
+              <View key={String(s?.user?._id || idx)} style={{ width: 180, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 10, backgroundColor: colors.surface }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
                   <Image source={{ uri: s?.user?.profilePic || 'https://i.pravatar.cc/100?img=19' }} style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#eee' }} />
                   <View style={{ marginLeft: 8, flex: 1 }}>
-                    <Text numberOfLines={1} style={{ fontWeight: '800', color: '#000' }}>{s?.user?.name || 'User'}</Text>
-                    {s?.mutualCount > 0 && (
-                      <Text numberOfLines={1} style={{ color: '#666', fontSize: 12 }}>Followed by {s.mutualNames.join(', ')}{s.mutualCount > s.mutualNames.length ? ` +${s.mutualCount - s.mutualNames.length}` : ''}</Text>
-                    )}
+                    <Text numberOfLines={1} style={{ fontWeight: '800', color: colors.text }}>{s?.user?.name || 'User'}</Text>
+                    {s?.mutualCount > 0 && (<Text numberOfLines={1} style={{ color: colors.muted, fontSize: 12 }}>Followed by {s.mutualNames.join(', ')}{s.mutualCount > s.mutualNames.length ? ` +${s.mutualCount - s.mutualNames.length}` : ''}</Text>)}
                   </View>
                 </View>
                 <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -353,11 +347,17 @@ export default function ChatsScreen() {
           </ScrollView>
         </View>
       )}
+      {suggestions.length === 0 && loading && (
+        <View style={{ paddingHorizontal: 12 }}>
+          <Skeleton height={16} width={'40%'} style={{ marginBottom: 8 }} />
+          <Skeleton height={100} width={'100%'} radius={12} />
+        </View>
+      )}
       <FlatList
         data={chats}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
-        ItemSeparatorComponent={() => <View style={styles.separator} />}
+        ItemSeparatorComponent={() => <View style={{ height: 1, backgroundColor: colors.border }} />}
         contentContainerStyle={{ paddingBottom: 40 }}
       />
     </View>
