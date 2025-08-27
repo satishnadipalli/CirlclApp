@@ -299,6 +299,17 @@ class ApiService {
   async sendGroupMessage(groupId, text, replyTo) {
     return this.request("/messages", { method: "POST", body: JSON.stringify({ group: groupId, text, messageType: "group", replyTo, }), }) }
 
+  // Polls
+  async sendDirectPoll(toUserId: string, poll: { question: string; options: string[] | Array<{ id?: string; text: string }>; allowMultiple?: boolean; allowChange?: boolean; endsAt?: string|Date }, text = '') {
+    return this.request('/messages', { method: 'POST', body: JSON.stringify({ to: toUserId, text, messageType: 'direct', poll }) })
+  }
+  async sendGroupPoll(groupId: string, poll: { question: string; options: string[] | Array<{ id?: string; text: string }>; allowMultiple?: boolean; allowChange?: boolean; endsAt?: string|Date }, text = '') {
+    return this.request('/messages', { method: 'POST', body: JSON.stringify({ group: groupId, text, messageType: 'group', poll }) })
+  }
+  async votePoll(messageId: string, optionId: string) {
+    return this.request(`/messages/${messageId}/poll/vote`, { method: 'POST', body: JSON.stringify({ optionId }) })
+  }
+
   // Ephemeral messages
   async sendDirectEphemeral(toUserId: string, text: string, ttlSeconds = 60, replyTo?: string) {
     const ttl = Math.max(10, Math.min(7*24*3600, ttlSeconds))

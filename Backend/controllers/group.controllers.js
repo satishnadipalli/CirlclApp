@@ -386,9 +386,14 @@ const getGroupMessages = async (req, res) => {
 
     console.log("[v0] Found messages count:", messages.length)
 
+    const out = messages.map((m) => ({
+      ...m.toObject(),
+      poll: m.poll ? require('./message.controllers').buildPollPayload ? require('./message.controllers').buildPollPayload(m.poll) : { question: m.poll.question, options: (m.poll.options || []).map((o) => ({ id: o.id, text: o.text, votes: Array.isArray(o.votes) ? o.votes.length : 0 })), allowMultiple: !!m.poll.allowMultiple, allowChange: m.poll.allowChange !== false, endsAt: m.poll.endsAt || null },
+    }))
+
     res.status(200).json({
       success: true,
-      messages: messages.reverse(), // Reverse to show oldest first
+      messages: out.reverse(), // Reverse to show oldest first
     })
   } catch (error) {
     console.log("[v0] Error in getGroupMessages:", error.message)

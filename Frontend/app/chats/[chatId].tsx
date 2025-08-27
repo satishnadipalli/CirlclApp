@@ -53,6 +53,7 @@ interface ChatMessage {
   edited?: boolean
   status?: 'sending' | 'sent' | 'failed'
   uploadProgress?: number
+  poll?: { question: string; options: Array<{ id: string; text: string; votes: number }>; allowMultiple?: boolean; allowChange?: boolean; endsAt?: string|null }
 }
 
 interface DateHeader {
@@ -130,6 +131,12 @@ export default function ChatScreen() {
 
   const [mediaViewer, setMediaViewer] = useState<{ visible: boolean; url: string; type: 'image' | 'video' | 'file' }>({ visible: false, url: '', type: 'image' })
   const [showTtlPicker, setShowTtlPicker] = useState(false)
+  const [pollComposerOpen, setPollComposerOpen] = useState(false)
+  const [pollQuestion, setPollQuestion] = useState('')
+  const [pollOptions, setPollOptions] = useState<string[]>(['', ''])
+  const [pollAllowMultiple, setPollAllowMultiple] = useState(false)
+  const [pollAllowChange, setPollAllowChange] = useState(true)
+  const [pollEndsAt, setPollEndsAt] = useState<string | null>(null)
 
   console.log("params",params);
 
@@ -275,6 +282,7 @@ export default function ChatScreen() {
             createdAt: msg.createdAt || new Date().toISOString(),
             system: /\badded\b/i.test(String(msg.text || "")),
             attachments: msg.attachments,
+            poll: msg.poll,
           }
 
           // Mark as read only when actively viewing (focused and at bottom)
@@ -373,10 +381,21 @@ export default function ChatScreen() {
       deleteListenerRef.current = onDeleted
 
       const onEdited = (payload: any) => {
-        setMessages((prev) => prev.map((m) => (m.id === String(payload?._id) ? ({ ...(m as any), text: payload.text, edited: true } as any) : m)))
+        setMessages((prev) => prev.map((m) => {
+          if (m.id !== String(payload?._id)) return m
+          const next: any = { ...(m as any), edited: true }
+          if (typeof payload?.text === 'string') next.text = payload.text
+          if (payload?.poll) next.poll = payload.poll
+          return next
+        }))
       }
       socketService.onMessageEdited(onEdited)
       editListenerRef.current = onEdited
+
+      const onPoll = (payload: any) => {
+        setMessages((prev) => prev.map((m) => (m.id === String(payload?._id) ? ({ ...(m as any), poll: payload.poll } as any) : m)))
+      }
+      try { socketService.onPollUpdated(onPoll) } catch {}
 
       const onRead = (payload: any) => {
         setMessages((prev) => prev.map((m) => {
@@ -520,6 +539,7 @@ export default function ChatScreen() {
           messageType: "direct",
           createdAt: msg.createdAt,
           attachments: msg.attachments,
+          poll: msg.poll,
         }))
         console.log("[v0] Loaded direct messages:", formattedMessages.length)
         setMessages(formattedMessages)
@@ -540,6 +560,7 @@ export default function ChatScreen() {
             createdAt: msg.createdAt,
             system: /\badded\b/i.test(String(msg.text || "")),
             attachments: msg.attachments,
+            poll: msg.poll,
           }))
           console.log("[v0] Loaded group messages:", formattedMessages.length)
           setMessages(formattedMessages)
@@ -624,7 +645,29 @@ export default function ChatScreen() {
   }
 
   const sendMessage = async () => {
-    if (!inputText.trim() || !currentUser) return
+    if (!currentUser) return
+    if (pollComposerOpen) {
+      const q = pollQuestion.trim()
+      const opts = (pollOptions || []).map((o) => String(o || '').trim()).filter(Boolean)
+      if (!q || opts.length < 2) { Alert.alert('Poll', 'Enter a question and at least two options'); return }
+      const payload: any = { question: q, options: opts.map((t) => ({ text: t })), allowMultiple: pollAllowMultiple, allowChange: pollAllowChange }
+      if (pollEndsAt) payload.endsAt = pollEndsAt
+      try {
+        const res: any = params.chatType === 'direct'
+          ? await apiService.sendDirectPoll(params.chatId, payload, inputText.trim())
+          : await apiService.sendGroupPoll(params.chatId, payload, inputText.trim())
+        if (!(res as any)?.success) throw new Error((res as any)?.message || 'Failed to send poll')
+        setPollComposerOpen(false)
+        setPollQuestion('')
+        setPollOptions(['', ''])
+        setPollAllowMultiple(false)
+        setPollAllowChange(true)
+        setPollEndsAt(null)
+        setInputText('')
+      } catch (e) { Alert.alert('Poll', (e as Error).message) }
+      return
+    }
+    if (!inputText.trim()) return
 
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current)
@@ -990,6 +1033,7 @@ export default function ChatScreen() {
       if (reactionListenerRef.current) socketService.removeMessageReactionsUpdated(reactionListenerRef.current)
       if (deleteListenerRef.current) socketService.removeMessageDeleted(deleteListenerRef.current)
       if (editListenerRef.current) socketService.removeMessageEdited(editListenerRef.current)
+      try { if ((onPoll as any)) socketService.removePollUpdated(onPoll) } catch {}
       if (readListenerRef.current) socketService.removeMessagesRead(readListenerRef.current)
 
       // DO NOT disconnect socket here
@@ -1151,6 +1195,41 @@ export default function ChatScreen() {
         >
           {params.chatType === "group" && !isMyMessage && (
             <Text style={[styles.senderName, { color: getUserColor(message.from._id) }]}>{message.from.name}</Text>
+          )}
+
+          {/* Poll */}
+          {message.poll && (
+            <View style={{ gap: 10, marginTop: (message.text ? 8 : 0) }}>
+              <Text style={{ fontSize: 16, fontWeight: '600', color: '#222' }}>{message.poll.question}</Text>
+              {(message.poll.options || []).map((opt) => {
+                const totalVotes = (message.poll?.options || []).reduce((s, o) => s + (o.votes || 0), 0)
+                const pct = totalVotes > 0 ? Math.round(((opt.votes || 0) * 100) / totalVotes) : 0
+                return (
+                  <TouchableOpacity key={String(opt.id)} activeOpacity={0.7} onPress={async () => {
+                    try {
+                      const res: any = await apiService.votePoll(message.id, String(opt.id))
+                      if (res?.success && res?.poll) {
+                        setMessages((prev) => prev.map((m) => (m.id === message.id ? ({ ...(m as any), poll: res.poll } as any) : m)))
+                      } else if (res?.message) { Alert.alert('Vote', res.message) }
+                    } catch (e) { Alert.alert('Vote', 'Failed to vote') }
+                  }}>
+                    <View style={{ backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#e5e7eb', overflow: 'hidden' }}>
+                      <View style={{ position: 'relative', padding: 12 }}>
+                        <View style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: `${pct}%`, backgroundColor: '#D6EAF8' }} />
+                        <Text style={{ fontSize: 15, color: '#111' }}>{opt.text}</Text>
+                        <Text style={{ position: 'absolute', right: 12, top: 12, fontSize: 12, color: '#333' }}>{pct}%</Text>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                )
+              })}
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                <Text style={{ color: '#666', fontSize: 12 }}>
+                  {(message.poll?.allowMultiple ? 'Multiple choice' : 'Single choice') + (message.poll?.allowChange === false ? ' • No change' : '')}
+                </Text>
+                {message.poll?.endsAt && (<Text style={{ color: '#666', fontSize: 12 }}>Ends {new Date(String(message.poll.endsAt)).toLocaleString()}</Text>)}
+              </View>
+            </View>
           )}
 
           {/* Attachments */}
@@ -1563,6 +1642,9 @@ export default function ChatScreen() {
         <TouchableOpacity onPress={onAttachPress} style={[styles.attachButton]}>
           <Icon name="attach-file" size={22} color="#333" />
         </TouchableOpacity>
+        <TouchableOpacity onPress={() => setPollComposerOpen((v) => !v)} style={[styles.attachButton]}>
+          <Icon name="bar-chart" size={22} color={pollComposerOpen ? '#007AFF' : '#333'} />
+        </TouchableOpacity>
         <TouchableOpacity
           onPressIn={startHoldRecording}
           onPressOut={() => stopHoldRecording(holdDx > -60)}
@@ -1578,13 +1660,38 @@ export default function ChatScreen() {
           onPress={sendMessage}
           style={[
             styles.sendButton,
-            { opacity: inputText.trim() ? 1 : 0.5 },
+            { opacity: (pollComposerOpen || inputText.trim()) ? 1 : 0.5 },
           ]}
-          disabled={!inputText.trim()}
+          disabled={!(pollComposerOpen || inputText.trim())}
         >
           <Icon name="send" size={20} color="#fff" />
         </TouchableOpacity>
       </View>
+      {pollComposerOpen && (
+        <View style={{ paddingHorizontal: 12, paddingVertical: 10, backgroundColor: '#fafafa', borderTopWidth: 1, borderTopColor: '#eee' }}>
+          <Text style={{ fontWeight: '600', color: '#222', marginBottom: 8 }}>Create a poll</Text>
+          <TextInput placeholder="Question" placeholderTextColor="#888" value={pollQuestion} onChangeText={setPollQuestion} style={[styles.input, { height: 42 }]} />
+          {(pollOptions || []).map((opt, idx) => (
+            <View key={String(idx)} style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6 }}>
+              <TextInput placeholder={`Option ${idx + 1}`} placeholderTextColor="#999" value={opt} onChangeText={(t) => setPollOptions((prev) => { const next = [...prev]; next[idx] = t; return next })} style={[styles.input, { flex: 1, height: 40 }]} />
+              {idx >= 2 && (
+                <TouchableOpacity onPress={() => setPollOptions((prev) => prev.filter((_, i) => i !== idx))} style={{ marginLeft: 6 }}>
+                  <Icon name="remove-circle-outline" size={22} color="#d32f2f" />
+                </TouchableOpacity>
+              )}
+            </View>
+          ))}
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
+            <TouchableOpacity onPress={() => setPollOptions((prev) => [...prev, ''])}>
+              <Text style={{ color: '#007AFF', fontWeight: '600' }}>+ Add option</Text>
+            </TouchableOpacity>
+            <View style={{ flex: 1 }} />
+            <TouchableOpacity onPress={() => setPollAllowMultiple((v) => !v)}><Text style={{ color: pollAllowMultiple ? '#007AFF' : '#333' }}>{pollAllowMultiple ? 'Multiple choice' : 'Single choice'}</Text></TouchableOpacity>
+            <Text style={{ marginHorizontal: 10, color: '#aaa' }}>|</Text>
+            <TouchableOpacity onPress={() => setPollAllowChange((v) => !v)}><Text style={{ color: pollAllowChange ? '#333' : '#d32f2f' }}>{pollAllowChange ? 'Can change' : 'No change'}</Text></TouchableOpacity>
+          </View>
+        </View>
+      )}
       {params.chatType === "group" && <GroupInfoModal />}
       {mediaViewer.visible && (
         <Modal visible transparent animationType="fade" onRequestClose={() => setMediaViewer({ visible: false, url: '', type: 'image' })}>

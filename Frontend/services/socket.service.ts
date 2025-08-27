@@ -24,6 +24,7 @@ class SocketService {
     this.messageDeleteListeners = [];
     this.messageEditListeners = [];
     this.messageReadListeners = [];
+    this.pollUpdatedListeners = [];
     this.currentUserId = null;
     this.heartbeatInterval = null as any;
     this.clientPrivacy = { sendTypingIndicators: true } as any
@@ -175,6 +176,9 @@ class SocketService {
     });
     this.socket.on("messageEdited", (payload) => {
       this.messageEditListeners.forEach((l) => l(payload));
+    });
+    this.socket.on("pollUpdated", (payload) => {
+      try { (this.pollUpdatedListeners || []).forEach((l) => l(payload)); } catch {}
     });
     this.socket.on("messagesRead", (payload) => {
       this.messageReadListeners.forEach((l) => l(payload));
@@ -342,6 +346,7 @@ class SocketService {
   onMessageDeleted(cb) { this.messageDeleteListeners.push(cb); }
   onMessageEdited(cb) { this.messageEditListeners.push(cb); }
   onMessagesRead(cb) { this.messageReadListeners.push(cb); }
+  onPollUpdated(cb) { (this.pollUpdatedListeners || (this.pollUpdatedListeners = [])).push(cb); }
 
   onGroupTyping(callback) {
     this.typingListeners.push(callback);
@@ -417,6 +422,7 @@ class SocketService {
   removeMessageDeleted(cb) { const i = this.messageDeleteListeners.indexOf(cb); if (i>-1) this.messageDeleteListeners.splice(i,1); }
   removeMessageEdited(cb) { const i = this.messageEditListeners.indexOf(cb); if (i>-1) this.messageEditListeners.splice(i,1); }
   removeMessagesRead(cb) { const i = this.messageReadListeners.indexOf(cb); if (i>-1) this.messageReadListeners.splice(i,1); }
+  removePollUpdated(cb) { const i = (this.pollUpdatedListeners || []).indexOf(cb); if (i>-1) this.pollUpdatedListeners.splice(i,1); }
 
   // Clear all listeners
   clearAllListeners() {
@@ -435,6 +441,7 @@ class SocketService {
     this.messageDeleteListeners = [];
     this.messageEditListeners = [];
     this.messageReadListeners = [];
+    this.pollUpdatedListeners = [] as any;
   }
 }
 

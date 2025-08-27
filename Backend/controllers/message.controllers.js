@@ -6,6 +6,50 @@ const mongoose = require("mongoose")
 // naive URL detection
 const URL_REGEX = /https?:\/\/[^\s]+/i
 
+function normalizePollInput(raw) {
+  try {
+    if (!raw) return null
+    const poll = typeof raw === 'string' ? JSON.parse(raw) : raw
+    if (!poll || typeof poll !== 'object') return null
+    const out = {}
+    out.question = String((poll.question || '')).trim()
+    if (!out.question) return null
+    const rawOptions = Array.isArray(poll.options) ? poll.options : []
+    if (rawOptions.length < 2 || rawOptions.length > 10) return null
+    const makeId = () => Math.random().toString(36).slice(2, 10)
+    const options = []
+    const ids = new Set()
+    for (const opt of rawOptions) {
+      const text = String((typeof opt === 'string' ? opt : (opt && opt.text)) || '').trim()
+      if (!text) return null
+      let id = String((typeof opt === 'object' && opt && opt.id) || '')
+      if (!id) id = makeId()
+      if (ids.has(id)) id = makeId()
+      ids.add(id)
+      options.push({ id, text, votes: [] })
+    }
+    out.options = options
+    out.allowMultiple = Boolean(poll.allowMultiple)
+    out.allowChange = poll.allowChange === false ? false : true
+    if (poll.endsAt) {
+      const d = new Date(poll.endsAt)
+      if (!isNaN(d.getTime()) && d.getTime() > Date.now()) out.endsAt = d
+    }
+    return out
+  } catch { return null }
+}
+
+function buildPollPayload(poll) {
+  if (!poll) return null
+  return {
+    question: poll.question || '',
+    options: (poll.options || []).map((o) => ({ id: o.id, text: o.text, votes: Array.isArray(o.votes) ? o.votes.length : 0 })),
+    allowMultiple: !!poll.allowMultiple,
+    allowChange: poll.allowChange !== false,
+    endsAt: poll.endsAt || null,
+  }
+}
+
 async function fetchLinkPreview(url) {
   try {
     // Prefer OpenGraph/Twitter meta tags
@@ -84,12 +128,15 @@ const sendMessage = async (req, res) => {
         if (!isFollower) return res.status(403).json({ success: false, message: 'Only followers can DM this user' })
       }
 
+      // Optional poll creation for direct chat
+      const pollDoc = normalizePollInput(req.body?.poll)
       message = new Message({
         from,
         to,
         text: txt,
         messageType: "direct",
         readBy: [from],
+        ...(pollDoc ? { poll: pollDoc } : {}),
       })
     } else {
       // Group message validation
@@ -116,12 +163,15 @@ const sendMessage = async (req, res) => {
         })
       }
 
+      // Optional poll creation for group chat
+      const pollDoc = normalizePollInput(req.body?.poll)
       message = new Message({
         from,
         group,
         text: txt,
         messageType: "group",
         readBy: [from],
+        ...(pollDoc ? { poll: pollDoc } : {}),
       })
     }
 
@@ -153,10 +203,6 @@ const sendMessage = async (req, res) => {
       } catch {}
     }
 
-    if (expiresInSeconds && !Number.isNaN(Number(expiresInSeconds))) {
-      const ttl = Math.max(10, Math.min(7 * 24 * 3600, Number(expiresInSeconds)))
-      message.expiresAt = new Date(Date.now() + ttl * 1000)
-    }
     if (expiresInSeconds && !Number.isNaN(Number(expiresInSeconds))) {
       const ttl = Math.max(10, Math.min(7 * 24 * 3600, Number(expiresInSeconds)))
       message.expiresAt = new Date(Date.now() + ttl * 1000)
@@ -196,6 +242,7 @@ const sendMessage = async (req, res) => {
           _id: message._id,
           expiresAt: message.expiresAt || null,
           burnAfterReadSeconds: message.burnAfterReadSeconds || null,
+          ...(message.poll ? { poll: buildPollPayload(message.poll) } : {}),
         }
         if (recipientSocketId) io.to(recipientSocketId).emit("receiveDirectMessage", payload)
         const senderSocketId = onlineUsers.get((req.user.id || "").toString())
@@ -213,6 +260,7 @@ const sendMessage = async (req, res) => {
           _id: message._id,
           expiresAt: message.expiresAt || null,
           burnAfterReadSeconds: message.burnAfterReadSeconds || null,
+          ...(message.poll ? { poll: buildPollPayload(message.poll) } : {}),
         }
         io.to(`group_${message.group?._id || message.group}`).emit("receiveGroupMessage", payload)
         const senderSocketId = onlineUsers.get((req.user.id || "").toString())
@@ -261,9 +309,15 @@ const getDirectMessages = async (req, res) => {
       .limit(limit * 1)
       .skip((page - 1) * limit)
 
+    // Map poll for client payload (counts only)
+    const out = messages.map((m) => ({
+      ...m.toObject(),
+      poll: m.poll ? buildPollPayload(m.poll) : undefined,
+    }))
+
     res.status(200).json({
       success: true,
-      messages: messages.reverse(),
+      messages: out.reverse(),
     })
   } catch (error) {
     res.status(500).json({
@@ -603,41 +657,63 @@ const votePoll = async (req, res) => {
     if (!msg) return res.status(404).json({ success: false, message: 'Message not found' })
     if (!msg.poll || !Array.isArray(msg.poll.options)) return res.status(400).json({ success: false, message: 'Not a poll message' })
     if (msg.poll.endsAt && new Date(msg.poll.endsAt).getTime() < Date.now()) return res.status(403).json({ success: false, message: 'Poll ended' })
+    // Authorization: must be participant
+    if (msg.messageType === 'direct') {
+      const participants = [String(msg.from), String(msg.to)]
+      if (!participants.includes(userId)) return res.status(403).json({ success: false, message: 'Forbidden' })
+    } else if (msg.messageType === 'group') {
+      try {
+        const grp = await Group.findById(msg.group).select('members')
+        const isMember = Array.isArray(grp?.members) && grp.members.some((m) => String(m) === userId)
+        if (!isMember) return res.status(403).json({ success: false, message: 'Forbidden' })
+      } catch { return res.status(403).json({ success: false, message: 'Forbidden' }) }
+    }
     const allowMultiple = !!msg.poll.allowMultiple
     const allowChange = msg.poll.allowChange !== false
-    // Remove existing votes if not allowed multiple or change
-    if (!allowMultiple || allowChange) {
-      for (const opt of msg.poll.options) {
-        const idx = (opt.votes || []).findIndex((v) => String(v) === userId)
-        if (idx !== -1) {
-          if (!allowChange && String(opt.id) !== String(optionId)) return res.status(403).json({ success: false, message: 'Changing vote not allowed' })
-          opt.votes.splice(idx, 1)
+    // Normalize votes according to allowMultiple/allowChange
+    // - Single-choice (allowMultiple=false): ensure user appears in only the chosen option
+    // - Multi-choice (allowMultiple=true): add/remove only the chosen option; if allowChange=false, cannot remove an existing vote
+    for (const opt of msg.poll.options) {
+      const has = (opt.votes || []).some((v) => String(v) === userId)
+      if (!allowMultiple) {
+        // single choice: remove from all options except target
+        if (String(opt.id) !== String(optionId) && has) {
+          opt.votes = (opt.votes || []).filter((v) => String(v) !== userId)
         }
+      } else {
+        // multi choice: leave others intact
+        // no-op here
       }
     }
     const target = msg.poll.options.find((o) => String(o.id) === String(optionId))
     if (!target) return res.status(404).json({ success: false, message: 'Option not found' })
-    // Toggle vote if already present and change allowed
+    // Apply toggle on target
     const already = (target.votes || []).some((v) => String(v) === userId)
     if (already) {
       if (!allowChange) return res.status(403).json({ success: false, message: 'Changing vote not allowed' })
+      // single or multi with change allowed: remove vote
       target.votes = (target.votes || []).filter((v) => String(v) !== userId)
     } else {
+      if (!allowMultiple) {
+        // ensure removed from any other (already done above)
+      }
       target.votes = [...(target.votes || []), req.user.id]
     }
     await msg.save()
     // Emit update
     try {
       const io = req.app.get('io')
-      const payload = { _id: msg._id, poll: { question: msg.poll.question, options: msg.poll.options.map((o) => ({ id: o.id, text: o.text, votes: (o.votes || []).length })), allowMultiple: msg.poll.allowMultiple, endsAt: msg.poll.endsAt } }
+      const payload = { _id: msg._id, poll: buildPollPayload(msg.poll) }
+      // dedicated event for clarity
+      const event = 'pollUpdated'
       if (msg.messageType === 'direct') {
         const onlineUsers = req.app.get('onlineUsers')
         const to1 = onlineUsers.get(String(msg.from))
         const to2 = onlineUsers.get(String(msg.to))
-        if (to1) io.to(to1).emit('messageEdited', payload)
-        if (to2) io.to(to2).emit('messageEdited', payload)
+        if (to1) io.to(to1).emit(event, payload)
+        if (to2) io.to(to2).emit(event, payload)
       } else {
-        io.to(`group_${msg.group}`).emit('messageEdited', payload)
+        io.to(`group_${msg.group}`).emit(event, payload)
       }
     } catch {}
     res.json({ success: true, poll: msg.poll })
@@ -656,4 +732,5 @@ module.exports = {
   deleteMessage,
   editMessage,
   votePoll,
+  buildPollPayload,
 }
