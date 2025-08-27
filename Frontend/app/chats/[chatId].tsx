@@ -1114,7 +1114,7 @@ export default function ChatScreen() {
     return colors[index]
   }
 
-  const PollCard = ({ poll, messageId }: { poll: { question: string; options: Array<{ id: string; text: string; votes: number }>; allowMultiple?: boolean; allowChange?: boolean; endsAt?: string|null }; messageId: string }) => {
+  const PollCard = ({ poll, messageId }: { poll: { question: string; options: Array<{ id: string; text: string; votes: number }>; allowMultiple?: boolean; allowChange?: boolean; endsAt?: string|null; selectedOptionIds?: string[] }; messageId: string }) => {
     const [trackWidth, setTrackWidth] = useState(0)
     const widthsRef = useRef<Record<string, Animated.Value>>({})
     const totalVotes = (poll?.options || []).reduce((s, o) => s + (o.votes || 0), 0)
@@ -1149,15 +1149,18 @@ export default function ChatScreen() {
         {(poll?.options || []).map((opt) => {
           const pct = totalVotes > 0 ? Math.round(((opt.votes || 0) * 100) / totalVotes) : 0
           const barWidth = ensureRef(opt.id)
-          const textOnDark = pct >= 50
+          const selected = Array.isArray(poll?.selectedOptionIds) && poll.selectedOptionIds.includes(opt.id)
           return (
-            <TouchableOpacity key={String(opt.id)} activeOpacity={0.85} onPress={() => handleVote(String(opt.id))}>
-              <View style={{ backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#e5e7eb', overflow: 'hidden' }}>
-                <View style={{ padding: 10 }}>
-                  <View onLayout={(e) => setTrackWidth(e.nativeEvent.layout.width)} style={{ position: 'relative', height: 36, justifyContent: 'center' }}>
+            <TouchableOpacity key={String(opt.id)} activeOpacity={0.9} onPress={() => handleVote(String(opt.id))}>
+              <View style={{ backgroundColor: selected ? '#F0F7FF' : '#fff', borderRadius: 12, borderWidth: 1, borderColor: selected ? '#BBD6FF' : '#e5e7eb', overflow: 'hidden' }}>
+                <View style={{ paddingHorizontal: 10, paddingVertical: 6 }}>
+                  <View onLayout={(e) => setTrackWidth(e.nativeEvent.layout.width)} style={{ position: 'relative', height: 38, justifyContent: 'center' }}>
                     <Animated.View style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: barWidth, backgroundColor: '#CFE3FF' }} />
-                    <Text style={{ fontSize: 15, color: textOnDark ? '#111' : '#111', marginLeft: 6 }}>{opt.text}</Text>
-                    <Text style={{ position: 'absolute', right: 10, top: 8, fontSize: 12, color: '#333' }}>{pct}%</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      {selected && <Icon name="check-circle" size={16} color="#2E7D32" />}
+                      <Text style={{ fontSize: 15, color: '#111', marginLeft: selected ? 6 : 0 }}>{opt.text}</Text>
+                    </View>
+                    <Text style={{ position: 'absolute', right: 10, top: 10, fontSize: 12, color: '#333' }}>{pct}%</Text>
                   </View>
                 </View>
               </View>

@@ -39,15 +39,25 @@ function normalizePollInput(raw) {
   } catch { return null }
 }
 
-function buildPollPayload(poll) {
+function buildPollPayload(poll, viewerId) {
   if (!poll) return null
-  return {
+  const options = (poll.options || []).map((o) => ({ id: o.id, text: o.text, votes: Array.isArray(o.votes) ? o.votes.length : 0 }))
+  const payload = {
     question: poll.question || '',
-    options: (poll.options || []).map((o) => ({ id: o.id, text: o.text, votes: Array.isArray(o.votes) ? o.votes.length : 0 })),
+    options,
     allowMultiple: !!poll.allowMultiple,
     allowChange: poll.allowChange !== false,
     endsAt: poll.endsAt || null,
   }
+  if (viewerId) {
+    try {
+      const sel = (poll.options || [])
+        .filter((o) => Array.isArray(o.votes) && o.votes.some((v) => String(v) === String(viewerId)))
+        .map((o) => o.id)
+      payload.selectedOptionIds = sel
+    } catch {}
+  }
+  return payload
 }
 
 async function fetchLinkPreview(url) {
@@ -242,7 +252,7 @@ const sendMessage = async (req, res) => {
           _id: message._id,
           expiresAt: message.expiresAt || null,
           burnAfterReadSeconds: message.burnAfterReadSeconds || null,
-          ...(message.poll ? { poll: buildPollPayload(message.poll) } : {}),
+          ...(message.poll ? { poll: buildPollPayload(message.poll, req.user.id) } : {}),
         }
         if (recipientSocketId) io.to(recipientSocketId).emit("receiveDirectMessage", payload)
         const senderSocketId = onlineUsers.get((req.user.id || "").toString())
@@ -260,7 +270,7 @@ const sendMessage = async (req, res) => {
           _id: message._id,
           expiresAt: message.expiresAt || null,
           burnAfterReadSeconds: message.burnAfterReadSeconds || null,
-          ...(message.poll ? { poll: buildPollPayload(message.poll) } : {}),
+          ...(message.poll ? { poll: buildPollPayload(message.poll, req.user.id) } : {}),
         }
         io.to(`group_${message.group?._id || message.group}`).emit("receiveGroupMessage", payload)
         const senderSocketId = onlineUsers.get((req.user.id || "").toString())
@@ -312,7 +322,7 @@ const getDirectMessages = async (req, res) => {
     // Map poll for client payload (counts only)
     const out = messages.map((m) => ({
       ...m.toObject(),
-      poll: m.poll ? buildPollPayload(m.poll) : undefined,
+      poll: m.poll ? buildPollPayload(m.poll, req.user.id) : undefined,
     }))
 
     res.status(200).json({

@@ -389,7 +389,7 @@ const getGroupMessages = async (req, res) => {
 
     const out = messages.map((m) => ({
       ...m.toObject(),
-      poll: m.poll ? buildPollPayload(m.poll) : undefined,
+      poll: m.poll ? buildPollPayload(m.poll, req.user.id) : undefined,
     }))
 
     res.status(200).json({
