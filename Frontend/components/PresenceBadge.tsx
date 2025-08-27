@@ -16,11 +16,17 @@ function formatLastSeen(iso?: string | Date | null): string {
     const d = typeof iso === "string" ? new Date(iso) : iso
     const now = Date.now()
     const diffMs = Math.max(0, now - (d?.getTime?.() || 0))
-    const mins = Math.floor(diffMs / 60000)
-    if (mins < 1) return "Last seen just now"
-    if (mins < 60) return `Last seen ${mins}m ago`
-    if (mins < 60 * 24) return `Last seen ${Math.floor(mins / 60)}h ago`
-    return `Last seen ${Math.floor(mins / (60 * 24))}d ago`
+    const sec = Math.floor(diffMs / 1000)
+    const min = Math.floor(sec / 60)
+    const hr = Math.floor(min / 60)
+    const day = Math.floor(hr / 24)
+    if (sec < 45) return "Last seen just now"
+    if (sec < 90) return "Last seen 1m ago"
+    if (min < 45) return `Last seen ${min}m ago`
+    if (min < 90) return "Last seen 1h ago"
+    if (hr < 22) return `Last seen ${hr}h ago`
+    if (hr < 36) return "Last seen 1d ago"
+    return `Last seen ${day}d ago`
   } catch {
     return "Offline"
   }

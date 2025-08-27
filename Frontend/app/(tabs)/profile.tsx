@@ -654,7 +654,7 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontWeight: "bold",
   },
-  cover: { height: 160, backgroundColor: "#000" },
+  cover: { height: 200, backgroundColor: "#000" },
   coverImage: { width: '100%', height: '100%' },
   coverGradient: { position: 'absolute', left: 0, right: 0, bottom: 0, top: 0 },
   topSection: { flexDirection: "row", alignItems: "center", padding: 16, marginTop: -40 },
