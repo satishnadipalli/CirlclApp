@@ -101,6 +101,7 @@ export default function ChatScreen() {
   const [ephemeralMode, setEphemeralMode] = useState(false)
   const [cancelHintVisible, setCancelHintVisible] = useState(false)
   const [holdDx, setHoldDx] = useState(0)
+  const [lastReadAt, setLastReadAt] = useState<string | null>(null)
 
   const flatListRef = useRef<FlatList>(null)
   const socketRef = useRef<any>(null)
@@ -1090,8 +1091,23 @@ export default function ChatScreen() {
     const messageTime = message.createdAt ? formatTime(new Date(message.createdAt)) : ""
     const isMyMessage = message.sender === "me"
 
+    // Unread divider: show above the first unread incoming message when user is not at bottom
+    const showUnreadDivider = !isMyMessage && !isUserAtBottom && newMessagesCount > 0 && (() => {
+      try {
+        if (!lastReadAt || !message.createdAt) return false
+        return new Date(message.createdAt).getTime() > new Date(lastReadAt).getTime()
+      } catch { return false }
+    })()
+
     return (
       <SwipeReply onSwipeLeft={() => setReplyingTo(message)} onSwipeRight={() => setReplyingTo(message)}>
+      {showUnreadDivider && (
+        <View style={styles.unreadDividerContainer}>
+          <View style={styles.unreadDividerLine} />
+          <Text style={styles.unreadDividerText}>New messages</Text>
+          <View style={styles.unreadDividerLine} />
+        </View>
+      )}
       <TouchableOpacity
         activeOpacity={0.7}
         style={[styles.messageRow, isMyMessage ? styles.myMessageRow : styles.otherMessageRow]}
@@ -1839,27 +1855,22 @@ const styles = StyleSheet.create({
     padding: 10,
   },
   scrollToBottomButton: {
-    position: "absolute",
+    position: 'absolute',
     right: 16,
-    bottom: 70,
-    backgroundColor: "#0095f6",
-    borderRadius: 20,
+    bottom: 96,
+    backgroundColor: '#111',
+    borderRadius: 22,
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 3,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    elevation: 4,
   },
-  scrollToBottomText: {
-    color: "#fff",
-    marginLeft: 6,
-    fontWeight: "bold",
-  },
+  scrollToBottomText: { color: '#fff', fontWeight: '800', marginLeft: 6 },
+  unreadDividerContainer: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, paddingHorizontal: 8 },
+  unreadDividerLine: { flex: 1, height: 1, backgroundColor: '#e5e7eb' },
+  unreadDividerText: { color: '#111', fontWeight: '800', fontSize: 12 },
   modalContainer: {
     flex: 1,
     backgroundColor: "#fff",
