@@ -35,6 +35,8 @@ import PresenceBadge from "@/components/PresenceBadge"
 import ReactionsBar from "@/components/ReactionsBar"
 import SwipeReply from "@/components/SwipeReply"
 import { LinearGradient } from "expo-linear-gradient"
+import * as Haptics from 'expo-haptics'
+import { useTheme } from '@/contexts/ThemeContext'
 
 interface ChatMessage {
   id: string
@@ -73,6 +75,7 @@ interface SystemChipItem {
 type ChatItem = ChatMessage | DateHeader | SystemChipItem
 
 export default function ChatScreen() {
+  const { colors } = useTheme()
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [chatItems, setChatItems] = useState<ChatItem[]>([])
   const [inputText, setInputText] = useState("")
@@ -1142,6 +1145,7 @@ export default function ChatScreen() {
 
     const handleVote = async (optionId: string) => {
       try {
+        try { await Haptics.selectionAsync() } catch {}
         const res: any = await apiService.votePoll(messageId, optionId)
         if (res?.success && res?.poll) {
           setMessages((prev) => prev.map((m) => (m.id === messageId ? ({ ...(m as any), poll: res.poll } as any) : m)))
@@ -1158,15 +1162,15 @@ export default function ChatScreen() {
           const selected = Array.isArray(poll?.selectedOptionIds) && poll.selectedOptionIds.includes(opt.id)
           return (
             <TouchableOpacity key={String(opt.id)} activeOpacity={0.9} onPress={() => handleVote(String(opt.id))}>
-              <View style={{ backgroundColor: selected ? '#F0F7FF' : '#fff', borderRadius: 12, borderWidth: 1, borderColor: selected ? '#BBD6FF' : '#e5e7eb', overflow: 'hidden' }}>
+              <View style={{ backgroundColor: selected ? colors.surface2 : colors.surface, borderRadius: 12, borderWidth: 1, borderColor: selected ? colors.accent : colors.border, overflow: 'hidden' }}>
                 <View style={{ paddingHorizontal: 10, paddingVertical: 6 }}>
                   <View onLayout={(e) => setTrackWidth(e.nativeEvent.layout.width)} style={{ position: 'relative', height: 38, justifyContent: 'center' }}>
-                    <Animated.View style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: barWidth, backgroundColor: '#CFE3FF' }} />
+                    <Animated.View style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: barWidth, backgroundColor: colors.accent }} />
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                       {selected && <Icon name="check-circle" size={16} color="#2E7D32" />}
-                      <Text style={{ fontSize: 15, color: '#111', marginLeft: selected ? 6 : 0 }}>{opt.text}</Text>
+                      <Text style={{ fontSize: 15, color: colors.text, marginLeft: selected ? 6 : 0 }}>{opt.text}</Text>
                     </View>
-                    <Text style={{ position: 'absolute', right: 10, top: 10, fontSize: 12, color: '#333' }}>{pct}%</Text>
+                    <Text style={{ position: 'absolute', right: 10, top: 10, fontSize: 12, color: colors.muted }}>{pct}%</Text>
                   </View>
                 </View>
               </View>
@@ -1174,10 +1178,10 @@ export default function ChatScreen() {
           )
         })}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-          <Text style={{ color: '#666', fontSize: 12 }}>
+          <Text style={{ color: colors.muted, fontSize: 12 }}>
             {(poll?.allowMultiple ? 'Multiple choice' : 'Single choice') + (poll?.allowChange === false ? ' • No change' : '')}
           </Text>
-          <Text style={{ color: '#666', fontSize: 12 }}>
+          <Text style={{ color: colors.muted, fontSize: 12 }}>
             {`${totalVotes} vote${totalVotes === 1 ? '' : 's'}${poll?.endsAt ? ` • Ends ${new Date(String(poll.endsAt)).toLocaleString()}` : ''}`}
           </Text>
         </View>
@@ -1559,7 +1563,8 @@ export default function ChatScreen() {
           justifyContent: "space-between",
           padding: 12,
           borderBottomWidth: 1,
-          borderBottomColor: "#f3f3f3",
+          borderBottomColor: colors.border,
+          backgroundColor: colors.background,
         }}
       >
         <TouchableOpacity onPress={() => router.back()}>
@@ -1573,11 +1578,11 @@ export default function ChatScreen() {
             )}
           </View>
           <View style={{ marginLeft: 10, flex: 1 }}>
-            <Text style={styles.nameText}>{headerInfo.name}</Text>
+            <Text style={[styles.nameText, { color: colors.text }]}>{headerInfo.name}</Text>
             {params.chatType === 'direct' ? (
               <PresenceBadge isOnline={onlineUsers.has(params.chatId)} lastSeen={undefined} size="sm" customStatus={undefined} />
             ) : (
-              <Text style={[styles.statusText]}>{headerInfo.status}</Text>
+              <Text style={[styles.statusText, { color: colors.muted }]}>{headerInfo.status}</Text>
             )}
           </View>
           {params.chatType === 'group' ? (
@@ -1586,13 +1591,13 @@ export default function ChatScreen() {
                 <Icon name="more-vert" size={22} color="#666" />
               </TouchableOpacity>
               {menuOpen && (
-                <Animated.View style={{ position: 'absolute', top: 28, right: 0, backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#eee', shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 12, elevation: 8, width: 200, overflow: 'hidden', zIndex: 9999, transform: [{ translateY: menuAnim.interpolate({ inputRange: [0,1], outputRange: [-8,0] }) }], opacity: menuAnim }}>
+                <Animated.View style={{ position: 'absolute', top: 28, right: 0, backgroundColor: colors.surface, borderRadius: 12, borderWidth: 1, borderColor: colors.border, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 12, elevation: 16, width: 200, overflow: 'hidden', zIndex: 9999, transform: [{ translateY: menuAnim.interpolate({ inputRange: [0,1], outputRange: [-8,0] }) }], opacity: menuAnim }}>
                   <TouchableOpacity onPress={() => { setMenuOpen(false); setSearchOpen(true) }} style={{ paddingVertical: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
-                    <Icon name="search" size={18} color="#444" /><Text style={{ marginLeft: 10, color: '#111', fontSize: 15 }}>Search</Text>
+                    <Icon name="search" size={18} color={colors.text} /><Text style={{ marginLeft: 10, color: colors.text, fontSize: 15 }}>Search</Text>
                   </TouchableOpacity>
                   <View style={{ height: 1, backgroundColor: '#f1f1f1' }} />
                   <TouchableOpacity onPress={() => { setMenuOpen(false); setPollComposerOpen(true) }} style={{ paddingVertical: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
-                    <Icon name="bar-chart" size={18} color="#444" /><Text style={{ marginLeft: 10, color: '#111', fontSize: 15 }}>Create poll</Text>
+                    <Icon name="bar-chart" size={18} color={colors.text} /><Text style={{ marginLeft: 10, color: colors.text, fontSize: 15 }}>Create poll</Text>
                   </TouchableOpacity>
                 </Animated.View>
               )}
@@ -1606,10 +1611,10 @@ export default function ChatScreen() {
       </View>
 
       {searchOpen && (
-        <View style={{ paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#f3f3f3', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <View style={{ paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: colors.border, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.background }}>
           <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#f2f2f2', borderRadius: 10, paddingHorizontal: 10 }}>
-            <Icon name="search" size={18} color="#777" />
-            <TextInput value={searchQuery} onChangeText={setSearchQuery} placeholder="Search in conversation" placeholderTextColor="#999" style={{ flex: 1, height: 38, color: '#000', marginLeft: 6 }} />
+            <Icon name="search" size={18} color={colors.muted} />
+            <TextInput value={searchQuery} onChangeText={setSearchQuery} placeholder="Search in conversation" placeholderTextColor={colors.muted} style={{ flex: 1, height: 38, color: colors.text, marginLeft: 6 }} />
           </View>
           <TouchableOpacity onPress={() => jumpToMatch(-1)} disabled={searchMatches.length === 0}><Icon name="keyboard-arrow-up" size={22} color={searchMatches.length ? '#333' : '#bbb'} /></TouchableOpacity>
           <TouchableOpacity onPress={() => jumpToMatch(1)} disabled={searchMatches.length === 0}><Icon name="keyboard-arrow-down" size={22} color={searchMatches.length ? '#333' : '#bbb'} /></TouchableOpacity>
@@ -1717,7 +1722,7 @@ export default function ChatScreen() {
           <Icon name="mic" size={22} color="#333" />
         </TouchableOpacity>
         <TouchableOpacity
-          onPress={sendMessage}
+          onPress={async () => { try { await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium) } catch {}; sendMessage() }}
           style={[
             styles.sendButton,
             { opacity: inputText.trim() ? 1 : 0.5 },
