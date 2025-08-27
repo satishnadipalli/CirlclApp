@@ -592,6 +592,60 @@ const editMessage = async (req, res) => {
   }
 }
 
+// Vote on a poll
+const votePoll = async (req, res) => {
+  try {
+    const { messageId } = req.params
+    const { optionId } = req.body || {}
+    const userId = String(req.user.id)
+    if (!optionId) return res.status(400).json({ success: false, message: 'optionId required' })
+    const msg = await Message.findById(messageId)
+    if (!msg) return res.status(404).json({ success: false, message: 'Message not found' })
+    if (!msg.poll || !Array.isArray(msg.poll.options)) return res.status(400).json({ success: false, message: 'Not a poll message' })
+    if (msg.poll.endsAt && new Date(msg.poll.endsAt).getTime() < Date.now()) return res.status(403).json({ success: false, message: 'Poll ended' })
+    const allowMultiple = !!msg.poll.allowMultiple
+    const allowChange = msg.poll.allowChange !== false
+    // Remove existing votes if not allowed multiple or change
+    if (!allowMultiple || allowChange) {
+      for (const opt of msg.poll.options) {
+        const idx = (opt.votes || []).findIndex((v) => String(v) === userId)
+        if (idx !== -1) {
+          if (!allowChange && String(opt.id) !== String(optionId)) return res.status(403).json({ success: false, message: 'Changing vote not allowed' })
+          opt.votes.splice(idx, 1)
+        }
+      }
+    }
+    const target = msg.poll.options.find((o) => String(o.id) === String(optionId))
+    if (!target) return res.status(404).json({ success: false, message: 'Option not found' })
+    // Toggle vote if already present and change allowed
+    const already = (target.votes || []).some((v) => String(v) === userId)
+    if (already) {
+      if (!allowChange) return res.status(403).json({ success: false, message: 'Changing vote not allowed' })
+      target.votes = (target.votes || []).filter((v) => String(v) !== userId)
+    } else {
+      target.votes = [...(target.votes || []), req.user.id]
+    }
+    await msg.save()
+    // Emit update
+    try {
+      const io = req.app.get('io')
+      const payload = { _id: msg._id, poll: { question: msg.poll.question, options: msg.poll.options.map((o) => ({ id: o.id, text: o.text, votes: (o.votes || []).length })), allowMultiple: msg.poll.allowMultiple, endsAt: msg.poll.endsAt } }
+      if (msg.messageType === 'direct') {
+        const onlineUsers = req.app.get('onlineUsers')
+        const to1 = onlineUsers.get(String(msg.from))
+        const to2 = onlineUsers.get(String(msg.to))
+        if (to1) io.to(to1).emit('messageEdited', payload)
+        if (to2) io.to(to2).emit('messageEdited', payload)
+      } else {
+        io.to(`group_${msg.group}`).emit('messageEdited', payload)
+      }
+    } catch {}
+    res.json({ success: true, poll: msg.poll })
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message })
+  }
+}
+
 module.exports = {
   sendMessage,
   getDirectMessages,
@@ -601,4 +655,5 @@ module.exports = {
   reactMessage,
   deleteMessage,
   editMessage,
+  votePoll,
 }

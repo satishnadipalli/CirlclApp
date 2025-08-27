@@ -56,6 +56,20 @@ const messageSchema = new mongoose.Schema(
         at: { type: Date, default: Date.now },
       },
     ],
+    // Poll (optional)
+    poll: new mongoose.Schema({
+      question: { type: String, default: '' },
+      options: [
+        new mongoose.Schema({
+          id: { type: String, required: true },
+          text: { type: String, required: true },
+          votes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+        }, { _id: false })
+      ],
+      allowMultiple: { type: Boolean, default: false },
+      allowChange: { type: Boolean, default: true },
+      endsAt: { type: Date },
+    }, { _id: false }),
     linkPreview: new mongoose.Schema({
       url: { type: String, default: '' },
       title: { type: String, default: '' },

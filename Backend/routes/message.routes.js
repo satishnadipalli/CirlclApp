@@ -4,6 +4,7 @@ const auth = require("../middlewares/auth.middleware")
 const upload = require("../middlewares/upload.middleware")
 const { sendMessage, getDirectMessages, getAllChats, markDirectRead, markGroupRead } = require("../controllers/message.controllers")
 const { reactMessage, deleteMessage, editMessage } = require("../controllers/message.controllers")
+const { votePoll } = require("../controllers/message.controllers")
 
 // Get all chats (must come first)
 router.get("/chats", auth, getAllChats)
@@ -22,5 +23,8 @@ router.post("/group/:groupId/read", auth, markGroupRead)
 router.post("/:messageId/react", auth, reactMessage)
 router.delete("/:messageId", auth, deleteMessage)
 router.put("/:messageId", auth, editMessage)
+
+// Polls
+router.post("/:messageId/poll/vote", auth, votePoll)
 
 module.exports = router
