@@ -58,14 +58,23 @@ const sendMessage = async (req, res) => {
         })
       }
 
-      // Check if recipient exists and DM permission
-      const recipient = await User.findById(to).select('privacy followers')
+      // Check if recipient exists and DM permission / blocks
+      const recipient = await User.findById(to).select('privacy followers blockedUsers')
       if (!recipient) {
         return res.status(404).json({
           success: false,
           message: "Recipient not found",
         })
       }
+      // Block checks (either direction)
+      try {
+        const senderDoc = await User.findById(from).select('blockedUsers')
+        const recvBlockedSender = Array.isArray(recipient?.blockedUsers) && recipient.blockedUsers.some((id) => String(id) === String(from))
+        const senderBlockedRecv = Array.isArray(senderDoc?.blockedUsers) && senderDoc.blockedUsers.some((id) => String(id) === String(to))
+        if (recvBlockedSender || senderBlockedRecv) {
+          return res.status(403).json({ success: false, message: 'Cannot message this user' })
+        }
+      } catch {}
       const allow = recipient?.privacy?.allowDMsFrom || 'everyone'
       if (allow === 'none') {
         return res.status(403).json({ success: false, message: 'User does not accept DMs' })

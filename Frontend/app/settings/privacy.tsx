@@ -36,6 +36,8 @@ export default function PrivacySettings() {
     try {
       await api.updatePrivacy(privacy)
       try { socketService.setClientPrivacy({ sendTypingIndicators: privacy.sendTypingIndicators }) } catch {}
+      // Optimistically refresh presence list on chats tab by firing a lightweight fetch
+      try { await (await import('@/services/api.service')).apiService.getOnlineUsers() } catch {}
       router.back()
     } finally { setSaving(false) }
   }

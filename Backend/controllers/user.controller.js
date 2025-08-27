@@ -487,13 +487,27 @@ const unblockUser = async (req, res) => {
   } catch (e) { res.status(500).json({ success: false, message: e.message }) }
 }
 
-// Presence: list currently online user ids (best-effort)
+// Presence: list currently online user ids (filtered by their showOnline and blocks)
 const getOnlineUsers = async (req, res) => {
   try {
     const onlineUsers = req.app.get('onlineUsers')
     if (!onlineUsers) return res.json({ success: true, userIds: [] })
-    const ids = Array.from(onlineUsers.keys()).map(String)
-    res.json({ success: true, userIds: ids })
+    const rawIds = Array.from(onlineUsers.keys()).map(String)
+    const me = await User.findById(req.user.id).select('blockedUsers')
+    const myBlocked = new Set((me?.blockedUsers || []).map((x) => String(x)))
+    const users = await User.find({ _id: { $in: rawIds } }).select('_id privacy blockedUsers')
+    const visible = []
+    for (const u of users) {
+      const uid = String(u._id)
+      // Respect their showOnline
+      const show = u?.privacy?.showOnline !== false
+      if (!show) continue
+      // If I blocked them or they blocked me, hide from my presence list
+      const theyBlockedMe = Array.isArray(u?.blockedUsers) && u.blockedUsers.some((id) => String(id) === String(req.user.id))
+      if (myBlocked.has(uid) || theyBlockedMe) continue
+      visible.push(uid)
+    }
+    res.json({ success: true, userIds: visible })
   } catch (e) { res.status(500).json({ success: false, message: e.message }) }
 }
 
