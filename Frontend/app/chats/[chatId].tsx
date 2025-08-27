@@ -1114,6 +1114,68 @@ export default function ChatScreen() {
     return colors[index]
   }
 
+  const PollCard = ({ poll, messageId }: { poll: { question: string; options: Array<{ id: string; text: string; votes: number }>; allowMultiple?: boolean; allowChange?: boolean; endsAt?: string|null }; messageId: string }) => {
+    const [trackWidth, setTrackWidth] = useState(0)
+    const widthsRef = useRef<Record<string, Animated.Value>>({})
+    const totalVotes = (poll?.options || []).reduce((s, o) => s + (o.votes || 0), 0)
+
+    const ensureRef = (id: string) => {
+      if (!widthsRef.current[id]) widthsRef.current[id] = new Animated.Value(0)
+      return widthsRef.current[id]
+    }
+
+    useEffect(() => {
+      if (!trackWidth) return
+      ;(poll?.options || []).forEach((o) => {
+        const pct = totalVotes > 0 ? Math.max(0, Math.min(100, Math.round((o.votes || 0) * 100 / totalVotes))) : 0
+        const target = Math.round((pct / 100) * trackWidth)
+        const av = ensureRef(o.id)
+        Animated.timing(av, { toValue: target, duration: 280, useNativeDriver: false }).start()
+      })
+    }, [trackWidth, totalVotes, JSON.stringify((poll?.options || []).map(o => [o.id, o.votes]))])
+
+    const handleVote = async (optionId: string) => {
+      try {
+        const res: any = await apiService.votePoll(messageId, optionId)
+        if (res?.success && res?.poll) {
+          setMessages((prev) => prev.map((m) => (m.id === messageId ? ({ ...(m as any), poll: res.poll } as any) : m)))
+        } else if (res?.message) { Alert.alert('Vote', res.message) }
+      } catch (e) { Alert.alert('Vote', 'Failed to vote') }
+    }
+
+    return (
+      <View style={{ gap: 10, marginTop: (poll?.question ? 8 : 0) }}>
+        {!!poll?.question && <Text style={{ fontSize: 16, fontWeight: '600', color: '#222' }}>{poll.question}</Text>}
+        {(poll?.options || []).map((opt) => {
+          const pct = totalVotes > 0 ? Math.round(((opt.votes || 0) * 100) / totalVotes) : 0
+          const barWidth = ensureRef(opt.id)
+          const textOnDark = pct >= 50
+          return (
+            <TouchableOpacity key={String(opt.id)} activeOpacity={0.85} onPress={() => handleVote(String(opt.id))}>
+              <View style={{ backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#e5e7eb', overflow: 'hidden' }}>
+                <View style={{ padding: 10 }}>
+                  <View onLayout={(e) => setTrackWidth(e.nativeEvent.layout.width)} style={{ position: 'relative', height: 36, justifyContent: 'center' }}>
+                    <Animated.View style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: barWidth, backgroundColor: '#CFE3FF' }} />
+                    <Text style={{ fontSize: 15, color: textOnDark ? '#111' : '#111', marginLeft: 6 }}>{opt.text}</Text>
+                    <Text style={{ position: 'absolute', right: 10, top: 8, fontSize: 12, color: '#333' }}>{pct}%</Text>
+                  </View>
+                </View>
+              </View>
+            </TouchableOpacity>
+          )
+        })}
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+          <Text style={{ color: '#666', fontSize: 12 }}>
+            {(poll?.allowMultiple ? 'Multiple choice' : 'Single choice') + (poll?.allowChange === false ? ' • No change' : '')}
+          </Text>
+          <Text style={{ color: '#666', fontSize: 12 }}>
+            {`${totalVotes} vote${totalVotes === 1 ? '' : 's'}${poll?.endsAt ? ` • Ends ${new Date(String(poll.endsAt)).toLocaleString()}` : ''}`}
+          </Text>
+        </View>
+      </View>
+    )
+  }
+
   const renderItem = ({ item }: { item: ChatItem }) => {
     if ("type" in item && item.type === "date") {
       return (
@@ -1199,43 +1261,7 @@ export default function ChatScreen() {
 
           {/* Poll */}
           {message.poll && (
-            <View style={{ gap: 10, marginTop: (message.text ? 8 : 0) }}>
-              <Text style={{ fontSize: 16, fontWeight: '600', color: '#222' }}>{message.poll.question}</Text>
-              {(message.poll.options || []).map((opt) => {
-                const totalVotes = (message.poll?.options || []).reduce((s, o) => s + (o.votes || 0), 0)
-                const pct = totalVotes > 0 ? Math.round(((opt.votes || 0) * 100) / totalVotes) : 0
-                return (
-                  <TouchableOpacity key={String(opt.id)} activeOpacity={0.7} onPress={async () => {
-                    try {
-                      const res: any = await apiService.votePoll(message.id, String(opt.id))
-                      if (res?.success && res?.poll) {
-                        setMessages((prev) => prev.map((m) => (m.id === message.id ? ({ ...(m as any), poll: res.poll } as any) : m)))
-                      } else if (res?.message) { Alert.alert('Vote', res.message) }
-                    } catch (e) { Alert.alert('Vote', 'Failed to vote') }
-                  }}>
-                    <View style={{ backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#e5e7eb', overflow: 'hidden' }}>
-                      <View style={{ position: 'relative', padding: 12 }}>
-                        <View style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: `${pct}%`, backgroundColor: '#D6EAF8' }} />
-                        <Text style={{ fontSize: 15, color: '#111' }}>{opt.text}</Text>
-                        <Text style={{ position: 'absolute', right: 12, top: 12, fontSize: 12, color: '#333' }}>{pct}%</Text>
-                      </View>
-                    </View>
-                  </TouchableOpacity>
-                )
-              })}
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                <Text style={{ color: '#666', fontSize: 12 }}>
-                  {(message.poll?.allowMultiple ? 'Multiple choice' : 'Single choice') + (message.poll?.allowChange === false ? ' • No change' : '')}
-                </Text>
-                <Text style={{ color: '#666', fontSize: 12 }}>
-                  {(() => {
-                    const total = (message.poll?.options || []).reduce((s, o) => s + (o.votes || 0), 0)
-                    const end = message.poll?.endsAt ? ` • Ends ${new Date(String(message.poll.endsAt)).toLocaleString()}` : ''
-                    return `${total} vote${total === 1 ? '' : 's'}${end}`
-                  })()}
-                </Text>
-              </View>
-            </View>
+            <PollCard poll={message.poll} messageId={message.id} />
           )}
 
           {/* Attachments */}
