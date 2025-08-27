@@ -103,6 +103,10 @@ export default function NotificationSettings() {
       </View>
 
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
+        <TouchableOpacity style={[styles.row, { backgroundColor: '#F7F8FA' }]} onPress={() => router.push('/settings/theme')}>
+          <Text style={[styles.label, { fontWeight: '800' }]}>Appearance</Text>
+          <Text style={styles.link}>Theme ›</Text>
+        </TouchableOpacity>
         <Text style={styles.section}>Activity</Text>
         <View style={styles.row}><Text style={styles.label}>Likes</Text><Switch value={prefs.like} onValueChange={onToggle('like')} /></View>
         <View style={styles.row}><Text style={styles.label}>Comments</Text><Switch value={prefs.comment} onValueChange={onToggle('comment')} /></View>

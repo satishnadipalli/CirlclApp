@@ -52,6 +52,11 @@ export default function PrivacySettings() {
         <TouchableOpacity onPress={save} disabled={saving}><Text style={[styles.link, saving && { opacity: 0.6 }]}>{saving ? 'Saving…' : 'Save'}</Text></TouchableOpacity>
       </View>
 
+      <TouchableOpacity style={[styles.row, { backgroundColor: '#F7F8FA' }]} onPress={() => router.push('/settings/theme')}>
+        <Text style={[styles.label, { fontWeight: '800' }]}>Appearance</Text>
+        <Text style={styles.link}>Theme ›</Text>
+      </TouchableOpacity>
+
       <View style={styles.row}><Text style={styles.label}>Show online status</Text><Switch value={privacy.showOnline} onValueChange={onToggle('showOnline')} /></View>
       <View style={styles.row}><Text style={styles.label}>Show last seen</Text><Switch value={privacy.showLastSeen} onValueChange={onToggle('showLastSeen')} /></View>
       <View style={styles.row}><Text style={styles.label}>Send typing indicators</Text><Switch value={privacy.sendTypingIndicators} onValueChange={onToggle('sendTypingIndicators')} /></View>
