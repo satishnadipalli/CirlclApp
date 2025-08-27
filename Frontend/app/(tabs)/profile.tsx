@@ -19,6 +19,7 @@ import {
 import socketService from "@/services/socket.service"
 import { Brand } from "@/constants/Colors"
 import { LinearGradient } from "expo-linear-gradient"
+import SetStatusModal from "@/components/SetStatusModal"
 import { Video } from "expo-av"
 const { width } = Dimensions.get("window")
 
@@ -66,6 +67,8 @@ export default function ProfileScreen() {
   const [activeTab, setActiveTab] = useState("posts")
   const [saved, setSaved] = useState<any[]>([])
   const [reels, setReels] = useState<any[]>([])
+  const [statusModal, setStatusModal] = useState<{ visible: boolean }>({ visible: false })
+  const [customStatus, setCustomStatus] = useState<{ text?: string; emoji?: string } | null>(null)
   const router = useRouter()
 
   const onRefresh = async () => {
@@ -154,6 +157,7 @@ export default function ProfileScreen() {
       }
 
       setUser(formattedUser)
+      try { setCustomStatus(src?.customStatus || null) } catch {}
       console.log("[v0] Updated user with fresh follower/following data")
     } catch (error) {
       console.error("Error fetching user profile:", error)
@@ -484,10 +488,17 @@ export default function ProfileScreen() {
               <LinearGradient colors={["transparent", "rgba(0,0,0,0.35)"]} style={styles.coverGradient} />
             </View>
             <View style={styles.topSection}>
-              <Image
-                source={{ uri: user.profilePic || "https://i.pravatar.cc/150?img=30" }}
-                style={styles.profilePic}
-              />
+              <View>
+                <Image
+                  source={{ uri: user.profilePic || "https://i.pravatar.cc/150?img=30" }}
+                  style={styles.profilePic}
+                />
+                {!!customStatus && (
+                  <View style={{ position: 'absolute', right: -4, bottom: -4, backgroundColor: '#111', borderRadius: 14, paddingHorizontal: 8, paddingVertical: 4 }}>
+                    <Text style={{ color: '#fff', fontSize: 12 }}>{customStatus?.emoji ? `${customStatus.emoji} ` : ''}{customStatus?.text || ''}</Text>
+                  </View>
+                )}
+              </View>
               <View style={styles.stats}>
                 <View style={styles.stat}>
                   <Text style={styles.statNumber}>{posts.length}</Text>
@@ -517,13 +528,16 @@ export default function ProfileScreen() {
               <TouchableOpacity style={[styles.button, { backgroundColor: Brand.muted }]} onPress={handleShareProfile}>
                 <Text style={[styles.buttonText, { color: Brand.text }]}>Share Profile</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.button, { backgroundColor: '#eee' }]} onPress={async () => {
+              <TouchableOpacity style={[styles.button, { backgroundColor: '#111' }]} onPress={async () => {
                 try {
-                  const text = 'Be right back'
                   const api = (await import('@/services/api.service')).apiService
-                  await (api as any).setCustomStatus(text, '✨', 60)
+                  const res: any = await (api as any).setCustomStatus('Working', '💼', 120)
+                  if (res?.success) setCustomStatus({ text: 'Working', emoji: '💼' })
                 } catch {}
               }}>
+                <Text style={[styles.buttonText, { color: '#fff' }]}>Working</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.button, { backgroundColor: '#eee' }]} onPress={() => setStatusModal({ visible: true })}>
                 <Text style={[styles.buttonText, { color: '#333' }]}>Set Status</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.button, { backgroundColor: '#eee' }]} onPress={async () => { try { await AsyncStorage.multiRemove(["token","user"]); router.push("/login"); } catch {} }}>
@@ -589,9 +603,26 @@ export default function ProfileScreen() {
         onEndReached={activeTab === "posts" ? loadMorePosts : undefined}
         onEndReachedThreshold={0.1}
       />
+      <SetStatusModal
+        visible={statusModal.visible}
+        initialText={customStatus?.text || ''}
+        initialEmoji={customStatus?.emoji || ''}
+        onClose={() => setStatusModal({ visible: false })}
+        onSave={async (text, emoji, duration) => {
+          try {
+            const api = (await import('@/services/api.service')).apiService
+            const res: any = await (api as any).setCustomStatus(text, emoji, duration)
+            if (res?.success) setCustomStatus({ text, emoji })
+          } catch {}
+        }}
+      />
     </View>
   )
 }
+
+// Modal for status
+// Keep at bottom to avoid re-render issues
+// Will be rendered alongside main return
 
 const styles = StyleSheet.create({
   container: {

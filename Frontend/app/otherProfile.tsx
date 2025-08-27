@@ -17,6 +17,7 @@ import {
     View,
 } from "react-native"
 import socketService from "@/services/socket.service"
+import PresenceBadge from "@/components/PresenceBadge"
 const { width } = Dimensions.get("window")
 
 const highlights = [
@@ -439,7 +440,9 @@ export default function ProfileScreen() {
     <View>
       {/* Top Section */}
       <View style={styles.topSection}>
-        <Image source={{ uri: user.profilePic || "https://i.pravatar.cc/150?img=30" }} style={styles.profilePic} />
+        <View>
+          <Image source={{ uri: user.profilePic || "https://i.pravatar.cc/150?img=30" }} style={styles.profilePic} />
+        </View>
         <View style={styles.stats}>
           <View style={styles.stat}>
             <Text style={styles.statNumber}>{posts?.length || 0}</Text>
@@ -461,6 +464,9 @@ export default function ProfileScreen() {
         <Text style={styles.username}>{user?.name}</Text>
         <Text style={styles.bio}>{user?.bio || "📍 Traveler | 📸 Photographer | ☕ Coffee Lover"}</Text>
         {user?.website && <Text style={styles.bioLink}>{user?.website}</Text>}
+        <View style={{ marginTop: 6 }}>
+          <PresenceBadge isOnline={false} lastSeen={undefined} size="sm" />
+        </View>
       </View>
 
       {/* Buttons */}
