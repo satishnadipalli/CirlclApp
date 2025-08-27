@@ -1,4 +1,5 @@
 import { NotificationProvider } from "@/contexts/NotificationContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
 import socketService from "@/services/socket.service";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Stack } from "expo-router";
@@ -85,6 +86,7 @@ export default function RootLayout() {
   return (
 
     <GestureHandlerRootView style={{ flex: 1 }}>
+      <ThemeProvider>
       <NotificationProvider>
       <Stack screenOptions={{ headerShown: false }}>
         {/* Login / Signup screens */}
@@ -108,6 +110,7 @@ export default function RootLayout() {
 
       </Stack>
       </NotificationProvider>
+      </ThemeProvider>
     </GestureHandlerRootView>
   );
 }
