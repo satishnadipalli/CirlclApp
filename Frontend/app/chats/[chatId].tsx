@@ -105,6 +105,11 @@ export default function ChatScreen() {
   const [holdDx, setHoldDx] = useState(0)
   const [lastReadAt, setLastReadAt] = useState<string | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
+  const menuAnim = useRef(new Animated.Value(0)).current
+
+  useEffect(() => {
+    Animated.timing(menuAnim, { toValue: menuOpen ? 1 : 0, duration: 160, useNativeDriver: true }).start()
+  }, [menuOpen])
 
   const flatListRef = useRef<FlatList>(null)
   const socketRef = useRef<any>(null)
@@ -1581,15 +1586,15 @@ export default function ChatScreen() {
                 <Icon name="more-vert" size={22} color="#666" />
               </TouchableOpacity>
               {menuOpen && (
-                <View style={{ position: 'absolute', top: 28, right: 0, backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#eee', shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 8, elevation: 2, width: 180, overflow: 'hidden' }}>
-                  <TouchableOpacity onPress={() => { setMenuOpen(false); setSearchOpen(true) }} style={{ paddingVertical: 12, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
-                    <Icon name="search" size={18} color="#444" /><Text style={{ marginLeft: 8, color: '#111' }}>Search</Text>
+                <Animated.View style={{ position: 'absolute', top: 28, right: 0, backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#eee', shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 12, elevation: 8, width: 200, overflow: 'hidden', zIndex: 9999, transform: [{ translateY: menuAnim.interpolate({ inputRange: [0,1], outputRange: [-8,0] }) }], opacity: menuAnim }}>
+                  <TouchableOpacity onPress={() => { setMenuOpen(false); setSearchOpen(true) }} style={{ paddingVertical: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
+                    <Icon name="search" size={18} color="#444" /><Text style={{ marginLeft: 10, color: '#111', fontSize: 15 }}>Search</Text>
                   </TouchableOpacity>
                   <View style={{ height: 1, backgroundColor: '#f1f1f1' }} />
-                  <TouchableOpacity onPress={() => { setMenuOpen(false); setPollComposerOpen(true) }} style={{ paddingVertical: 12, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
-                    <Icon name="bar-chart" size={18} color="#444" /><Text style={{ marginLeft: 8, color: '#111' }}>Create poll</Text>
+                  <TouchableOpacity onPress={() => { setMenuOpen(false); setPollComposerOpen(true) }} style={{ paddingVertical: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
+                    <Icon name="bar-chart" size={18} color="#444" /><Text style={{ marginLeft: 10, color: '#111', fontSize: 15 }}>Create poll</Text>
                   </TouchableOpacity>
-                </View>
+                </Animated.View>
               )}
             </View>
           ) : (
@@ -1609,6 +1614,9 @@ export default function ChatScreen() {
           <TouchableOpacity onPress={() => jumpToMatch(-1)} disabled={searchMatches.length === 0}><Icon name="keyboard-arrow-up" size={22} color={searchMatches.length ? '#333' : '#bbb'} /></TouchableOpacity>
           <TouchableOpacity onPress={() => jumpToMatch(1)} disabled={searchMatches.length === 0}><Icon name="keyboard-arrow-down" size={22} color={searchMatches.length ? '#333' : '#bbb'} /></TouchableOpacity>
           <Text style={{ color: '#666', width: 52, textAlign: 'right' }}>{searchMatches.length ? `${searchIndex + 1}/${searchMatches.length}` : ''}</Text>
+          <TouchableOpacity onPress={() => setSearchOpen(false)} style={{ marginLeft: 6 }}>
+            <Icon name="close" size={22} color="#666" />
+          </TouchableOpacity>
         </View>
       )}
 
@@ -1697,9 +1705,6 @@ export default function ChatScreen() {
         <TouchableOpacity onPress={onAttachPress} style={[styles.attachButton]}>
           <Icon name="attach-file" size={22} color="#333" />
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => setPollComposerOpen((v) => !v)} style={[styles.attachButton]}>
-          <Icon name="bar-chart" size={22} color={pollComposerOpen ? '#007AFF' : '#333'} />
-        </TouchableOpacity>
         <TouchableOpacity
           onPressIn={startHoldRecording}
           onPressOut={() => stopHoldRecording(holdDx > -60)}
@@ -1715,9 +1720,9 @@ export default function ChatScreen() {
           onPress={sendMessage}
           style={[
             styles.sendButton,
-            { opacity: (pollComposerOpen || inputText.trim()) ? 1 : 0.5 },
+            { opacity: inputText.trim() ? 1 : 0.5 },
           ]}
-          disabled={!(pollComposerOpen || inputText.trim())}
+          disabled={!inputText.trim()}
         >
           <Icon name="send" size={20} color="#fff" />
         </TouchableOpacity>
@@ -1761,7 +1766,7 @@ export default function ChatScreen() {
                   </TouchableOpacity>
                 </View>
                 {!!inputText && (
-                  <Text style={{ color: '#666', marginTop: 10 }}>This poll will include message: “{inputText}”</Text>
+                  <Text style={{ color: '#666', marginTop: 10 }}>This poll will include message: "{inputText}"</Text>
                 )}
               </ScrollView>
               <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
