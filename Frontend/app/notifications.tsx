@@ -370,7 +370,7 @@ const NotificationsScreen = () => {
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyIcon}>🔔</Text>
           <Text style={styles.emptyTitle}>No notifications yet</Text>
-          <Text style={styles.emptySubtitle}>When people interact with you, you'll see it here.</Text>
+          <Text style={styles.emptySubtitle}>When people interact with you, you&apos;ll see it here.</Text>
         </View>
       ) : (
         <FlatList
@@ -382,7 +382,7 @@ const NotificationsScreen = () => {
           ListEmptyComponent={() => (
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyIcon}>🔔</Text>
-              <Text style={styles.emptyTitle}>You're all caught up</Text>
+              <Text style={styles.emptyTitle}>You&apos;re all caught up</Text>
               <Text style={styles.emptySubtitle}>No new notifications right now.</Text>
             </View>
           )}

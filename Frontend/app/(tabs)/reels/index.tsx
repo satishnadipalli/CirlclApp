@@ -573,7 +573,7 @@ export default function ReelsScreen() {
         decelerationRate={'fast' as any}
         snapToAlignment={'start' as any}
         disableIntervalMomentum
-        showsVerticalScrollIndicator={false}
+        /* duplicate prop removed */
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={{ itemVisiblePercentThreshold: 95 }}
         onMomentumScrollEnd={(e) => {

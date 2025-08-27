@@ -1771,7 +1771,7 @@ export default function ChatScreen() {
                   </TouchableOpacity>
                 </View>
                 {!!inputText && (
-                  <Text style={{ color: '#666', marginTop: 10 }}>This poll will include message: "{inputText}"</Text>
+                  <Text style={{ color: '#666', marginTop: 10 }}>This poll will include message: &quot;{inputText}&quot;</Text>
                 )}
               </ScrollView>
               <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>

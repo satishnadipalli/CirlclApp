@@ -15,7 +15,7 @@ import {
   Share,
 } from "react-native"
 import * as ImagePicker from "expo-image-picker"
-import * as Camera from "expo-camera"
+import { Camera } from "expo-camera"
 import { useLocalSearchParams, useRouter } from "expo-router"
 import { apiService } from "@/services/api.service"
 import { Ionicons } from "@expo/vector-icons"
