@@ -149,14 +149,27 @@ io.on("connection", (socket) => {
     if (!recipientSocketId) return
     const now = Date.now()
     const cached = privacyCache.get(String(from))
-    const checkSender = cached && (now - cached.ts < 30000) ? Promise.resolve({ privacy: { sendTypingIndicators: cached.sendTypingIndicators } }) : User.findById(from).select('privacy').then((u) => { privacyCache.set(String(from), { sendTypingIndicators: u?.privacy?.sendTypingIndicators !== false, ts: now }); return u })
+    const checkSender = cached && (now - cached.ts < 30000)
+      ? Promise.resolve({ privacy: { sendTypingIndicators: cached.sendTypingIndicators } })
+      : User.findById(from).select('privacy').then((u) => { privacyCache.set(String(from), { sendTypingIndicators: u?.privacy?.sendTypingIndicators !== false, ts: now }); return u })
     Promise.all([
       checkSender,
-      User.findById(to).select('blockedUsers'),
-    ]).then(([sender, receiver]) => {
-      const allow = (sender?.privacy?.sendTypingIndicators !== false)
-      if (!allow) return
-      if (Array.isArray(receiver?.blockedUsers) && receiver.blockedUsers.some((id) => String(id) === String(from))) return
+      User.findById(to).select('blockedUsers privacy followers'),
+      User.findById(from).select('blockedUsers'),
+    ]).then(([sender, receiver, senderDoc]) => {
+      const allowTyping = (sender?.privacy?.sendTypingIndicators !== false)
+      if (!allowTyping) return
+      // Block checks (either direction)
+      const recvBlocked = Array.isArray(receiver?.blockedUsers) && receiver.blockedUsers.some((id) => String(id) === String(from))
+      const sndBlocked = Array.isArray(senderDoc?.blockedUsers) && senderDoc.blockedUsers.some((id) => String(id) === String(to))
+      if (recvBlocked || sndBlocked) return
+      // DM permission checks
+      const allowDMs = receiver?.privacy?.allowDMsFrom || 'everyone'
+      if (allowDMs === 'none') return
+      if (allowDMs === 'followers') {
+        const isFollower = Array.isArray(receiver?.followers) && receiver.followers.some((id) => String(id) === String(from))
+        if (!isFollower) return
+      }
       const key = `${from}->${to}`
       const last = lastRelayByKey.get(key) || 0
       if (now - last < 200) return
@@ -169,11 +182,19 @@ io.on("connection", (socket) => {
     const recipientSocketId = onlineUsers.get(to);
     if (!recipientSocketId) return
     Promise.all([
-      User.findById(from).select('privacy'),
-      User.findById(to).select('blockedUsers'),
+      User.findById(from).select('privacy blockedUsers'),
+      User.findById(to).select('blockedUsers privacy followers'),
     ]).then(([sender, receiver]) => {
       if (sender?.privacy?.sendTypingIndicators === false) return
-      if (Array.isArray(receiver?.blockedUsers) && receiver.blockedUsers.some((id) => String(id) === String(from))) return
+      const recvBlocked = Array.isArray(receiver?.blockedUsers) && receiver.blockedUsers.some((id) => String(id) === String(from))
+      const sndBlocked = Array.isArray(sender?.blockedUsers) && sender.blockedUsers.some((id) => String(id) === String(to))
+      if (recvBlocked || sndBlocked) return
+      const allowDMs = receiver?.privacy?.allowDMsFrom || 'everyone'
+      if (allowDMs === 'none') return
+      if (allowDMs === 'followers') {
+        const isFollower = Array.isArray(receiver?.followers) && receiver.followers.some((id) => String(id) === String(from))
+        if (!isFollower) return
+      }
       io.to(recipientSocketId).emit("stopTyping", { from });
     }).catch(() => {})
   });
