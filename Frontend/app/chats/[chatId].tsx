@@ -1090,6 +1090,20 @@ export default function ChatScreen() {
     const message = item as ChatMessage
     const messageTime = message.createdAt ? formatTime(new Date(message.createdAt)) : ""
     const isMyMessage = message.sender === "me"
+    // Grouping: detect if previous item is same sender within 5min
+    let groupedWithPrev = false
+    try {
+      const idx = chatItems.findIndex((ci) => (ci as any)?.id === message.id)
+      if (idx > 0) {
+        const prev = chatItems[idx - 1] as any
+        if (!prev?.type) {
+          const prevMsg = prev as ChatMessage
+          const sameSender = prevMsg.sender === message.sender
+          const closeTime = Math.abs(new Date(prevMsg.createdAt || 0).getTime() - new Date(message.createdAt || 0).getTime()) < 5 * 60 * 1000
+          groupedWithPrev = sameSender && closeTime
+        }
+      }
+    } catch {}
 
     // Unread divider: show above the first unread incoming message when user is not at bottom
     const showUnreadDivider = !isMyMessage && !isUserAtBottom && newMessagesCount > 0 && (() => {
@@ -1127,7 +1141,11 @@ export default function ChatScreen() {
           colors={isMyMessage ? ['#DFF6FF', '#EAF4FF'] : ['#F7F8FA', '#EEF1F7']}
           start={[0, 0]}
           end={[1, 1]}
-          style={[styles.messageContent, isMyMessage ? styles.myMessageGradient : styles.otherMessageGradient]}
+          style={[
+            styles.messageContent,
+            isMyMessage ? styles.myMessageGradient : styles.otherMessageGradient,
+            groupedWithPrev && (isMyMessage ? { borderTopRightRadius: 14 } : { borderTopLeftRadius: 14 })
+          ]}
         >
           {params.chatType === "group" && !isMyMessage && (
             <Text style={[styles.senderName, { color: getUserColor(message.from._id) }]}>{message.from.name}</Text>
@@ -1140,17 +1158,20 @@ export default function ChatScreen() {
                 <View key={String(idx)}>
                   {att.type === 'image' ? (
                     <TouchableOpacity onPress={() => setMediaViewer({ visible: true, url: att.url, type: 'image' })}>
-                      <Image source={{ uri: att.url }} style={{ width: 220, height: 220, borderRadius: 10, backgroundColor: '#eee' }} />
+                      <Image source={{ uri: att.url }} style={{ width: 220, height: 220, borderRadius: 10, backgroundColor: '#eaeaea' }} />
                     </TouchableOpacity>
                   ) : att.type === 'video' ? (
                     <TouchableOpacity onPress={() => setMediaViewer({ visible: true, url: att.url, type: 'video' })}>
-                      <ExpoVideo source={{ uri: att.url }} style={{ width: 220, height: 220, borderRadius: 10, backgroundColor: '#000' }} useNativeControls resizeMode={'cover' as any} />
+                      <View style={{ width: 220, height: 220, borderRadius: 10, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }}>
+                        <ExpoVideo source={{ uri: att.url }} style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, borderRadius: 10 }} useNativeControls resizeMode={'cover' as any} />
+                        <Icon name="play-circle-filled" size={48} color="#fff" />
+                      </View>
                     </TouchableOpacity>
                   ) : att.type === 'audio' ? (
                     <AudioPlayer sourceUrl={att.url} />
                   ) : (
                     <TouchableOpacity onPress={() => setMediaViewer({ visible: true, url: att.url, type: 'file' })}>
-                      <Text style={{ color: '#fff', textDecorationLine: 'underline' }}>{att.name || 'file'}</Text>
+                      <Text style={{ color: '#333', textDecorationLine: 'underline' }}>{att.name || 'file'}</Text>
                     </TouchableOpacity>
                   )}
                 </View>
@@ -1570,7 +1591,7 @@ export default function ChatScreen() {
               <Icon name="close" size={28} color="#fff" />
             </TouchableOpacity>
             {mediaViewer.type === 'image' ? (
-              <Image source={{ uri: mediaViewer.url }} style={{ width: '92%', height: '70%', resizeMode: 'contain' as any }} />
+              <Image source={{ uri: mediaViewer.url }} style={{ width: '92%', height: '70%', resizeMode: 'contain' as any, backgroundColor: '#111' }} />
             ) : mediaViewer.type === 'video' ? (
               <ExpoVideo source={{ uri: mediaViewer.url }} style={{ width: '92%', height: '70%' }} useNativeControls resizeMode={'contain' as any} shouldPlay={false} isLooping={false} />
             ) : (
