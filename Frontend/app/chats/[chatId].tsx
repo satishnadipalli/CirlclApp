@@ -104,6 +104,7 @@ export default function ChatScreen() {
   const [cancelHintVisible, setCancelHintVisible] = useState(false)
   const [holdDx, setHoldDx] = useState(0)
   const [lastReadAt, setLastReadAt] = useState<string | null>(null)
+  const [menuOpen, setMenuOpen] = useState(false)
 
   const flatListRef = useRef<FlatList>(null)
   const socketRef = useRef<any>(null)
@@ -1574,9 +1575,28 @@ export default function ChatScreen() {
               <Text style={[styles.statusText]}>{headerInfo.status}</Text>
             )}
           </View>
-          <TouchableOpacity onPress={() => setSearchOpen((v) => !v)}>
-            <Icon name={searchOpen ? "close" : "search"} size={22} color="#666" />
-          </TouchableOpacity>
+          {params.chatType === 'group' ? (
+            <View>
+              <TouchableOpacity onPress={() => setMenuOpen((v) => !v)}>
+                <Icon name="more-vert" size={22} color="#666" />
+              </TouchableOpacity>
+              {menuOpen && (
+                <View style={{ position: 'absolute', top: 28, right: 0, backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#eee', shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 8, elevation: 2, width: 180, overflow: 'hidden' }}>
+                  <TouchableOpacity onPress={() => { setMenuOpen(false); setSearchOpen(true) }} style={{ paddingVertical: 12, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
+                    <Icon name="search" size={18} color="#444" /><Text style={{ marginLeft: 8, color: '#111' }}>Search</Text>
+                  </TouchableOpacity>
+                  <View style={{ height: 1, backgroundColor: '#f1f1f1' }} />
+                  <TouchableOpacity onPress={() => { setMenuOpen(false); setPollComposerOpen(true) }} style={{ paddingVertical: 12, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
+                    <Icon name="bar-chart" size={18} color="#444" /><Text style={{ marginLeft: 8, color: '#111' }}>Create poll</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          ) : (
+            <TouchableOpacity onPress={() => setSearchOpen((v) => !v)}>
+              <Icon name={searchOpen ? "close" : "search"} size={22} color="#666" />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
@@ -1703,10 +1723,10 @@ export default function ChatScreen() {
         </TouchableOpacity>
       </View>
       {/* Poll composer modal */}
-      <Modal visible={pollComposerOpen} animationType="slide" transparent onRequestClose={() => setPollComposerOpen(false)}>
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' }}>
-          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-            <View style={{ maxHeight: Math.round(Dimensions.get('window').height * 0.85), backgroundColor: '#fff', borderTopLeftRadius: 18, borderTopRightRadius: 18, paddingBottom: 12 }}>
+      <Modal visible={pollComposerOpen} animationType="slide" transparent={false} onRequestClose={() => setPollComposerOpen(false)}>
+        <View style={{ flex: 1, backgroundColor: '#fff' }}>
+          <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+            <View style={{ flex: 1, paddingBottom: 12 }}>
               <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, flexDirection: 'row', alignItems: 'center' }}>
                 <Text style={{ fontWeight: '700', fontSize: 18, color: '#111' }}>Create a poll</Text>
                 <View style={{ flex: 1 }} />
@@ -1715,7 +1735,7 @@ export default function ChatScreen() {
                 </TouchableOpacity>
               </View>
               <View style={{ height: 1, backgroundColor: '#eee' }} />
-              <ScrollView style={{ paddingHorizontal: 16, paddingTop: 10 }} keyboardShouldPersistTaps="handled">
+              <ScrollView style={{ paddingHorizontal: 16, paddingTop: 10 }} contentContainerStyle={{ paddingBottom: 24 }} keyboardShouldPersistTaps="handled">
                 <TextInput placeholder="Question" placeholderTextColor="#888" value={pollQuestion} onChangeText={setPollQuestion} style={[styles.input, { height: 46 }]} />
                 {(pollOptions || []).map((opt, idx) => (
                   <View key={String(idx)} style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
@@ -1743,13 +1763,12 @@ export default function ChatScreen() {
                 {!!inputText && (
                   <Text style={{ color: '#666', marginTop: 10 }}>This poll will include message: “{inputText}”</Text>
                 )}
-                <View style={{ height: 18 }} />
               </ScrollView>
               <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
                 <TouchableOpacity onPress={sendMessage} style={{ height: 46, backgroundColor: '#007AFF', borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}>
                   <Text style={{ color: '#fff', fontWeight: '700' }}>Send poll</Text>
                 </TouchableOpacity>
-                <View style={{ height: 8 }} />
+                <View style={{ height: 16 }} />
               </View>
             </View>
           </KeyboardAvoidingView>
