@@ -211,7 +211,7 @@ export default function ChatsScreen() {
     directListenerRef.current = onDirect
     groupListenerRef.current = onGroup
 
-    const onStatus = (data: { userId: string; status: 'online'|'offline' }) => {
+    const onStatus = (data: { userId: string; status: 'online'|'offline'; customStatus?: { text?: string; emoji?: string } }) => {
       setOnlineMap((prev) => {
         const next = new Set(prev)
         if (data.status === 'online') next.add(String(data.userId))
