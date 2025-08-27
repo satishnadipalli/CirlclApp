@@ -1227,7 +1227,13 @@ export default function ChatScreen() {
                 <Text style={{ color: '#666', fontSize: 12 }}>
                   {(message.poll?.allowMultiple ? 'Multiple choice' : 'Single choice') + (message.poll?.allowChange === false ? ' • No change' : '')}
                 </Text>
-                {message.poll?.endsAt && (<Text style={{ color: '#666', fontSize: 12 }}>Ends {new Date(String(message.poll.endsAt)).toLocaleString()}</Text>)}
+                <Text style={{ color: '#666', fontSize: 12 }}>
+                  {(() => {
+                    const total = (message.poll?.options || []).reduce((s, o) => s + (o.votes || 0), 0)
+                    const end = message.poll?.endsAt ? ` • Ends ${new Date(String(message.poll.endsAt)).toLocaleString()}` : ''
+                    return `${total} vote${total === 1 ? '' : 's'}${end}`
+                  })()}
+                </Text>
               </View>
             </View>
           )}
@@ -1667,31 +1673,59 @@ export default function ChatScreen() {
           <Icon name="send" size={20} color="#fff" />
         </TouchableOpacity>
       </View>
-      {pollComposerOpen && (
-        <View style={{ paddingHorizontal: 12, paddingVertical: 10, backgroundColor: '#fafafa', borderTopWidth: 1, borderTopColor: '#eee' }}>
-          <Text style={{ fontWeight: '600', color: '#222', marginBottom: 8 }}>Create a poll</Text>
-          <TextInput placeholder="Question" placeholderTextColor="#888" value={pollQuestion} onChangeText={setPollQuestion} style={[styles.input, { height: 42 }]} />
-          {(pollOptions || []).map((opt, idx) => (
-            <View key={String(idx)} style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6 }}>
-              <TextInput placeholder={`Option ${idx + 1}`} placeholderTextColor="#999" value={opt} onChangeText={(t) => setPollOptions((prev) => { const next = [...prev]; next[idx] = t; return next })} style={[styles.input, { flex: 1, height: 40 }]} />
-              {idx >= 2 && (
-                <TouchableOpacity onPress={() => setPollOptions((prev) => prev.filter((_, i) => i !== idx))} style={{ marginLeft: 6 }}>
-                  <Icon name="remove-circle-outline" size={22} color="#d32f2f" />
+      {/* Poll composer modal */}
+      <Modal visible={pollComposerOpen} animationType="slide" transparent onRequestClose={() => setPollComposerOpen(false)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' }}>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+            <View style={{ maxHeight: Math.round(Dimensions.get('window').height * 0.85), backgroundColor: '#fff', borderTopLeftRadius: 18, borderTopRightRadius: 18, paddingBottom: 12 }}>
+              <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={{ fontWeight: '700', fontSize: 18, color: '#111' }}>Create a poll</Text>
+                <View style={{ flex: 1 }} />
+                <TouchableOpacity onPress={() => setPollComposerOpen(false)}>
+                  <Icon name="close" size={22} color="#333" />
                 </TouchableOpacity>
-              )}
+              </View>
+              <View style={{ height: 1, backgroundColor: '#eee' }} />
+              <ScrollView style={{ paddingHorizontal: 16, paddingTop: 10 }} keyboardShouldPersistTaps="handled">
+                <TextInput placeholder="Question" placeholderTextColor="#888" value={pollQuestion} onChangeText={setPollQuestion} style={[styles.input, { height: 46 }]} />
+                {(pollOptions || []).map((opt, idx) => (
+                  <View key={String(idx)} style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
+                    <TextInput placeholder={`Option ${idx + 1}`} placeholderTextColor="#999" value={opt} onChangeText={(t) => setPollOptions((prev) => { const next = [...prev]; next[idx] = t; return next })} style={[styles.input, { flex: 1, height: 42 }]} />
+                    {idx >= 2 && (
+                      <TouchableOpacity onPress={() => setPollOptions((prev) => prev.filter((_, i) => i !== idx))} style={{ marginLeft: 8 }}>
+                        <Icon name="remove-circle-outline" size={22} color="#d32f2f" />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                ))}
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 12 }}>
+                  <TouchableOpacity onPress={() => setPollOptions((prev) => [...prev, ''])}>
+                    <Text style={{ color: '#007AFF', fontWeight: '600' }}>+ Add option</Text>
+                  </TouchableOpacity>
+                  <View style={{ flex: 1 }} />
+                  <TouchableOpacity onPress={() => setPollAllowMultiple((v) => !v)}>
+                    <Text style={{ color: pollAllowMultiple ? '#007AFF' : '#333' }}>{pollAllowMultiple ? 'Multiple choice' : 'Single choice'}</Text>
+                  </TouchableOpacity>
+                  <Text style={{ marginHorizontal: 10, color: '#aaa' }}>|</Text>
+                  <TouchableOpacity onPress={() => setPollAllowChange((v) => !v)}>
+                    <Text style={{ color: pollAllowChange ? '#333' : '#d32f2f' }}>{pollAllowChange ? 'Can change vote' : 'No changes'}</Text>
+                  </TouchableOpacity>
+                </View>
+                {!!inputText && (
+                  <Text style={{ color: '#666', marginTop: 10 }}>This poll will include message: “{inputText}”</Text>
+                )}
+                <View style={{ height: 18 }} />
+              </ScrollView>
+              <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
+                <TouchableOpacity onPress={sendMessage} style={{ height: 46, backgroundColor: '#007AFF', borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ color: '#fff', fontWeight: '700' }}>Send poll</Text>
+                </TouchableOpacity>
+                <View style={{ height: 8 }} />
+              </View>
             </View>
-          ))}
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
-            <TouchableOpacity onPress={() => setPollOptions((prev) => [...prev, ''])}>
-              <Text style={{ color: '#007AFF', fontWeight: '600' }}>+ Add option</Text>
-            </TouchableOpacity>
-            <View style={{ flex: 1 }} />
-            <TouchableOpacity onPress={() => setPollAllowMultiple((v) => !v)}><Text style={{ color: pollAllowMultiple ? '#007AFF' : '#333' }}>{pollAllowMultiple ? 'Multiple choice' : 'Single choice'}</Text></TouchableOpacity>
-            <Text style={{ marginHorizontal: 10, color: '#aaa' }}>|</Text>
-            <TouchableOpacity onPress={() => setPollAllowChange((v) => !v)}><Text style={{ color: pollAllowChange ? '#333' : '#d32f2f' }}>{pollAllowChange ? 'Can change' : 'No change'}</Text></TouchableOpacity>
-          </View>
+          </KeyboardAvoidingView>
         </View>
-      )}
+      </Modal>
       {params.chatType === "group" && <GroupInfoModal />}
       {mediaViewer.visible && (
         <Modal visible transparent animationType="fade" onRequestClose={() => setMediaViewer({ visible: false, url: '', type: 'image' })}>
