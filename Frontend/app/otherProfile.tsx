@@ -436,6 +436,31 @@ export default function ProfileScreen() {
     )
   }
 
+  const [presenceOnline, setPresenceOnline] = useState<boolean>(false)
+  const [presenceLastSeen, setPresenceLastSeen] = useState<string | undefined>(undefined)
+
+  useEffect(() => {
+    (async () => {
+      try {
+        if (!userId) return
+        const r: any = await (await import('@/services/api.service')).apiService.getLastSeen(String(userId))
+        if (r?.success) setPresenceLastSeen(r?.lastActiveAt || undefined)
+        const seed: any = await (await import('@/services/api.service')).apiService.getOnlineUsers()
+        const online = new Set<string>((seed?.userIds || []).map(String))
+        setPresenceOnline(online.has(String(userId)))
+      } catch {}
+    })()
+    const onStatus = (data: { userId: string; status: 'online'|'offline' }) => {
+      if (String(data.userId) !== String(userId)) return
+      setPresenceOnline(data.status === 'online')
+      if (data.status === 'offline') {
+        ;(async () => { try { const r: any = await (await import('@/services/api.service')).apiService.getLastSeen(String(userId)); if (r?.success) setPresenceLastSeen(r?.lastActiveAt || undefined) } catch {} })()
+      }
+    }
+    socketService.onUserStatusChange(onStatus)
+    return () => { socketService.removeUserStatusListener(onStatus) }
+  }, [userId])
+
   const renderProfileHeader = () => (
     <View>
       {/* Top Section */}
@@ -465,7 +490,12 @@ export default function ProfileScreen() {
         <Text style={styles.bio}>{user?.bio || "📍 Traveler | 📸 Photographer | ☕ Coffee Lover"}</Text>
         {user?.website && <Text style={styles.bioLink}>{user?.website}</Text>}
         <View style={{ marginTop: 6 }}>
-          <PresenceBadge isOnline={false} lastSeen={undefined} size="sm" />
+          <PresenceBadge isOnline={presenceOnline} lastSeen={presenceLastSeen} size="sm" />
+          {!!(user as any)?.customStatus && (
+            <Text style={{ color: '#333', marginTop: 4 }}>
+              {((user as any).customStatus?.emoji ? `${(user as any).customStatus.emoji} ` : '') + ((user as any).customStatus?.text || '')}
+            </Text>
+          )}
         </View>
       </View>
 

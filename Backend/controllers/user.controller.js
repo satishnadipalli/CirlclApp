@@ -304,7 +304,7 @@ const getUserById = async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ success: false, message: "Invalid user ID" });
     }
-    const user = await User.findById(id).select("_id name profilePic bio followers following lastActiveAt");
+    const user = await User.findById(id).select("_id name profilePic bio followers following lastActiveAt customStatus");
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found" });
     }

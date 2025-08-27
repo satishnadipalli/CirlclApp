@@ -522,26 +522,26 @@ export default function ProfileScreen() {
             </View>
 
             <View style={styles.buttonsRow}>
-              <TouchableOpacity style={[styles.button, { backgroundColor: Brand.primary }]} onPress={handleEditProfile}>
-                <Text style={[styles.buttonText, { color: '#fff' }]}>Edit Profile</Text>
+              <TouchableOpacity style={[styles.pillButton, { backgroundColor: '#111' }]} onPress={handleEditProfile}>
+                <Text style={[styles.pillText, { color: '#fff' }]}>Edit Profile</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.button, { backgroundColor: Brand.muted }]} onPress={handleShareProfile}>
-                <Text style={[styles.buttonText, { color: Brand.text }]}>Share Profile</Text>
+              <TouchableOpacity style={[styles.pillButton, { backgroundColor: '#f2f2f2' }]} onPress={handleShareProfile}>
+                <Text style={[styles.pillText, { color: '#000' }]}>Share</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.button, { backgroundColor: '#111' }]} onPress={async () => {
+              <TouchableOpacity style={[styles.iconPill, { backgroundColor: '#111' }]} onPress={async () => {
                 try {
                   const api = (await import('@/services/api.service')).apiService
                   const res: any = await (api as any).setCustomStatus('Working', '💼', 120)
                   if (res?.success) setCustomStatus({ text: 'Working', emoji: '💼' })
                 } catch {}
               }}>
-                <Text style={[styles.buttonText, { color: '#fff' }]}>Working</Text>
+                <Text style={[styles.pillText, { color: '#fff' }]}>💼</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.button, { backgroundColor: '#eee' }]} onPress={() => setStatusModal({ visible: true })}>
-                <Text style={[styles.buttonText, { color: '#333' }]}>Set Status</Text>
+              <TouchableOpacity style={[styles.pillButton, { backgroundColor: '#f2f2f2' }]} onPress={() => setStatusModal({ visible: true })}>
+                <Text style={[styles.pillText, { color: '#000' }]}>Set Status</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.button, { backgroundColor: '#eee' }]} onPress={async () => { try { await AsyncStorage.multiRemove(["token","user"]); router.push("/login"); } catch {} }}>
-                <Text style={[styles.buttonText, { color: '#333' }]}>Logout</Text>
+              <TouchableOpacity style={[styles.pillButton, { backgroundColor: '#f2f2f2' }]} onPress={async () => { try { await AsyncStorage.multiRemove(["token","user"]); router.push("/login"); } catch {} }}>
+                <Text style={[styles.pillText, { color: '#000' }]}>Logout</Text>
               </TouchableOpacity>
             </View>
 
@@ -693,22 +693,18 @@ const styles = StyleSheet.create({
   },
   buttonsRow: {
     flexDirection: "row",
-    justifyContent: "space-around",
-    paddingHorizontal: 10,
-    marginTop: 10,
+    flexWrap: 'wrap',
+    gap: 8,
+    paddingHorizontal: 12,
+    marginTop: 12,
   },
-  button: {
-    flex: 1,
-    marginHorizontal: 5,
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 5,
-    paddingVertical: 6,
-    alignItems: "center",
+  pillButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 999,
   },
-  buttonText: {
-    fontWeight: "bold",
-  },
+  pillText: { fontWeight: '800' },
+  iconPill: { paddingHorizontal: 12, paddingVertical: 10, borderRadius: 999 },
   followButton: {
     backgroundColor: "#0095f6",
     borderColor: "#0095f6",
