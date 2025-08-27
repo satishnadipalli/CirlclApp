@@ -507,6 +507,9 @@ export default function ProfileScreen() {
               <TouchableOpacity style={[styles.pillButton, { backgroundColor: '#f2f2f2' }]} onPress={handleShareProfile}>
                 <Text style={[styles.pillText, { color: '#000' }]}>Share</Text>
               </TouchableOpacity>
+              <TouchableOpacity style={[styles.pillButton, { backgroundColor: '#f2f2f2' }]} onPress={() => router.push('/settings/theme')}>
+                <Text style={[styles.pillText, { color: '#000' }]}>Theme</Text>
+              </TouchableOpacity>
               <TouchableOpacity style={[styles.iconPill, { backgroundColor: '#111' }]} onPress={async () => {
                 try {
                   const api = (await import('@/services/api.service')).apiService
