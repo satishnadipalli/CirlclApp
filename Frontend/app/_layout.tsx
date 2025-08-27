@@ -102,6 +102,7 @@ export default function RootLayout() {
         <Stack.Screen name="notifications" />
         <Stack.Screen name="highlights" />
         <Stack.Screen name="settings/notifications" />
+        <Stack.Screen name="settings/theme" />
 
         {/* Create screens */}
          <Stack.Screen name="create/select-media" />
