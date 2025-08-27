@@ -46,7 +46,12 @@ export const PresenceBadge: React.FC<PresenceBadgeProps> = ({
       </View>
     )
   }
-  return <Text style={[{ color: colorOffline }, textStyle]}>{formatLastSeen(lastSeen || null)}</Text>
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+      <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colorOffline, marginRight: 6 }} />
+      <Text style={[{ color: colorOffline }, textStyle]}>{formatLastSeen(lastSeen || null)}</Text>
+    </View>
+  )
 }
 
 export default PresenceBadge

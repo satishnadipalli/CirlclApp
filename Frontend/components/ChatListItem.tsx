@@ -115,7 +115,14 @@ export const ChatListItem: React.FC<ChatListItemProps> = ({ chat, currentUserId,
       title={chatInfo.name}
       description={() => (
         chatInfo.chatType === 'direct' ? (
-          <PresenceBadge isOnline={isOnline} lastSeen={lastSeen} size="sm" />
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <PresenceBadge isOnline={isOnline} lastSeen={lastSeen} size="sm" />
+            {!!(chat as any)?.lastMessage?.text && (
+              <Text numberOfLines={1} style={[{ flex: 1, textAlign: 'right', color: '#666' }, typingText && typingText.length > 0 ? styles.typingDescription : undefined]}>
+                {description}
+              </Text>
+            )}
+          </View>
         ) : (
           <Text numberOfLines={1} style={typingText && typingText.length > 0 ? styles.typingDescription : undefined}>{description}</Text>
         )

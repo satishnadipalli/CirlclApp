@@ -286,6 +286,7 @@ export default function ChatsScreen() {
   useFocusEffect(
     useCallback(() => {
       fetchChats() // fetch once on focus; rely on socket realtime updates afterward
+      seedPresence() // refresh presence seed on focus to keep badges accurate
       return () => {}
     }, [userId]),
   )
@@ -354,10 +355,8 @@ export default function ChatsScreen() {
       )}
       <FlatList
         data={chats}
-        keyExtractor={(_, idx) => String(idx)}
-        renderItem={({ item }) => (
-          <ChatListItem chat={item} currentUserId={userId} typingText={typingState[item?.chatType === 'direct' ? (item.user?._id || item.participant?._id) : item.group?._id] || ''} />
-        )}
+        keyExtractor={keyExtractor}
+        renderItem={renderItem}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         contentContainerStyle={{ paddingBottom: 40 }}
       />
