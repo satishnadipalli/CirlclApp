@@ -2,6 +2,7 @@ const { default: mongoose } = require("mongoose")
 const Group = require("../models/group.model")
 const Message = require("../models/message.model")
 const User = require("../models/user.models")
+const { buildPollPayload } = require("./message.controllers")
 
 // Create a new group
 const createGroup = async (req, res) => {
@@ -388,7 +389,7 @@ const getGroupMessages = async (req, res) => {
 
     const out = messages.map((m) => ({
       ...m.toObject(),
-      poll: m.poll ? require('./message.controllers').buildPollPayload ? require('./message.controllers').buildPollPayload(m.poll) : { question: m.poll.question, options: (m.poll.options || []).map((o) => ({ id: o.id, text: o.text, votes: Array.isArray(o.votes) ? o.votes.length : 0 })), allowMultiple: !!m.poll.allowMultiple, allowChange: m.poll.allowChange !== false, endsAt: m.poll.endsAt || null },
+      poll: m.poll ? buildPollPayload(m.poll) : undefined,
     }))
 
     res.status(200).json({
