@@ -8,6 +8,8 @@ import * as Notifications from "expo-notifications"
 import { useRouter } from "expo-router"
 import React, { useEffect, useState } from "react"
 import { Dimensions, FlatList, Image, Platform, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native"
+import Skeleton from "@/components/Skeleton"
+import { useTheme } from "@/contexts/ThemeContext"
 import DailyRing from "@/components/DailyRing"
 import logo from "../../assets/images/circle-full.png"
 import * as Haptics from "expo-haptics"
@@ -16,6 +18,7 @@ import { Video } from "expo-av"
 const { width } = Dimensions.get("window")
 
 export default function HomeScreen() {
+  const { colors } = useTheme()
   const [unreadCount, setUnreadCount] = useState(0)
   const [daily, setDaily] = useState<{ prompt?: any; posted?: boolean; streak?: any; rings?: any[] } | null>(null)
   const [countdown, setCountdown] = useState<string>("")
@@ -278,7 +281,7 @@ export default function HomeScreen() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#fafafa" }}>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
       {showCelebration && (
         <View style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 140, justifyContent: 'center', alignItems: 'center' }} pointerEvents='none'>
           <Text style={{ fontSize: 24, fontWeight: '900' }}>🎉 Streak {daily?.streak?.current}!</Text>
@@ -287,7 +290,7 @@ export default function HomeScreen() {
       <FlatList
         ListHeaderComponent={
           <>
-            <View style={styles.header}>
+            <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
               <Image source={logo} resizeMethod="contain" style={styles.logo} />
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <TouchableOpacity style={styles.notificationButton} onPress={() => router.push('/notifications')}>
@@ -307,10 +310,10 @@ export default function HomeScreen() {
               </View>
             </View>
 
-            <View style={styles.storiesContainer}>
+            <View style={[styles.storiesContainer, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
               {daily?.prompt && (
                 <TouchableOpacity
-                  style={{ backgroundColor: '#fff', borderWidth: 0, borderRadius: 14, paddingVertical: 10, paddingHorizontal: 12, marginBottom: 8, overflow: 'hidden' }}
+                  style={{ backgroundColor: colors.surface, borderWidth: 0, borderRadius: 14, paddingVertical: 10, paddingHorizontal: 12, marginBottom: 8, overflow: 'hidden' }}
                   onPress={() => {
                     if (daily?.posted) router.push({ pathname: "/daily/viewer", params: { userId: currentUserId || "" } })
                     else router.push({ pathname: "/(tabs)/search", params: { focusDaily: "1", openComposer: "1" } })
@@ -320,7 +323,7 @@ export default function HomeScreen() {
                     <Image source={{ uri: myDaily?.mediaUrl || currentUserId ? (myDaily?.mediaUrl || 'https://i.pravatar.cc/100?img=12') : 'https://i.pravatar.cc/100?img=12' }} style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: '#eee' }} />
                     <View style={{ flex: 1, marginLeft: 10 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                        <Text numberOfLines={1} style={{ fontWeight: '800', fontSize: 16 }}>Daily Circle</Text>
+                        <Text numberOfLines={1} style={{ fontWeight: '800', fontSize: 16, color: colors.text }}>Daily Circle</Text>
                         {!!daily?.streak?.current && (
                           <View style={{ backgroundColor: '#fff3e0', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 }}>
                             <Text style={{ color: '#e65100', fontWeight: '800' }}>🔥 {daily?.streak?.current}</Text>
@@ -347,7 +350,7 @@ export default function HomeScreen() {
                       )}
                     </View>
                   </View>
-                  <Text numberOfLines={2} ellipsizeMode='tail' style={{ marginTop: 8, color: '#333' }}>{daily?.prompt?.text}</Text>
+                  <Text numberOfLines={2} ellipsizeMode='tail' style={{ marginTop: 8, color: colors.text }}>{daily?.prompt?.text}</Text>
                   {/* Remove square preview to keep rings in a single row */}
                   {daily?.posted && (
                     <View style={{  marginTop: 8,marginLeft:-25, }}>
@@ -394,7 +397,15 @@ export default function HomeScreen() {
             </View>
 
             {/* Suggestions carousel */}
-            {suggestions.length > 0 && (
+            {suggestionsLoading ? (
+              <View style={{ backgroundColor: colors.surface, padding: 12, borderBottomWidth: 0.5, borderBottomColor: colors.border }}>
+                <Skeleton height={16} style={{ width: 140, marginBottom: 10 }} />
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                  <Skeleton height={120} style={{ width: 200, borderRadius: 12 }} />
+                  <Skeleton height={120} style={{ width: 200, borderRadius: 12 }} />
+                </View>
+              </View>
+            ) : suggestions.length > 0 ? (
               <View style={{ backgroundColor: '#fff', paddingVertical: 10, borderBottomWidth: 0.5, borderBottomColor: '#dbdbdb' }}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 12, marginBottom: 6 }}>
                   <Text style={{ fontWeight: '900', color: '#000' }}>Suggested for you</Text>
@@ -430,6 +441,10 @@ export default function HomeScreen() {
                     </View>
                   )}
                 />
+              </View>
+            ) : (
+              <View style={{ backgroundColor: colors.surface, paddingVertical: 10, borderBottomWidth: 0.5, borderBottomColor: colors.border }}>
+                <Text style={{ paddingHorizontal: 12, color: colors.muted }}>No suggestions yet</Text>
               </View>
             )}
           </>
