@@ -5,6 +5,7 @@ const upload = require("../middlewares/upload.middleware")
 const { sendMessage, getDirectMessages, getAllChats, markDirectRead, markGroupRead } = require("../controllers/message.controllers")
 const { searchMessages } = require("../controllers/message.controllers")
 const { toggleStar, pinMessage, listMedia } = require("../controllers/message.controllers")
+const { listStarred, listPinned } = require("../controllers/message.controllers")
 const { reactMessage, deleteMessage, editMessage } = require("../controllers/message.controllers")
 const { votePoll } = require("../controllers/message.controllers")
 
@@ -34,6 +35,10 @@ router.post('/:messageId/pin', auth, pinMessage)
 // Media gallery
 router.get('/direct/:peerId/media', auth, listMedia)
 router.get('/group/:groupId/media', auth, listMedia)
+router.get('/direct/:peerId/starred', auth, listStarred)
+router.get('/group/:groupId/starred', auth, listStarred)
+router.get('/direct/:peerId/pinned', auth, listPinned)
+router.get('/group/:groupId/pinned', auth, listPinned)
 
 // Reactions / edit / delete
 router.post("/:messageId/react", auth, reactMessage)

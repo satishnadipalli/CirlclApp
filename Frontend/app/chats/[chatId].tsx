@@ -1655,6 +1655,17 @@ export default function ChatScreen() {
                   <TouchableOpacity onPress={() => { setMenuOpen(false); router.push({ pathname: '/mediaGallery', params: { chatType: 'group', chatId: String(params.chatId) } }) }} style={{ paddingVertical: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
                     <Icon name="collections" size={18} color={colors.text} /><Text style={{ marginLeft: 10, color: colors.text, fontSize: 15 }}>Media gallery</Text>
                   </TouchableOpacity>
+                  <View style={{ height: 1, backgroundColor: '#f1f1f1' }} />
+                  <TouchableOpacity onPress={() => { setMenuOpen(false); router.push({ pathname: '/bookmarks', params: { chatType: 'group', chatId: String(params.chatId), kind: 'starred' } }) }} style={{ paddingVertical: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
+                    <Icon name="star" size={18} color={colors.text} /><Text style={{ marginLeft: 10, color: colors.text, fontSize: 15 }}>Starred</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => { setMenuOpen(false); router.push({ pathname: '/bookmarks', params: { chatType: 'group', chatId: String(params.chatId), kind: 'pinned' } }) }} style={{ paddingVertical: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
+                    <Icon name="push-pin" size={18} color={colors.text} /><Text style={{ marginLeft: 10, color: colors.text, fontSize: 15 }}>Pinned</Text>
+                  </TouchableOpacity>
+                  <View style={{ height: 1, backgroundColor: '#f1f1f1' }} />
+                  <TouchableOpacity onPress={() => { setMenuOpen(false); router.push({ pathname: '/groups/[groupId]', params: { groupId: String(params.chatId) } as any }) }} style={{ paddingVertical: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
+                    <Icon name="info-outline" size={18} color={colors.text} /><Text style={{ marginLeft: 10, color: colors.text, fontSize: 15 }}>Group info</Text>
+                  </TouchableOpacity>
                 </Animated.View>
               )}
             </View>
@@ -1671,6 +1682,13 @@ export default function ChatScreen() {
                   <View style={{ height: 1, backgroundColor: '#f1f1f1' }} />
                   <TouchableOpacity onPress={() => { setMenuOpen(false); router.push({ pathname: '/mediaGallery', params: { chatType: 'direct', chatId: String(params.chatId) } }) }} style={{ paddingVertical: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
                     <Icon name="collections" size={18} color={colors.text} /><Text style={{ marginLeft: 10, color: colors.text, fontSize: 15 }}>Media gallery</Text>
+                  </TouchableOpacity>
+                  <View style={{ height: 1, backgroundColor: '#f1f1f1' }} />
+                  <TouchableOpacity onPress={() => { setMenuOpen(false); router.push({ pathname: '/bookmarks', params: { chatType: 'direct', chatId: String(params.chatId), kind: 'starred' } }) }} style={{ paddingVertical: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
+                    <Icon name="star" size={18} color={colors.text} /><Text style={{ marginLeft: 10, color: colors.text, fontSize: 15 }}>Starred</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => { setMenuOpen(false); router.push({ pathname: '/bookmarks', params: { chatType: 'direct', chatId: String(params.chatId), kind: 'pinned' } }) }} style={{ paddingVertical: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
+                    <Icon name="push-pin" size={18} color={colors.text} /><Text style={{ marginLeft: 10, color: colors.text, fontSize: 15 }}>Pinned</Text>
                   </TouchableOpacity>
                 </Animated.View>
               )}

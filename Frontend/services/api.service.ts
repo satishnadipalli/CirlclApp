@@ -313,6 +313,10 @@ class ApiService {
   async pinMessage(messageId: string) { return this.request(`/messages/${messageId}/pin`, { method: 'POST' }) }
   async getDirectMedia(peerId: string, page = 1, limit = 24) { return this.request(`/messages/direct/${peerId}/media?page=${page}&limit=${limit}`) }
   async getGroupMedia(groupId: string, page = 1, limit = 24) { return this.request(`/messages/group/${groupId}/media?page=${page}&limit=${limit}`) }
+  async getDirectStarred(peerId: string, page = 1, limit = 50) { return this.request(`/messages/direct/${peerId}/starred?page=${page}&limit=${limit}`) }
+  async getGroupStarred(groupId: string, page = 1, limit = 50) { return this.request(`/messages/group/${groupId}/starred?page=${page}&limit=${limit}`) }
+  async getDirectPinned(peerId: string, page = 1, limit = 50) { return this.request(`/messages/direct/${peerId}/pinned?page=${page}&limit=${limit}`) }
+  async getGroupPinned(groupId: string, page = 1, limit = 50) { return this.request(`/messages/group/${groupId}/pinned?page=${page}&limit=${limit}`) }
 
   // Polls
   async sendDirectPoll(toUserId: string, poll: { question: string; options: string[] | Array<{ id?: string; text: string }>; allowMultiple?: boolean; allowChange?: boolean; endsAt?: string|Date }, text = '') {

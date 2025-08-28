@@ -118,6 +118,54 @@ async function listMedia(req, res) {
   } catch (e) { res.status(500).json({ success: false, message: e.message }) }
 }
 
+// List starred messages in a conversation
+async function listStarred(req, res) {
+  try {
+    const { peerId, groupId } = req.params
+    const userId = String(req.user.id)
+    const page = Math.max(1, Number.parseInt(String(req.query.page || 1)))
+    const limit = Math.min(50, Math.max(1, Number.parseInt(String(req.query.limit || 50))))
+    const filter = { starredBy: userId }
+    if (peerId) {
+      filter.messageType = 'direct'
+      filter.$or = [ { from: userId, to: peerId }, { from: peerId, to: userId } ]
+    } else if (groupId) {
+      filter.messageType = 'group'
+      filter.group = groupId
+    } else {
+      return res.status(400).json({ success: false, message: 'peerId or groupId required' })
+    }
+    const total = await Message.countDocuments(filter)
+    const docs = await Message.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit)
+      .populate('from to', 'name profilePic')
+    res.json({ success: true, page, limit, total, messages: docs })
+  } catch (e) { res.status(500).json({ success: false, message: e.message }) }
+}
+
+// List pinned messages in a conversation (global pins)
+async function listPinned(req, res) {
+  try {
+    const { peerId, groupId } = req.params
+    const userId = String(req.user.id)
+    const page = Math.max(1, Number.parseInt(String(req.query.page || 1)))
+    const limit = Math.min(50, Math.max(1, Number.parseInt(String(req.query.limit || 50))))
+    const filter = { pinnedBy: { $exists: true, $ne: null } }
+    if (peerId) {
+      filter.messageType = 'direct'
+      filter.$or = [ { from: userId, to: peerId }, { from: peerId, to: userId } ]
+    } else if (groupId) {
+      filter.messageType = 'group'
+      filter.group = groupId
+    } else {
+      return res.status(400).json({ success: false, message: 'peerId or groupId required' })
+    }
+    const total = await Message.countDocuments(filter)
+    const docs = await Message.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit)
+      .populate('from to', 'name profilePic')
+    res.json({ success: true, page, limit, total, messages: docs })
+  } catch (e) { res.status(500).json({ success: false, message: e.message }) }
+}
+
 // naive URL detection
 const URL_REGEX = /https?:\/\/[^\s]+/i
 
@@ -859,4 +907,6 @@ module.exports = {
   votePoll,
   buildPollPayload,
   searchMessages,
+  listStarred,
+  listPinned,
 }
