@@ -361,6 +361,7 @@ export default function ChatScreen() {
             system: /\badded\b/i.test(String(msg.text || "")),
             attachments: msg.attachments,
             poll: msg.poll,
+            readBy: Array.isArray((msg as any)?.readBy) ? (msg as any).readBy : [],
           }
 
           // Mark as read only when actively viewing this chat (focused, at bottom, app active)
@@ -491,7 +492,7 @@ export default function ChatScreen() {
             // Only messages from me are affected by the peer's read
             // any message from me to peer is now read by peer
             if (m.sender === 'me') {
-              const rb = Array.isArray((m as any).readBy) ? new Set((m as any).readBy.map(String)) : new Set<string>()
+              const rb = new Set<string>((Array.isArray((m as any).readBy) ? (m as any).readBy : []).map(String))
               // backend uses readerId (who read) and peerId (whose messages were read)
               const peerId = String(payload?.peerId || '')
               const readerId = String(payload?.readerId || '')
@@ -502,7 +503,7 @@ export default function ChatScreen() {
               return { ...(m as any), readBy: Array.from(rb) } as any
             }
           } else if (params.chatType === 'group' && payload?.chatType === 'group' && String(payload?.groupId) === String(params.chatId)) {
-            const rb = Array.isArray((m as any).readBy) ? new Set((m as any).readBy.map(String)) : new Set<string>()
+            const rb = new Set<string>((Array.isArray((m as any).readBy) ? (m as any).readBy : []).map(String))
             if (payload?.readerId) rb.add(String(payload.readerId))
             return { ...(m as any), readBy: Array.from(rb) } as any
           }
@@ -637,6 +638,7 @@ export default function ChatScreen() {
           pinnedBy: (msg as any)?.pinnedBy ? String((msg as any).pinnedBy) : null,
           pinnedAt: (msg as any)?.pinnedAt || null,
           poll: msg.poll,
+          readBy: Array.isArray((msg as any)?.readBy) ? (msg as any).readBy : [],
         }))
         console.log("[v0] Loaded direct messages:", formattedMessages.length)
         setMessages(formattedMessages)
@@ -669,6 +671,7 @@ export default function ChatScreen() {
             pinnedBy: (msg as any)?.pinnedBy ? String((msg as any).pinnedBy) : null,
             pinnedAt: (msg as any)?.pinnedAt || null,
             poll: msg.poll,
+            readBy: Array.isArray((msg as any)?.readBy) ? (msg as any).readBy : [],
           }))
           console.log("[v0] Loaded group messages:", formattedMessages.length)
           setMessages(formattedMessages)
