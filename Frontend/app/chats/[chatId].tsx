@@ -4,7 +4,7 @@ import { apiService } from "@/services/api.service"
 import { socketService } from "@/services/socket.service"
 import type { ChatParams, Group, TypingUser, User } from "@/types/chat.types"
 import AsyncStorage from "@react-native-async-storage/async-storage"
-import { useLocalSearchParams, useRouter } from "expo-router"
+import { useLocalSearchParams, useRouter, usePathname } from "expo-router"
 import { useEffect, useRef, useState, useCallback } from "react"
 import { useFocusEffect } from "@react-navigation/native"
 import {
@@ -146,6 +146,7 @@ export default function ChatScreen() {
   const readListenerRef = useRef<((payload: any) => void) | null>(null)
   const isUserAtBottomRef = useRef<boolean>(true)
   const router = useRouter()
+  const pathname = usePathname()
   const params = useLocalSearchParams() as unknown as (ChatParams & { jumpToMessageId?: string })
   const draftKey = `chat_draft_${params.chatType}_${params.chatId}`
   const ephemeralKey = `chat_ephemeral_${params.chatType}_${params.chatId}`
@@ -363,8 +364,9 @@ export default function ChatScreen() {
             poll: msg.poll,
           }
 
-          // Mark as read only when actively viewing (focused, at bottom, and app active)
-          if (fromUserId !== user._id && isScreenFocused && isUserAtBottomRef.current && AppState.currentState === 'active') {
+          // Mark as read only when actively viewing THIS chat (focused, correct route, at bottom, app active)
+          const isOnThisChat = isScreenFocused && typeof pathname === 'string' && pathname.startsWith('/chats/') && pathname.split('/')[2] === String(params.chatId)
+          if (fromUserId !== user._id && isOnThisChat && isUserAtBottomRef.current && AppState.currentState === 'active') {
             if (params.chatType === "direct") {
               try { apiService.markDirectRead(params.chatId) } catch { }
             } else {
@@ -487,7 +489,12 @@ export default function ChatScreen() {
 
       const onRead = (payload: any) => {
         setMessages((prev) => prev.map((m) => {
-          if (params.chatType === 'direct' && payload?.chatType === 'direct' && String(payload?.readerId || '') === String(params.chatId)) {
+          if (
+            params.chatType === 'direct' &&
+            payload?.chatType === 'direct' &&
+            String(payload?.readerId || '') === String(params.chatId) &&
+            String(payload?.peerId || '') === String(currentUser?._id || '')
+          ) {
             // any message from me to peer is now read by peer
             if (m.sender === 'me') {
               const rb = Array.isArray((m as any).readBy) ? new Set((m as any).readBy.map(String)) : new Set<string>()
@@ -1236,7 +1243,7 @@ export default function ChatScreen() {
     const isAtBottom = contentOffset.y + layoutMeasurement.height >= contentSize.height - 50
     setIsUserAtBottom(isAtBottom)
     isUserAtBottomRef.current = isAtBottom
-    if (isAtBottom) {
+    if (isAtBottom && isScreenFocused && AppState.currentState === 'active') {
       setShowScrollToBottom(false)
       setNewMessagesCount(0)
       // Best-effort mark-as-read when user reaches bottom
