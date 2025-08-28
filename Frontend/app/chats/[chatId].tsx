@@ -169,12 +169,13 @@ export default function ChatScreen() {
     let mounted = true
       ; (async () => {
         try {
-          const DEFAULT_SEND = require('../../assetshii/mixkit-long-pop-2358.wav')
-          const DEFAULT_RECV = require('../../assetshii/mixkit-long-pop-2358.wav')
-          const sendUri = (process?.env as any)?.EXPO_PUBLIC_SEND_SOUND_URI || DEFAULT_SEND
-          const recvUri = (process?.env as any)?.EXPO_PUBLIC_RECV_SOUND_URI || DEFAULT_RECV
-          const s1 = await Audio.Sound.createAsync({ uri: String(sendUri) }, { shouldPlay: false })
-          const s2 = await Audio.Sound.createAsync({ uri: String(recvUri) }, { shouldPlay: false })
+          const envSend = (process?.env as any)?.EXPO_PUBLIC_SEND_SOUND_URI
+          const envRecv = (process?.env as any)?.EXPO_PUBLIC_RECV_SOUND_URI
+          const sendSource: any = envSend ? { uri: String(envSend) } : require('../../assets/mixkit-long-pop-2358.wav')
+          const recvSource: any = envRecv ? { uri: String(envRecv) } : require('../../assets/mixkit-long-pop-2358.wav')
+          try { await Audio.setAudioModeAsync({ playsInSilentModeIOS: true }) } catch {}
+          const s1 = await Audio.Sound.createAsync(sendSource, { shouldPlay: false })
+          const s2 = await Audio.Sound.createAsync(recvSource, { shouldPlay: false })
           if (!mounted) { try { s1.sound.unloadAsync() } catch { }; try { s2.sound.unloadAsync() } catch { }; return }
           setSndSend(s1.sound)
           setSndRecv(s2.sound)
@@ -371,6 +372,10 @@ export default function ChatScreen() {
           }
 
           setMessages((prev) => {
+            try {
+              // Play receive sound for messages from others
+              if (String(fromUserId) !== String(user._id)) { playRecv().catch(() => {}) }
+            } catch {}
             let newMessage = baseMessage
             // If server-sent id already exists, replace in-place
             const byId = prev.findIndex((m) => m.id === newMessage.id)
