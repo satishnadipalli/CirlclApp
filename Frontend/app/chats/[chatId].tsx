@@ -1333,6 +1333,7 @@ export default function ChatScreen() {
     const message = item as ChatMessage
     const messageTime = message.createdAt ? formatTime(new Date(message.createdAt)) : ""
     const isMyMessage = message.sender === "me"
+    const isSelected = isActionMode && String(selectedMessageId) === String(message.id)
     // Grouping: detect if previous item is same sender within 5min
     let groupedWithPrev = false
     try {
@@ -1368,7 +1369,7 @@ export default function ChatScreen() {
       <TouchableOpacity
         activeOpacity={0.7}
         style={[styles.messageRow, isMyMessage ? styles.myMessageRow : styles.otherMessageRow]}
-        onLongPress={async () => {
+        onLongPress={(evt: any) => {
           try {
             const actions: Array<{ key: string; label: string; run: () => Promise<void> | void }> = []
             // Star / Unstar
@@ -1404,6 +1405,16 @@ export default function ChatScreen() {
             // Enter action mode (WhatsApp-like)
             setSelectedMessageId(String(message.id))
             setIsActionMode(true)
+            // Open reaction picker at the pressed location
+            try {
+              const y = (evt?.nativeEvent?.pageY || 180) - 80
+              const x = (evt?.nativeEvent?.pageX || 160)
+              setReactingTo(message)
+              setReactionAnchor({ x, y })
+            } catch {
+              setReactingTo(message)
+              setReactionAnchor({ x: 160, y: 140 })
+            }
           } catch {}
         }}
       >
@@ -1425,7 +1436,8 @@ export default function ChatScreen() {
           style={[
             styles.messageContent,
             isMyMessage ? styles.myMessageGradient : styles.otherMessageGradient,
-            groupedWithPrev && (isMyMessage ? { borderTopRightRadius: 14 } : { borderTopLeftRadius: 14 })
+            groupedWithPrev && (isMyMessage ? { borderTopRightRadius: 14 } : { borderTopLeftRadius: 14 }),
+            isSelected ? { borderWidth: 2, borderColor: colors.accent } : null
           ]}
         >
           {params.chatType === "group" && !isMyMessage && (
