@@ -365,11 +365,11 @@ export default function ChatScreen() {
             delivered: String(fromUserId) === String(user._id) ? true : undefined,
           }
 
-          // Mark as read only when actively viewing this chat (focused, at bottom, app active)
-          if (fromUserId !== user._id && isScreenFocused && isUserAtBottomRef.current && AppState.currentState === 'active') {
+          // Mark as read when actively viewing
+          if (fromUserId !== user._id && isScreenFocused && AppState.currentState === 'active') {
             if (params.chatType === "direct") {
               try { apiService.markDirectRead(params.chatId) } catch { }
-            } else {
+            } else if (isUserAtBottomRef.current) {
               try { apiService.markGroupRead(params.chatId) } catch { }
             }
           }
@@ -504,8 +504,11 @@ export default function ChatScreen() {
               const myId = String(currentUser?._id || '')
               const otherId = String(params.chatId)
               // Accept only if peerId is me and readerId is the other participant
-              if (peerId === myId && readerId === otherId) rb.add(readerId)
-              return { ...(m as any), readBy: Array.from(rb), delivered: true } as any
+              if (peerId === myId && readerId === otherId) {
+                rb.add(readerId)
+                return { ...(m as any), readBy: Array.from(rb), delivered: true } as any
+              }
+              return m
             }
           } else if (params.chatType === 'group' && payload?.chatType === 'group' && String(payload?.groupId) === String(params.chatId)) {
             const rb = new Set<string>((Array.isArray((m as any).readBy) ? (m as any).readBy : []).map(String))
