@@ -5,6 +5,7 @@ import * as Haptics from "expo-haptics"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import type React from "react"
 import { createContext, useContext, useEffect, useRef, useState } from "react"
+import { Audio } from 'expo-av'
 import { Animated, Dimensions, StyleSheet, Text, TouchableOpacity, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { type Socket } from "socket.io-client"
@@ -227,16 +228,27 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [unreadCount, setUnreadCount] = useState(0)
   const [socket, setSocket] = useState<Socket | null>(null)
   const [currentNotification, setCurrentNotification] = useState<NotificationData | null>(null)
+  const [recvSound, setRecvSound] = useState<Audio.Sound | null>(null)
 
   const BASE_URL = require("../constants/Config").API_ORIGIN
 
   useEffect(() => {
     initializeSocket()
+    ;(async () => {
+      try {
+        const envUri = (process as any)?.env?.EXPO_PUBLIC_RECV_SOUND_URI
+        const src: any = envUri ? { uri: String(envUri) } : require('../assets/mixkit-long-pop-2358.wav')
+        try { await Audio.setAudioModeAsync({ playsInSilentModeIOS: true }) } catch {}
+        const { sound } = await Audio.Sound.createAsync(src, { shouldPlay: false })
+        setRecvSound(sound)
+      } catch {}
+    })()
     fetchUnreadCount()
 
     return () => {
       socketService.removeNotificationListener(handleNewNotification)
       if (dailyPostedCbRef.current) socketService.removeDailyPostedListener(dailyPostedCbRef.current)
+      try { recvSound?.unloadAsync() } catch {}
     }
   }, [])
 
@@ -260,6 +272,19 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         if (uid) socketService.registerUser(uid)
       } catch {}
       socketService.onNotification(handleNewNotification)
+      // Global receive sound for messages from others
+      const onAnyMessage = async (message: any) => {
+        try {
+          const raw = await AsyncStorage.getItem('user')
+          const me = raw ? JSON.parse(raw) : null
+          const myId = me?.id || me?._id
+          const fromId = typeof message?.from === 'object' ? message?.from?._id : message?.from
+          if (myId && String(fromId) !== String(myId)) {
+            try { await recvSound?.replayAsync() } catch {}
+          }
+        } catch {}
+      }
+      socketService.onMessage(onAnyMessage)
       socketService.onFollowEvent((evt: any) => {
         // normalize to notification-like payload
         showNotification({ type: evt?.type === 'unfollow' ? 'follow' : 'follow', senderName: evt?.data?.followerName || evt?.data?.unfollowerName || 'Someone', text: evt?.type === 'unfollow' ? 'unfollowed you' : 'started following you' })
