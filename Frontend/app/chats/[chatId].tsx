@@ -56,6 +56,9 @@ interface ChatMessage {
   status?: 'sending' | 'sent' | 'failed'
   uploadProgress?: number
   poll?: { question: string; options: Array<{ id: string; text: string; votes: number }>; allowMultiple?: boolean; allowChange?: boolean; endsAt?: string|null }
+  starredBy?: string[]
+  pinnedBy?: string | null
+  pinnedAt?: string | null
 }
 
 interface DateHeader {
@@ -401,6 +404,14 @@ export default function ChatScreen() {
       socketService.onMessageEdited(onEdited)
       editListenerRef.current = onEdited
 
+      // Handle message pinned
+      const onPinned = (payload: any) => {
+        setMessages((prev) => prev.map((m) => m.id === String(payload?._id) ? ({ ...(m as any), pinnedBy: String(payload?.pinnedBy || ''), pinnedAt: payload?.pinnedAt || new Date().toISOString() } as any) : m))
+      }
+      try { (socketService as any).socket?.on('messagePinned', onPinned) } catch {}
+      // Cleanup listener on unmount
+      return () => { try { (socketService as any).socket?.off('messagePinned', onPinned) } catch {} }
+
       const onPoll = (payload: any) => {
         setMessages((prev) => prev.map((m) => (m.id === String(payload?._id) ? ({ ...(m as any), poll: payload.poll } as any) : m)))
       }
@@ -548,6 +559,9 @@ export default function ChatScreen() {
           messageType: "direct",
           createdAt: msg.createdAt,
           attachments: msg.attachments,
+          starredBy: Array.isArray((msg as any)?.starredBy) ? (msg as any).starredBy : [],
+          pinnedBy: (msg as any)?.pinnedBy ? String((msg as any).pinnedBy) : null,
+          pinnedAt: (msg as any)?.pinnedAt || null,
           poll: msg.poll,
         }))
         console.log("[v0] Loaded direct messages:", formattedMessages.length)
@@ -569,6 +583,9 @@ export default function ChatScreen() {
             createdAt: msg.createdAt,
             system: /\badded\b/i.test(String(msg.text || "")),
             attachments: msg.attachments,
+            starredBy: Array.isArray((msg as any)?.starredBy) ? (msg as any).starredBy : [],
+            pinnedBy: (msg as any)?.pinnedBy ? String((msg as any).pinnedBy) : null,
+            pinnedAt: (msg as any)?.pinnedAt || null,
             poll: msg.poll,
           }))
           console.log("[v0] Loaded group messages:", formattedMessages.length)
@@ -1298,6 +1315,45 @@ export default function ChatScreen() {
       <TouchableOpacity
         activeOpacity={0.7}
         style={[styles.messageRow, isMyMessage ? styles.myMessageRow : styles.otherMessageRow]}
+        onLongPress={async () => {
+          try {
+            const actions: Array<{ key: string; label: string; run: () => Promise<void> | void }> = []
+            // Star / Unstar
+            actions.push({ key: 'star', label: 'Add/Remove star', run: async () => {
+              try {
+                const r: any = await apiService.request(`/messages/${message.id}/star`, { method: 'POST' })
+                if ((r as any)?.success) {
+                  setMessages((prev) => prev.map((m) => {
+                    if (m.id !== message.id) return m
+                    const next: any = { ...(m as any) }
+                    const me = String(currentUser?._id || '')
+                    const setStars = new Set<string>(Array.isArray(next.starredBy) ? next.starredBy.map(String) : [])
+                    if ((r as any)?.starred) setStars.add(me); else setStars.delete(me)
+                    next.starredBy = Array.from(setStars)
+                    return next
+                  }))
+                }
+              } catch {}
+            }})
+            // Pin (sender only; enforced by backend)
+            actions.push({ key: 'pin', label: 'Pin message', run: async () => {
+              try {
+                const r: any = await apiService.request(`/messages/${message.id}/pin`, { method: 'POST' })
+                if ((r as any)?.success) {
+                  setMessages((prev) => prev.map((m) => m.id === message.id ? ({ ...(m as any), pinnedBy: String(currentUser?._id || ''), pinnedAt: new Date().toISOString() } as any) : m))
+                }
+              } catch {}
+            }})
+            // Simple native prompt
+            await new Promise<void>((resolve) => {
+              Alert.alert('Message actions', undefined, [
+                { text: actions[0].label, onPress: () => { actions[0].run(); resolve() } },
+                { text: actions[1].label, onPress: () => { actions[1].run(); resolve() } },
+                { text: 'Cancel', style: 'cancel', onPress: () => resolve() },
+              ])
+            })
+          } catch {}
+        }}
       >
         {params.chatType === "group" && !isMyMessage && (
           <View style={styles.avatarContainer}>
@@ -1473,13 +1529,23 @@ export default function ChatScreen() {
                 )}
               </View>
             )}
+            {(message as any)?.pinnedAt && (
+              <View style={{ marginLeft: 6, backgroundColor: '#fee9b5', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
+                <Text style={{ color: '#664400', fontSize: 11 }}>Pinned</Text>
+              </View>
+            )}
+            {Array.isArray((message as any)?.starredBy) && (message as any).starredBy.length > 0 && (
+              <View style={{ marginLeft: 6, backgroundColor: '#ffeef7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
+                <Text style={{ color: '#8a004f', fontSize: 11 }}>Starred</Text>
+              </View>
+            )}
           </View>
           {(isMyMessage && typeof (message as any).uploadProgress === 'number' && (message as any).uploadProgress >= 0 && (message as any).uploadProgress < 100) && (
             <View style={{ marginTop: 6, height: 4, backgroundColor: '#ddd', borderRadius: 2, overflow: 'hidden' }}>
               <View style={{ height: 4, width: `${Math.round((message as any).uploadProgress)}%`, backgroundColor: '#4ea1ff' }} />
             </View>
           )}
-          <View style={{ flexDirection: 'row', marginTop: 6, alignItems: 'center', justifyContent: isMyMessage ? 'flex-end' : 'flex-start' }}>
+          <View style={{ flexDirection: 'row', marginTop: 8, alignItems: 'center', justifyContent: isMyMessage ? 'flex-end' : 'flex-start', gap: 8 }}>
             <TouchableOpacity onPress={(evt: any) => {
               setReactingTo(message)
               try {
@@ -1490,6 +1556,32 @@ export default function ChatScreen() {
             }} style={{ backgroundColor: '#f5f5f5', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 }}>
               <Text style={{ fontSize: 12 }}>😊</Text>
             </TouchableOpacity>
+            {/* Quick bookmark/pin chips */}
+            <TouchableOpacity onPress={async () => {
+              try {
+                const r: any = await apiService.request(`/messages/${message.id}/star`, { method: 'POST' })
+                if ((r as any)?.success) {
+                  setMessages((prev) => prev.map((m) => {
+                    if (m.id !== message.id) return m
+                    const next: any = { ...(m as any) }
+                    const me = String(currentUser?._id || '')
+                    const setStars = new Set<string>(Array.isArray(next.starredBy) ? next.starredBy.map(String) : [])
+                    if ((r as any)?.starred) setStars.add(me); else setStars.delete(me)
+                    next.starredBy = Array.from(setStars)
+                    return next
+                  }))
+                }
+              } catch {}
+            }} style={{ backgroundColor: '#fff5c2', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderColor: '#ffe38a' }}>
+              <Text style={{ fontSize: 12 }}>⭐</Text>
+            </TouchableOpacity>
+            {isMyMessage && (
+              <TouchableOpacity onPress={async () => {
+                try { const r: any = await apiService.request(`/messages/${message.id}/pin`, { method: 'POST' }); if ((r as any)?.success) setMessages((prev) => prev.map((m) => m.id === message.id ? ({ ...(m as any), pinnedBy: String(currentUser?._id || ''), pinnedAt: new Date().toISOString() } as any) : m)) } catch {}
+              }} style={{ backgroundColor: '#eaf4ff', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderColor: '#cfe6ff' }}>
+                <Text style={{ fontSize: 12 }}>📌</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </LinearGradient>
       </TouchableOpacity>

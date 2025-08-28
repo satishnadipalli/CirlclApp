@@ -181,7 +181,17 @@ export default function GroupDetailsScreen() {
         <Image source={{ uri: group.groupPic || "https://i.pravatar.cc/150?img=14" }} style={styles.heroAvatar} />
         <Text style={styles.heroName}>{group.name}</Text>
         {group.description ? <Text style={styles.heroDesc}>{group.description}</Text> : null}
-        {/* add button moved to header */}
+        <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+          <TouchableOpacity onPress={() => router.push({ pathname: '/mediaGallery', params: { chatType: 'group', chatId: String(groupId) } })} style={{ backgroundColor: '#111', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 }}>
+            <Text style={{ color: '#fff', fontWeight: '800' }}>Media gallery</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push({ pathname: '/bookmarks', params: { chatType: 'group', chatId: String(groupId), kind: 'starred' } })} style={{ backgroundColor: '#f1f1f1', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 }}>
+            <Text style={{ color: '#111', fontWeight: '800' }}>Starred</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push({ pathname: '/bookmarks', params: { chatType: 'group', chatId: String(groupId), kind: 'pinned' } })} style={{ backgroundColor: '#f1f1f1', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 }}>
+            <Text style={{ color: '#111', fontWeight: '800' }}>Pinned</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={styles.actionsBar}>
