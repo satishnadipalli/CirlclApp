@@ -121,6 +121,9 @@ export default function ChatScreen() {
   const [hiddenMessageIds, setHiddenMessageIds] = useState<Set<string>>(new Set())
   const REACTION_EMOJIS = ['❤️','👍','😂','😮','😢','🔥']
   const [deleteModal, setDeleteModal] = useState<{ visible: boolean; ids: string[]; anyMine: boolean; anyOthers: boolean }>( { visible: false, ids: [], anyMine: false, anyOthers: false } )
+  const [rate, setRate] = useState(1.0)
+  const [sndSend, setSndSend] = useState<Audio.Sound | null>(null)
+  const [sndRecv, setSndRecv] = useState<Audio.Sound | null>(null)
 
   useEffect(() => {
     Animated.timing(menuAnim, { toValue: menuOpen ? 1 : 0, duration: 160, useNativeDriver: true }).start()
@@ -162,6 +165,23 @@ export default function ChatScreen() {
 
   console.log("params",params);
 
+  useEffect(() => {
+    let mounted = true
+    ;(async () => {
+      try {
+        const sendAsset = require('@/assets/sounds/send.mp3')
+        const recvAsset = require('@/assets/sounds/receive.mp3')
+        const s1 = await Audio.Sound.createAsync(sendAsset, { shouldPlay: false })
+        const s2 = await Audio.Sound.createAsync(recvAsset, { shouldPlay: false })
+        if (!mounted) { try { s1.sound.unloadAsync() } catch {}; try { s2.sound.unloadAsync() } catch {}; return }
+        setSndSend(s1.sound)
+        setSndRecv(s2.sound)
+      } catch {}
+    })()
+    return () => { mounted = false; try { sndSend?.unloadAsync() } catch {}; try { sndRecv?.unloadAsync() } catch {} }
+  }, [])
+  const playSend = async () => { try { await sndSend?.replayAsync() } catch {} }
+  const playRecv = async () => { try { await sndRecv?.replayAsync() } catch {} }
 
   const loadUserAndInitialize = async () => {
     try {
@@ -813,6 +833,7 @@ export default function ChatScreen() {
       setMessages((prev) => prev.map((m) => (m.id === tempId ? { ...m, status: 'failed' } : m)))
     }
     setReplyingTo(null)
+    try { playSend() } catch {}
   }
 
   const sendAttachment = async (assets: Array<{ uri: string; type?: string; name?: string }>) => {
@@ -1764,6 +1785,10 @@ export default function ChatScreen() {
   }
 
   const headerInfo = getHeaderInfo()
+
+  const persistHidden = async (setIds: Set<string>) => {
+    try { await AsyncStorage.setItem(hiddenKey, JSON.stringify(Array.from(setIds))) } catch {}
+  }
 
   return (
     <SafeAreaView style={styles.container}>
