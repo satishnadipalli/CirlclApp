@@ -116,7 +116,7 @@ export default function ChatScreen() {
   const [starredCount, setStarredCount] = useState(0)
   const [pinnedCount, setPinnedCount] = useState(0)
   const [isActionMode, setIsActionMode] = useState(false)
-  const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null)
+  const [selectedMessageIds, setSelectedMessageIds] = useState<Set<string>>(new Set())
   const REACTION_EMOJIS = ['❤️','👍','😂','😮','😢','🔥']
 
   useEffect(() => {
@@ -1314,12 +1314,12 @@ export default function ChatScreen() {
             <Text style={styles.systemChipText}>{item.text}</Text>
           </View>
           {/* Inline reactions strip in action mode */}
-          {isActionMode && String((message as any).id) === String(selectedMessageId) && (
+          {isActionMode && String((message as any).id) === String(selectedMessageIds.values().next().value) && (
             <View style={{ flexDirection: 'row', marginTop: 6, alignItems: 'center', gap: 8 }}>
               {REACTION_EMOJIS.map((e) => (
                 <TouchableOpacity key={e} onPress={async () => {
                   try { await apiService.request(`/messages/${String((message as any).id)}/react`, { method: 'POST', body: JSON.stringify({ type: e }) }) } catch {}
-                  setIsActionMode(false); setSelectedMessageId(null)
+                  setIsActionMode(false); setSelectedMessageIds.clear()
                 }} style={{ backgroundColor: '#fff', borderWidth: 1, borderColor: '#eee', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 4 }}>
                   <Text style={{ fontSize: 16 }}>{e}</Text>
                 </TouchableOpacity>
@@ -1333,7 +1333,7 @@ export default function ChatScreen() {
     const message = item as ChatMessage
     const messageTime = message.createdAt ? formatTime(new Date(message.createdAt)) : ""
     const isMyMessage = message.sender === "me"
-    const isSelected = isActionMode && String(selectedMessageId) === String(message.id)
+    const isSelected = isActionMode && selectedMessageIds.has(String(message.id))
     // Grouping: detect if previous item is same sender within 5min
     let groupedWithPrev = false
     try {
@@ -1369,52 +1369,47 @@ export default function ChatScreen() {
       <TouchableOpacity
         activeOpacity={0.7}
         style={[styles.messageRow, isMyMessage ? styles.myMessageRow : styles.otherMessageRow]}
+        onPress={() => {
+          if (!isActionMode) return
+          const id = String(message.id)
+          setSelectedMessageIds((prev) => {
+            const next = new Set(prev)
+            if (next.has(id)) next.delete(id); else next.add(id)
+            if (next.size === 0) {
+              setIsActionMode(false)
+              setReactingTo(null)
+              setReactionAnchor(null)
+            } else if (next.size > 1) {
+              setReactingTo(null)
+              setReactionAnchor(null)
+            }
+            return next
+          })
+        }}
         onLongPress={(evt: any) => {
           try {
-            const actions: Array<{ key: string; label: string; run: () => Promise<void> | void }> = []
-            // Star / Unstar
-            actions.push({ key: 'star', label: 'Add/Remove star', run: async () => {
-              try {
-                const r: any = await apiService.request(`/messages/${message.id}/star`, { method: 'POST' })
-                if ((r as any)?.success) {
-                  setMessages((prev) => prev.map((m) => {
-                    if (m.id !== message.id) return m
-                    const next: any = { ...(m as any) }
-                    const me = String(currentUser?._id || '')
-                    const setStars = new Set<string>(Array.isArray(next.starredBy) ? next.starredBy.map(String) : [])
-                    if ((r as any)?.starred) setStars.add(me); else setStars.delete(me)
-                    next.starredBy = Array.from(setStars)
-                    return next
-                  }))
-                }
-              } catch {}
-            }})
-            // Pin (sender only; enforced by backend)
-            const isPinnedByMe = Boolean((message as any)?.pinnedAt) && String((message as any)?.pinnedBy || '') === String(currentUser?._id || '')
-            actions.push({ key: isPinnedByMe ? 'unpin' : 'pin', label: isPinnedByMe ? 'Unpin message' : 'Pin message', run: async () => {
-              try {
-                if (!isPinnedByMe) {
-                  const r: any = await apiService.request(`/messages/${message.id}/pin`, { method: 'POST' })
-                  if ((r as any)?.success) setMessages((prev) => prev.map((m) => m.id === message.id ? ({ ...(m as any), pinnedBy: String(currentUser?._id || ''), pinnedAt: new Date().toISOString() } as any) : m))
-                } else {
-                  const r: any = await apiService.request(`/messages/${message.id}/unpin`, { method: 'POST' })
-                  if ((r as any)?.success) setMessages((prev) => prev.map((m) => m.id === message.id ? ({ ...(m as any), pinnedBy: null, pinnedAt: null } as any) : m))
-                }
-              } catch {}
-            }})
-            // Enter action mode (WhatsApp-like)
-            setSelectedMessageId(String(message.id))
+            const id = String(message.id)
             setIsActionMode(true)
-            // Open reaction picker at the pressed location
-            try {
-              const y = (evt?.nativeEvent?.pageY || 180) - 80
-              const x = (evt?.nativeEvent?.pageX || 160)
-              setReactingTo(message)
-              setReactionAnchor({ x, y })
-            } catch {
-              setReactingTo(message)
-              setReactionAnchor({ x: 160, y: 140 })
-            }
+            setSelectedMessageIds((prev) => {
+              const next = new Set(prev)
+              if (next.has(id)) next.delete(id); else next.add(id)
+              // If only one selected, open reaction picker; more than one closes it
+              if (next.size === 1) {
+                try {
+                  const y = (evt?.nativeEvent?.pageY || 180) - 80
+                  const x = (evt?.nativeEvent?.pageX || 160)
+                  setReactingTo(message)
+                  setReactionAnchor({ x, y })
+                } catch {
+                  setReactingTo(message)
+                  setReactionAnchor({ x: 160, y: 140 })
+                }
+              } else {
+                setReactingTo(null)
+                setReactionAnchor(null)
+              }
+              return next
+            })
           } catch {}
         }}
       >
@@ -1786,40 +1781,73 @@ export default function ChatScreen() {
       >
         {isActionMode ? (
           <>
-            <TouchableOpacity onPress={() => { setIsActionMode(false); setSelectedMessageId(null) }}>
+            <TouchableOpacity onPress={() => { setIsActionMode(false); setSelectedMessageIds(new Set()); setReactingTo(null); setReactionAnchor(null) }}>
               <Icon name="close" size={24} color="#333" />
             </TouchableOpacity>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-              <TouchableOpacity onPress={async () => { try { const msg = messages.find((m) => String((m as any).id) === selectedMessageId); if (!msg) return; await Clipboard.setStringAsync(String((msg as any).text || '')); setIsActionMode(false); setSelectedMessageId(null) } catch {} }}>
-                <Icon name="content-copy" size={20} color="#333" />
-              </TouchableOpacity>
+              {selectedMessageIds.size === 1 && (
+                <TouchableOpacity onPress={async () => { try { const id = Array.from(selectedMessageIds)[0]; const msg = messages.find((m) => String((m as any).id) === id); if (!msg) return; await Clipboard.setStringAsync(String((msg as any).text || '')); setIsActionMode(false); setSelectedMessageIds(new Set()) } catch {} }}>
+                  <Icon name="content-copy" size={20} color="#333" />
+                </TouchableOpacity>
+              )}
+              {selectedMessageIds.size === 1 && (
+                <TouchableOpacity onPress={async () => {
+                  try {
+                    const id = Array.from(selectedMessageIds)[0]
+                    const msg = messages.find((m) => String((m as any).id) === id)
+                    if (!msg || msg.sender !== 'me') return
+                    const r: any = await apiService.request(`/messages/${id}`, { method: 'DELETE' })
+                    if ((r as any)?.success !== false) setMessages((prev) => prev.filter((m) => String((m as any).id) !== id))
+                  } catch {}
+                  setIsActionMode(false); setSelectedMessageIds(new Set()); setReactingTo(null); setReactionAnchor(null)
+                }}>
+                  <Icon name="delete-outline" size={20} color="#d32f2f" />
+                </TouchableOpacity>
+              )}
+              {selectedMessageIds.size > 1 && (
+                <TouchableOpacity onPress={async () => {
+                  try {
+                    const ids = Array.from(selectedMessageIds)
+                    // Delete only my messages; backend allows only owner delete
+                    const mine = ids.filter((id) => {
+                      const msg = messages.find((m) => String((m as any).id) === id)
+                      return msg?.sender === 'me'
+                    })
+                    await Promise.all(mine.map((id) => apiService.request(`/messages/${id}`, { method: 'DELETE' })))
+                    setMessages((prev) => prev.filter((m) => !selectedMessageIds.has(String((m as any).id))))
+                  } catch {}
+                  setIsActionMode(false); setSelectedMessageIds(new Set()); setReactingTo(null); setReactionAnchor(null)
+                }}>
+                  <Icon name="delete-forever" size={22} color="#d32f2f" />
+                </TouchableOpacity>
+              )}
               <TouchableOpacity onPress={async () => {
                 try {
-                  const msg = messages.find((m) => String((m as any).id) === selectedMessageId); if (!msg) return;
+                  const msg = messages.find((m) => String((m as any).id) === selectedMessageIds.values().next().value); if (!msg) return;
                   const isMy = msg.sender === 'me'
                   if (isMy) {
                     const isPinned = Boolean((msg as any)?.pinnedAt)
                     if (!isPinned) { const r: any = await apiService.pinMessage(String((msg as any).id)); if ((r as any)?.success) setMessages((prev)=>prev.map((m)=>m.id===msg.id?({...(m as any), pinnedBy:String(currentUser?._id||''), pinnedAt:new Date().toISOString()} as any):m)) }
                     else { const r: any = await apiService.unpinMessage(String((msg as any).id)); if ((r as any)?.success) setMessages((prev)=>prev.map((m)=>m.id===msg.id?({...(m as any), pinnedBy:null, pinnedAt:null} as any):m)) }
                   }
-                } catch {} finally { setIsActionMode(false); setSelectedMessageId(null) }
+                } catch {} finally { setIsActionMode(false); setSelectedMessageIds.clear() }
               }}>
                 <Icon name="push-pin" size={20} color="#333" />
               </TouchableOpacity>
               <TouchableOpacity onPress={async () => {
                 try {
-                  const msg = messages.find((m) => String((m as any).id) === selectedMessageId); if (!msg) return;
+                  const msg = messages.find((m) => String((m as any).id) === selectedMessageIds.values().next().value); if (!msg) return;
                   const me = String(currentUser?._id || '')
                   const hasStar = Array.isArray((msg as any).starredBy) && (msg as any).starredBy.some((id: any) => String(id) === me)
                   const r: any = await apiService.toggleStar(String((msg as any).id))
                   if ((r as any)?.success) setMessages((prev)=>prev.map((m)=>{
                     if (m.id!==msg.id) return m; const next: any={...(m as any)}; const setStars=new Set<string>(Array.isArray(next.starredBy)?next.starredBy.map(String):[]); if (!hasStar) setStars.add(me); else setStars.delete(me); next.starredBy=Array.from(setStars); return next
                   }))
-                } catch {} finally { setIsActionMode(false); setSelectedMessageId(null) }
+                } catch {} finally { setIsActionMode(false); setSelectedMessageIds.clear() }
               }}>
                 <Icon name="star" size={20} color="#333" />
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => { setIsActionMode(false); setSelectedMessageId(null) }}>
+              <TouchableOpacity onPress={() => { setIsActionMode(false); setSelectedMessageIds.clear() }}>
                 <Icon name="done" size={20} color="#333" />
               </TouchableOpacity>
             </View>
