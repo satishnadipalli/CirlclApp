@@ -2,6 +2,121 @@ const Message = require("../models/message.model")
 const User = require("../models/user.models")
 const Group = require("../models/group.model")
 const mongoose = require("mongoose")
+// Lightweight text search for messages (MongoDB text index)
+async function searchMessages(req, res) {
+  try {
+    const { q } = req.query
+    const { peerId, groupId } = req.params
+    const userId = String(req.user.id)
+    const page = Math.max(1, Number.parseInt(String(req.query.page || 1)))
+    const limit = Math.min(50, Math.max(1, Number.parseInt(String(req.query.limit || 20))))
+
+    if (!q || String(q).trim().length < 2) return res.json({ success: true, page, limit, total: 0, messages: [] })
+
+    const filter = { $text: { $search: String(q) } }
+    if (peerId) {
+      // direct conversation scope
+      filter.messageType = 'direct'
+      filter.$or = [
+        { from: userId, to: peerId },
+        { from: peerId, to: userId },
+      ]
+    } else if (groupId) {
+      filter.messageType = 'group'
+      filter.group = groupId
+    } else {
+      // safety: require a scope
+      return res.status(400).json({ success: false, message: 'peerId or groupId required' })
+    }
+
+    const total = await Message.countDocuments(filter)
+    const docs = await Message.find(filter)
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .populate('from to', 'name profilePic')
+
+    const messages = docs.map((m) => ({
+      _id: m._id,
+      text: m.text,
+      from: m.from,
+      to: m.to,
+      group: m.group,
+      messageType: m.messageType,
+      createdAt: m.createdAt,
+      attachments: m.attachments,
+    }))
+    res.json({ success: true, page, limit, total, messages })
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message })
+  }
+}
+
+// Toggle star on a message for current user
+async function toggleStar(req, res) {
+  try {
+    const { messageId } = req.params
+    const userId = String(req.user.id)
+    const msg = await Message.findById(messageId)
+    if (!msg) return res.status(404).json({ success: false, message: 'Message not found' })
+    const idx = (msg.starredBy || []).findIndex((u) => String(u) === userId)
+    if (idx === -1) msg.starredBy.push(req.user.id)
+    else msg.starredBy.splice(idx, 1)
+    await msg.save()
+    return res.json({ success: true, starred: idx === -1 })
+  } catch (e) { return res.status(500).json({ success: false, message: e.message }) }
+}
+
+// Pin a message in a chat (sender can pin within 12h); one pin per user per chat in client UX
+async function pinMessage(req, res) {
+  try {
+    const { messageId } = req.params
+    const userId = String(req.user.id)
+    const msg = await Message.findById(messageId)
+    if (!msg) return res.status(404).json({ success: false, message: 'Message not found' })
+    if (String(msg.from) !== userId) return res.status(403).json({ success: false, message: 'Only sender can pin' })
+    if (Date.now() - new Date(msg.createdAt).getTime() > 12 * 60 * 60 * 1000) return res.status(403).json({ success: false, message: 'Pin window passed' })
+    msg.pinnedBy = req.user.id
+    msg.pinnedAt = new Date()
+    await msg.save()
+    try {
+      const io = req.app.get('io')
+      const payload = { _id: msg._id, pinnedBy: String(userId), pinnedAt: msg.pinnedAt }
+      if (msg.messageType === 'direct') {
+        const onlineUsers = req.app.get('onlineUsers')
+        const to1 = onlineUsers.get(String(msg.from))
+        const to2 = onlineUsers.get(String(msg.to))
+        if (to1) io.to(to1).emit('messagePinned', payload)
+        if (to2) io.to(to2).emit('messagePinned', payload)
+      } else {
+        io.to(`group_${msg.group}`).emit('messagePinned', payload)
+      }
+    } catch {}
+    return res.json({ success: true })
+  } catch (e) { return res.status(500).json({ success: false, message: e.message }) }
+}
+
+async function listMedia(req, res) {
+  try {
+    const { peerId, groupId } = req.params
+    const userId = String(req.user.id)
+    const page = Math.max(1, Number.parseInt(String(req.query.page || 1)))
+    const limit = Math.min(50, Math.max(1, Number.parseInt(String(req.query.limit || 24))))
+    const filter = { 'attachments.0': { $exists: true } }
+    if (peerId) {
+      filter.messageType = 'direct'
+      filter.$or = [ { from: userId, to: peerId }, { from: peerId, to: userId } ]
+    } else if (groupId) {
+      filter.messageType = 'group'
+      filter.group = groupId
+    } else {
+      return res.status(400).json({ success: false, message: 'peerId or groupId required' })
+    }
+    const total = await Message.countDocuments(filter)
+    const docs = await Message.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).select('attachments createdAt from to group messageType')
+    res.json({ success: true, page, limit, total, items: docs })
+  } catch (e) { res.status(500).json({ success: false, message: e.message }) }
+}
 
 // naive URL detection
 const URL_REGEX = /https?:\/\/[^\s]+/i
@@ -743,4 +858,5 @@ module.exports = {
   editMessage,
   votePoll,
   buildPollPayload,
+  searchMessages,
 }

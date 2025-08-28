@@ -48,6 +48,29 @@ const getTodayPrompt = async (req, res) => {
   }
 }
 
+// Group admins can set today's prompt for their group (overrides global for group feed)
+const setGroupPrompt = async (req, res) => {
+  try {
+    const { groupId } = req.params
+    const { text } = req.body || {}
+    const userId = String(req.user._id)
+    if (!text || String(text).trim().length < 4) return res.status(400).json({ success: false, message: 'text required' })
+    const grp = await Group.findById(groupId).select('admins')
+    if (!grp) return res.status(404).json({ success: false, message: 'Group not found' })
+    const isAdmin = Array.isArray(grp.admins) && grp.admins.some((a) => String(a) === userId)
+    if (!isAdmin) return res.status(403).json({ success: false, message: 'Only admins can set prompt' })
+    const dateKey = formatDateKey(new Date())
+    const doc = await DailyPrompt.findOneAndUpdate(
+      { dateKey: `${dateKey}#${groupId}` },
+      { $set: { text, dropsAt: new Date() } },
+      { new: true, upsert: true }
+    )
+    res.json({ success: true, prompt: doc })
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message })
+  }
+}
+
 const postTodayEntry = async (req, res) => {
   try {
     let { text = "", visibility = "followers" } = req.body

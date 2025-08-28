@@ -34,6 +34,9 @@ router.get("/entry/:userId", auth, getEntryByUser)
 // Group-specific Daily feed for today (requires membership)
 router.get("/group/:groupId", auth, getGroupDailyFeed)
 
+// Group admin prompt
+router.post('/group/:groupId/prompt', auth, require('../controllers/daily.controllers').setGroupPrompt)
+
 // Views / reactions / highlightss
 router.post("/view", auth, incrementView)
 router.get("/:entryId/viewers", auth, listViewers)

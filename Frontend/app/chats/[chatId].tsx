@@ -1014,6 +1014,58 @@ export default function ChatScreen() {
     setSearchMatches(hits)
     setSearchIndex(0)
     if (hits.length > 0) setTimeout(() => { try { flatListRef.current?.scrollToIndex({ index: hits[0], animated: true }) } catch {} }, 50)
+    // Fire-and-forget server-side search to bring older matches into view
+    ;(async () => {
+      try {
+        const q = searchQuery.trim()
+        if (q.length < 2) return
+        if (params.chatType === 'direct') {
+          const res: any = await apiService.searchDirectMessages(String(params.chatId), q, 1, 50)
+          if (Array.isArray(res?.messages) && res.messages.length > 0) {
+            setMessages((prev) => {
+              const existing = new Set(prev.map((m) => String((m as any).id || (m as any)?._id || '')))
+              const mapped = res.messages.map((m: any) => ({
+                id: String(m._id || m.id || `${m.createdAt}`),
+                text: m.text || '',
+                sender: String((m.from?._id || m.from)) === String(currentUserRef.current?._id) ? 'me' : 'other',
+                from: m.from,
+                to: m.to,
+                group: m.group,
+                messageType: 'direct' as const,
+                createdAt: m.createdAt || new Date().toISOString(),
+                attachments: m.attachments || [],
+              }))
+              const add = mapped.filter((m: any) => !existing.has(String(m.id)))
+              if (add.length === 0) return prev
+              const next = [...prev, ...add].sort((a, b) => new Date(a.createdAt || '').getTime() - new Date(b.createdAt || '').getTime())
+              return next
+            })
+          }
+        } else {
+          const res: any = await apiService.searchGroupMessages(String(params.chatId), q, 1, 50)
+          if (Array.isArray(res?.messages) && res.messages.length > 0) {
+            setMessages((prev) => {
+              const existing = new Set(prev.map((m) => String((m as any).id || (m as any)?._id || '')))
+              const mapped = res.messages.map((m: any) => ({
+                id: String(m._id || m.id || `${m.createdAt}`),
+                text: m.text || '',
+                sender: String((m.from?._id || m.from)) === String(currentUserRef.current?._id) ? 'me' : 'other',
+                from: m.from,
+                to: m.to,
+                group: m.group,
+                messageType: 'group' as const,
+                createdAt: m.createdAt || new Date().toISOString(),
+                attachments: m.attachments || [],
+              }))
+              const add = mapped.filter((m: any) => !existing.has(String(m.id)))
+              if (add.length === 0) return prev
+              const next = [...prev, ...add].sort((a, b) => new Date(a.createdAt || '').getTime() - new Date(b.createdAt || '').getTime())
+              return next
+            })
+          }
+        }
+      } catch {}
+    })()
   }, [searchQuery])
 
   const jumpToMatch = (delta: number) => {
@@ -1599,6 +1651,10 @@ export default function ChatScreen() {
                   <TouchableOpacity onPress={() => { setMenuOpen(false); setPollComposerOpen(true) }} style={{ paddingVertical: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
                     <Icon name="bar-chart" size={18} color={colors.text} /><Text style={{ marginLeft: 10, color: colors.text, fontSize: 15 }}>Create poll</Text>
                   </TouchableOpacity>
+                  <View style={{ height: 1, backgroundColor: '#f1f1f1' }} />
+                  <TouchableOpacity onPress={() => { setMenuOpen(false); router.push({ pathname: '/mediaGallery', params: { chatType: 'group', chatId: String(params.chatId) } }) }} style={{ paddingVertical: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
+                    <Icon name="collections" size={18} color={colors.text} /><Text style={{ marginLeft: 10, color: colors.text, fontSize: 15 }}>Media gallery</Text>
+                  </TouchableOpacity>
                 </Animated.View>
               )}
             </View>
@@ -1842,6 +1898,18 @@ export default function ChatScreen() {
           }}
           onClose={() => { setReactingTo(null); setReactionAnchor(null) }}
         />
+      )}
+      {/* Quick actions for star/pin when a message is selected (reuse reacting state) */}
+      {reactingTo && (
+        <View style={{ position: 'absolute', right: 16, bottom: 160, backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#eee', shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 8 }}>
+          <TouchableOpacity onPress={async () => { try { await apiService.toggleStar(String((reactingTo as any).id)) } catch {} ; setReactingTo(null) }} style={{ paddingHorizontal: 12, paddingVertical: 10, flexDirection: 'row', alignItems: 'center' }}>
+            <Icon name="star" size={18} color="#f5a623" /><Text style={{ marginLeft: 8, color: '#333' }}>Star</Text>
+          </TouchableOpacity>
+          <View style={{ height: 1, backgroundColor: '#f2f2f2' }} />
+          <TouchableOpacity onPress={async () => { try { await apiService.pinMessage(String((reactingTo as any).id)) } catch {} ; setReactingTo(null) }} style={{ paddingHorizontal: 12, paddingVertical: 10, flexDirection: 'row', alignItems: 'center' }}>
+            <Icon name="push-pin" size={18} color="#333" /><Text style={{ marginLeft: 8, color: '#333' }}>Pin</Text>
+          </TouchableOpacity>
+        </View>
       )}
       {cancelHintVisible && isRecording && (
         <View style={{ position: 'absolute', left: 0, right: 0, bottom: 120, alignItems: 'center' }}>

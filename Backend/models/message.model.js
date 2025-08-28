@@ -56,6 +56,10 @@ const messageSchema = new mongoose.Schema(
         at: { type: Date, default: Date.now },
       },
     ],
+    // Stars and pinning
+    starredBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    pinnedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    pinnedAt: { type: Date },
     // Poll (optional)
     poll: new mongoose.Schema({
       question: { type: String, default: '' },
@@ -86,6 +90,10 @@ const messageSchema = new mongoose.Schema(
 
 messageSchema.index({ messageType: 1, to: 1, createdAt: -1 })
 messageSchema.index({ messageType: 1, group: 1, createdAt: -1 })
+// Enable efficient text search for message content
+try {
+  messageSchema.index({ text: 'text' })
+} catch {}
 messageSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 })
 
 // Validation: message must have either 'to' or 'group', not both
