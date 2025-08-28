@@ -1932,7 +1932,6 @@ export default function ChatScreen() {
               )}
             </View>
           )}
-        </View>
       </View>
 
       {/* Pinned messages banner */}
