@@ -411,8 +411,6 @@ export default function ChatScreen() {
         setMessages((prev) => prev.map((m) => m.id === String(payload?._id) ? ({ ...(m as any), pinnedBy: String(payload?.pinnedBy || ''), pinnedAt: payload?.pinnedAt || new Date().toISOString() } as any) : m))
       }
       try { (socketService as any).socket?.on('messagePinned', onPinned) } catch {}
-      // Cleanup listener on unmount
-      return () => { try { (socketService as any).socket?.off('messagePinned', onPinned) } catch {} }
 
       const onPoll = (payload: any) => {
         setMessages((prev) => prev.map((m) => (m.id === String(payload?._id) ? ({ ...(m as any), poll: payload.poll } as any) : m)))
@@ -1115,6 +1113,7 @@ export default function ChatScreen() {
       if (editListenerRef.current) socketService.removeMessageEdited(editListenerRef.current)
       try { if ((onPoll as any)) socketService.removePollUpdated(onPoll) } catch {}
       if (readListenerRef.current) socketService.removeMessagesRead(readListenerRef.current)
+      try { (socketService as any).socket?.off('messagePinned') } catch {}
 
       // DO NOT disconnect socket here
       // socketService.disconnect()  // keep this commented
