@@ -117,6 +117,7 @@ export default function ChatScreen() {
   const [pinnedCount, setPinnedCount] = useState(0)
   const [isActionMode, setIsActionMode] = useState(false)
   const [selectedMessageIds, setSelectedMessageIds] = useState<Set<string>>(new Set())
+  const [hiddenMessageIds, setHiddenMessageIds] = useState<Set<string>>(new Set())
   const REACTION_EMOJIS = ['❤️','👍','😂','😮','😢','🔥']
 
   useEffect(() => {
@@ -142,6 +143,7 @@ export default function ChatScreen() {
   const params = useLocalSearchParams() as unknown as (ChatParams & { jumpToMessageId?: string })
   const draftKey = `chat_draft_${params.chatType}_${params.chatId}`
   const ephemeralKey = `chat_ephemeral_${params.chatType}_${params.chatId}`
+  const hiddenKey = `hidden_msgs_${params.chatType}_${params.chatId}`
 
   const dot1Opacity = useRef(new Animated.Value(0.3)).current
   const dot2Opacity = useRef(new Animated.Value(0.3)).current
@@ -212,6 +214,8 @@ export default function ChatScreen() {
       try {
         const d = await AsyncStorage.getItem(draftKey)
         if (d != null) setInputText(d)
+        const hid = await AsyncStorage.getItem(hiddenKey)
+        if (hid) setHiddenMessageIds(new Set(JSON.parse(hid)))
       } catch {}
     })()
     return () => {}
@@ -1046,7 +1050,8 @@ export default function ChatScreen() {
 
   useEffect(() => {
     // Interleave date headers and transform system messages into centered chips
-    const withDates = processMessagesWithDates(messages)
+    const visible = messages.filter((m) => !hiddenMessageIds.has(String((m as any).id)))
+    const withDates = processMessagesWithDates(visible)
     const processedItems: ChatItem[] = withDates.map((item, idx) => {
       if ((item as any)?.system) {
         return { ...(item as any), text: (item as any).text } as any
@@ -1057,7 +1062,7 @@ export default function ChatScreen() {
     setSearchMatches([])
     setSearchIndex(0)
     setChatItems(processedItems)
-  }, [messages])
+  }, [messages, hiddenMessageIds])
 
   useEffect(() => {
     // recompute matches when query changes
@@ -1795,11 +1800,23 @@ export default function ChatScreen() {
                   try {
                     const id = Array.from(selectedMessageIds)[0]
                     const msg = messages.find((m) => String((m as any).id) === id)
-                    if (!msg || msg.sender !== 'me') return
-                    const r: any = await apiService.request(`/messages/${id}`, { method: 'DELETE' })
-                    if ((r as any)?.success !== false) setMessages((prev) => prev.filter((m) => String((m as any).id) !== id))
+                    if (!msg) return
+                    const isMine = msg.sender === 'me'
+                    const options = [
+                      { text: 'Delete for me', style: 'default', onPress: async () => {
+                        setHiddenMessageIds((prev) => { const next = new Set(prev); next.add(String(id)); persistHidden(next); return next })
+                        setIsActionMode(false); setSelectedMessageIds(new Set()); setReactingTo(null); setReactionAnchor(null)
+                      }},
+                      ...(isMine ? [{ text: 'Delete for everyone', style: 'destructive', onPress: async () => {
+                        // optimistic remove
+                        setMessages((prev) => prev.filter((m) => String((m as any).id) !== String(id)))
+                        try { await apiService.request(`/messages/${id}`, { method: 'DELETE' }) } catch {}
+                        setIsActionMode(false); setSelectedMessageIds(new Set()); setReactingTo(null); setReactionAnchor(null)
+                      }}] : []),
+                      { text: 'Cancel', style: 'cancel', onPress: () => {} },
+                    ] as any
+                    Alert.alert('Delete message', 'Choose an option', options)
                   } catch {}
-                  setIsActionMode(false); setSelectedMessageIds(new Set()); setReactingTo(null); setReactionAnchor(null)
                 }}>
                   <Icon name="delete-outline" size={20} color="#d32f2f" />
                 </TouchableOpacity>
@@ -1808,15 +1825,24 @@ export default function ChatScreen() {
                 <TouchableOpacity onPress={async () => {
                   try {
                     const ids = Array.from(selectedMessageIds)
-                    // Delete only my messages; backend allows only owner delete
-                    const mine = ids.filter((id) => {
-                      const msg = messages.find((m) => String((m as any).id) === id)
-                      return msg?.sender === 'me'
-                    })
-                    await Promise.all(mine.map((id) => apiService.request(`/messages/${id}`, { method: 'DELETE' })))
-                    setMessages((prev) => prev.filter((m) => !selectedMessageIds.has(String((m as any).id))))
+                    const mine = ids.filter((id) => { const msg = messages.find((m) => String((m as any).id) === id); return msg?.sender === 'me' })
+                    Alert.alert('Delete messages', 'Choose an option', [
+                      { text: 'Delete for me', style: 'default', onPress: async () => {
+                        setHiddenMessageIds((prev) => { const next = new Set(prev); ids.forEach((i)=> next.add(String(i))); persistHidden(next); return next })
+                        setIsActionMode(false); setSelectedMessageIds(new Set()); setReactingTo(null); setReactionAnchor(null)
+                      }},
+                      { text: 'Delete for everyone', style: 'destructive', onPress: async () => {
+                        // optimistic remove only mine from list; leave others hidden for me
+                        setMessages((prev) => prev.filter((m) => !mine.includes(String((m as any).id))))
+                        try { await Promise.all(mine.map((id) => apiService.request(`/messages/${id}`, { method: 'DELETE' }))) } catch {}
+                        // for non-mine selected, just hide for me
+                        const others = ids.filter((id) => !mine.includes(id))
+                        if (others.length) setHiddenMessageIds((prev) => { const next = new Set(prev); others.forEach((i)=> next.add(String(i))); persistHidden(next); return next })
+                        setIsActionMode(false); setSelectedMessageIds(new Set()); setReactingTo(null); setReactionAnchor(null)
+                      }},
+                      { text: 'Cancel', style: 'cancel', onPress: () => {} },
+                    ])
                   } catch {}
-                  setIsActionMode(false); setSelectedMessageIds(new Set()); setReactingTo(null); setReactionAnchor(null)
                 }}>
                   <Icon name="delete-forever" size={22} color="#d32f2f" />
                 </TouchableOpacity>
