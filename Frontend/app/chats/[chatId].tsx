@@ -490,8 +490,8 @@ export default function ChatScreen() {
             // any message from me to peer is now read by peer
             if (m.sender === 'me') {
               const rb = Array.isArray((m as any).readBy) ? new Set((m as any).readBy.map(String)) : new Set<string>()
-              if (payload?.peerId) rb.add(String(payload.peerId))
-              if (currentUser?._id) rb.add(String(currentUser._id))
+              // Reader is the other user who just marked messages as read
+              if (payload?.readerId) rb.add(String(payload.readerId))
               return { ...(m as any), readBy: Array.from(rb) } as any
             }
           } else if (params.chatType === 'group' && payload?.chatType === 'group' && String(payload?.groupId) === String(params.chatId)) {
