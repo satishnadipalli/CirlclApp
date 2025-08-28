@@ -34,6 +34,8 @@ export default function GroupDetailsScreen() {
   const [captionText, setCaptionText] = useState("")
   const [pendingFileUri, setPendingFileUri] = useState<string | undefined>(undefined)
   const [postingDaily, setPostingDaily] = useState(false)
+  const [promptModal, setPromptModal] = useState(false)
+  const [promptText, setPromptText] = useState("")
 
   const isAdmin = (userId: string) => {
     const admins = (group?.admins || []) as any[]
@@ -253,6 +255,11 @@ export default function GroupDetailsScreen() {
       <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
         <Text style={{ fontWeight: '700', marginBottom: 8 }}>Group Daily</Text>
         <View style={{ flexDirection: 'row', gap: 8 }}>
+          {meIsAdmin && (
+            <TouchableOpacity onPress={() => setPromptModal(true)} style={{ backgroundColor: '#111', borderRadius: 10, paddingHorizontal: 12, justifyContent: 'center' }}>
+              <Text style={{ color: '#fff', fontWeight: '800' }}>Set Prompt</Text>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity onPress={async () => {
             try {
               const res = await apiService.getGroupDailyFeed(String(groupId))
@@ -314,6 +321,32 @@ export default function GroupDetailsScreen() {
                 }
               }}>
                 <Text style={{ color: postingDaily ? '#aaa' : '#0095f6', fontWeight: '800' }}>{postingDaily ? 'Posting…' : 'Post'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Prompt modal */}
+      <Modal visible={promptModal} transparent animationType="fade" onRequestClose={() => setPromptModal(false)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+          <View style={{ backgroundColor: '#fff', borderRadius: 14, padding: 16, width: '100%' }}>
+            <Text style={{ fontWeight: '800', fontSize: 16, marginBottom: 8 }}>Set today's group prompt</Text>
+            <TextInput value={promptText} onChangeText={setPromptText} placeholder="e.g., Share your win today" placeholderTextColor="#888" style={{ borderWidth: 1, borderColor: '#eee', borderRadius: 10, paddingHorizontal: 10, height: 44, color: '#000' }} />
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 12 }}>
+              <TouchableOpacity onPress={() => setPromptModal(false)}>
+                <Text style={{ color: '#666', fontWeight: '700' }}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={async () => {
+                try {
+                  const t = promptText.trim()
+                  if (t.length < 4) { Alert.alert('Prompt too short'); return }
+                  const r: any = await apiService.request(`/daily/group/${groupId}/prompt`, { method: 'POST', body: JSON.stringify({ text: t }) })
+                  if (r?.success) { setPromptModal(false); setPromptText(''); Alert.alert('Saved', 'Group prompt set for today.') }
+                  else Alert.alert('Failed', r?.message || 'Could not set prompt')
+                } catch (e) { Alert.alert('Error', (e as Error).message) }
+              }}>
+                <Text style={{ color: '#0095f6', fontWeight: '800' }}>Save</Text>
               </TouchableOpacity>
             </View>
           </View>
