@@ -8,6 +8,7 @@ const { toggleStar, pinMessage, listMedia } = require("../controllers/message.co
 const { listStarred, listPinned } = require("../controllers/message.controllers")
 const { reactMessage, deleteMessage, editMessage } = require("../controllers/message.controllers")
 const { votePoll } = require("../controllers/message.controllers")
+const { unpinMessage } = require("../controllers/message.controllers")
 
 // Get all chats (must come first)
 router.get("/chats", auth, getAllChats)
@@ -31,6 +32,7 @@ router.get('/group/:groupId/search', auth, searchMessages)
 // Stars and pins
 router.post('/:messageId/star', auth, toggleStar)
 router.post('/:messageId/pin', auth, pinMessage)
+router.post('/:messageId/unpin', auth, unpinMessage)
 
 // Media gallery
 router.get('/direct/:peerId/media', auth, listMedia)

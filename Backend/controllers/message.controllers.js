@@ -96,6 +96,34 @@ async function pinMessage(req, res) {
   } catch (e) { return res.status(500).json({ success: false, message: e.message }) }
 }
 
+// Unpin a message (sender can unpin their own pinned message)
+async function unpinMessage(req, res) {
+  try {
+    const { messageId } = req.params
+    const userId = String(req.user.id)
+    const msg = await Message.findById(messageId)
+    if (!msg) return res.status(404).json({ success: false, message: 'Message not found' })
+    if (String(msg.from) !== userId) return res.status(403).json({ success: false, message: 'Only sender can unpin' })
+    msg.pinnedBy = null
+    msg.pinnedAt = null
+    await msg.save()
+    try {
+      const io = req.app.get('io')
+      const payload = { _id: msg._id, pinnedBy: null, pinnedAt: null }
+      if (msg.messageType === 'direct') {
+        const onlineUsers = req.app.get('onlineUsers')
+        const to1 = onlineUsers.get(String(msg.from))
+        const to2 = onlineUsers.get(String(msg.to))
+        if (to1) io.to(to1).emit('messagePinned', payload)
+        if (to2) io.to(to2).emit('messagePinned', payload)
+      } else {
+        io.to(`group_${msg.group}`).emit('messagePinned', payload)
+      }
+    } catch {}
+    return res.json({ success: true })
+  } catch (e) { return res.status(500).json({ success: false, message: e.message }) }
+}
+
 async function listMedia(req, res) {
   try {
     const { peerId, groupId } = req.params
@@ -909,4 +937,7 @@ module.exports = {
   searchMessages,
   listStarred,
   listPinned,
+  toggleStar,
+  pinMessage,
+  unpinMessage,
 }

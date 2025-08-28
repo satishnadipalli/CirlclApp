@@ -311,6 +311,7 @@ class ApiService {
   // Message stars/pins
   async toggleStar(messageId: string) { return this.request(`/messages/${messageId}/star`, { method: 'POST' }) }
   async pinMessage(messageId: string) { return this.request(`/messages/${messageId}/pin`, { method: 'POST' }) }
+  async unpinMessage(messageId: string) { return this.request(`/messages/${messageId}/unpin`, { method: 'POST' }) }
   async getDirectMedia(peerId: string, page = 1, limit = 24) { return this.request(`/messages/direct/${peerId}/media?page=${page}&limit=${limit}`) }
   async getGroupMedia(groupId: string, page = 1, limit = 24) { return this.request(`/messages/group/${groupId}/media?page=${page}&limit=${limit}`) }
   async getDirectStarred(peerId: string, page = 1, limit = 50) { return this.request(`/messages/direct/${peerId}/starred?page=${page}&limit=${limit}`) }

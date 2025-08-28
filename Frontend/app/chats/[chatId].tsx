@@ -1338,11 +1338,15 @@ export default function ChatScreen() {
               } catch {}
             }})
             // Pin (sender only; enforced by backend)
-            actions.push({ key: 'pin', label: 'Pin message', run: async () => {
+            const isPinnedByMe = Boolean((message as any)?.pinnedAt) && String((message as any)?.pinnedBy || '') === String(currentUser?._id || '')
+            actions.push({ key: isPinnedByMe ? 'unpin' : 'pin', label: isPinnedByMe ? 'Unpin message' : 'Pin message', run: async () => {
               try {
-                const r: any = await apiService.request(`/messages/${message.id}/pin`, { method: 'POST' })
-                if ((r as any)?.success) {
-                  setMessages((prev) => prev.map((m) => m.id === message.id ? ({ ...(m as any), pinnedBy: String(currentUser?._id || ''), pinnedAt: new Date().toISOString() } as any) : m))
+                if (!isPinnedByMe) {
+                  const r: any = await apiService.request(`/messages/${message.id}/pin`, { method: 'POST' })
+                  if ((r as any)?.success) setMessages((prev) => prev.map((m) => m.id === message.id ? ({ ...(m as any), pinnedBy: String(currentUser?._id || ''), pinnedAt: new Date().toISOString() } as any) : m))
+                } else {
+                  const r: any = await apiService.request(`/messages/${message.id}/unpin`, { method: 'POST' })
+                  if ((r as any)?.success) setMessages((prev) => prev.map((m) => m.id === message.id ? ({ ...(m as any), pinnedBy: null, pinnedAt: null } as any) : m))
                 }
               } catch {}
             }})
@@ -1532,9 +1536,18 @@ export default function ChatScreen() {
               </View>
             )}
             {(message as any)?.pinnedAt && (
-              <View style={{ marginLeft: 6, backgroundColor: '#fee9b5', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
+              <TouchableOpacity onPress={async () => {
+                try {
+                  if (String((message as any)?.pinnedBy || '') === String(currentUser?._id || '')) {
+                    const r: any = await apiService.unpinMessage(String(message.id))
+                    if ((r as any)?.success) setMessages((prev) => prev.map((m) => m.id === message.id ? ({ ...(m as any), pinnedBy: null, pinnedAt: null } as any) : m))
+                  } else {
+                    Alert.alert('Pinned by', `Pinned by ${((message as any)?.from?.name || 'someone')}`)
+                  }
+                } catch {}
+              }} style={{ marginLeft: 6, backgroundColor: '#fee9b5', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
                 <Text style={{ color: '#664400', fontSize: 11 }}>Pinned</Text>
-              </View>
+              </TouchableOpacity>
             )}
             {Array.isArray((message as any)?.starredBy) && (message as any).starredBy.length > 0 && (
               <View style={{ marginLeft: 6, backgroundColor: '#ffeef7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
