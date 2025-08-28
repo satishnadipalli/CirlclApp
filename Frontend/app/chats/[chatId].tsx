@@ -1007,19 +1007,11 @@ export default function ChatScreen() {
       if ((item as any)?.system) {
         return { ...(item as any), text: (item as any).text } as any
       }
-      if (searchQuery && (item as any)?.text) {
-        const hit = String((item as any).text || '').toLowerCase().includes(searchQuery.toLowerCase())
-        if (hit) {
-          // record index for navigation
-          setSearchMatches((prev) => {
-            const next = prev.slice()
-            if (!next.includes(idx)) next.push(idx)
-            return next
-          })
-        }
-      }
       return item
     })
+    // reset matches when messages list changes; query effect will repopulate
+    setSearchMatches([])
+    setSearchIndex(0)
     setChatItems(processedItems)
   }, [messages])
 
@@ -1713,16 +1705,6 @@ export default function ChatScreen() {
   }
 
   const headerInfo = getHeaderInfo()
-
-  useEffect(() => {
-    try {
-      const me = String(currentUser?._id || '')
-      const starred = messages.filter((m: any) => Array.isArray(m?.starredBy) && m.starredBy.some((id: any) => String(id) === me)).length
-      const pinned = messages.filter((m: any) => !!m?.pinnedAt).length
-      setStarredCount(starred)
-      setPinnedCount(pinned)
-    } catch {}
-  }, [messages, currentUser])
 
   return (
     <View style={styles.container}>
