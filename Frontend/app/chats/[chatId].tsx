@@ -39,7 +39,7 @@ import { LinearGradient } from "expo-linear-gradient"
 import * as Haptics from 'expo-haptics'
 import { useTheme } from '@/contexts/ThemeContext'
 import { SafeAreaView } from 'react-native-safe-area-context'
-
+// import audio1 from ""
 interface ChatMessage {
   id: string
   text: string
@@ -57,7 +57,7 @@ interface ChatMessage {
   edited?: boolean
   status?: 'sending' | 'sent' | 'failed'
   uploadProgress?: number
-  poll?: { question: string; options: Array<{ id: string; text: string; votes: number }>; allowMultiple?: boolean; allowChange?: boolean; endsAt?: string|null }
+  poll?: { question: string; options: Array<{ id: string; text: string; votes: number }>; allowMultiple?: boolean; allowChange?: boolean; endsAt?: string | null }
   starredBy?: string[]
   pinnedBy?: string | null
   pinnedAt?: string | null
@@ -119,8 +119,8 @@ export default function ChatScreen() {
   const [isActionMode, setIsActionMode] = useState(false)
   const [selectedMessageIds, setSelectedMessageIds] = useState<Set<string>>(new Set())
   const [hiddenMessageIds, setHiddenMessageIds] = useState<Set<string>>(new Set())
-  const REACTION_EMOJIS = ['❤️','👍','😂','😮','😢','🔥']
-  const [deleteModal, setDeleteModal] = useState<{ visible: boolean; ids: string[]; anyMine: boolean; anyOthers: boolean }>( { visible: false, ids: [], anyMine: false, anyOthers: false } )
+  const REACTION_EMOJIS = ['❤️', '👍', '😂', '😮', '😢', '🔥']
+  const [deleteModal, setDeleteModal] = useState<{ visible: boolean; ids: string[]; anyMine: boolean; anyOthers: boolean }>({ visible: false, ids: [], anyMine: false, anyOthers: false })
   const [rate, setRate] = useState(1.0)
   const [sndSend, setSndSend] = useState<Audio.Sound | null>(null)
   const [sndRecv, setSndRecv] = useState<Audio.Sound | null>(null)
@@ -163,27 +163,30 @@ export default function ChatScreen() {
   const [pollAllowChange, setPollAllowChange] = useState(true)
   const [pollEndsAt, setPollEndsAt] = useState<string | null>(null)
 
-  console.log("params",params);
+  console.log("params", process.env.EXPO_PUBLIC_SEND_SOUND_URI);
 
   useEffect(() => {
     let mounted = true
-    ;(async () => {
-      try {
-        const DEFAULT_SEND = 'https://cdn.jsdelivr.net/gh/naptha/tiny-sfx/beep-07.mp3'
-        const DEFAULT_RECV = 'https://cdn.jsdelivr.net/gh/naptha/tiny-sfx/pop-07.mp3'
-        const sendUri = (process?.env as any)?.EXPO_PUBLIC_SEND_SOUND_URI || DEFAULT_SEND
-        const recvUri = (process?.env as any)?.EXPO_PUBLIC_RECV_SOUND_URI || DEFAULT_RECV
-        const s1 = await Audio.Sound.createAsync({ uri: String(sendUri) }, { shouldPlay: false })
-        const s2 = await Audio.Sound.createAsync({ uri: String(recvUri) }, { shouldPlay: false })
-        if (!mounted) { try { s1.sound.unloadAsync() } catch {}; try { s2.sound.unloadAsync() } catch {}; return }
-        setSndSend(s1.sound)
-        setSndRecv(s2.sound)
-      } catch {}
-    })()
-    return () => { mounted = false; try { sndSend?.unloadAsync() } catch {}; try { sndRecv?.unloadAsync() } catch {} }
+      ; (async () => {
+        try {
+          const DEFAULT_SEND = require('../../assetshii/mixkit-long-pop-2358.wav')
+          const DEFAULT_RECV = require('../../assetshii/mixkit-long-pop-2358.wav')
+          const sendUri = (process?.env as any)?.EXPO_PUBLIC_SEND_SOUND_URI || DEFAULT_SEND
+          const recvUri = (process?.env as any)?.EXPO_PUBLIC_RECV_SOUND_URI || DEFAULT_RECV
+          const s1 = await Audio.Sound.createAsync({ uri: String(sendUri) }, { shouldPlay: false })
+          const s2 = await Audio.Sound.createAsync({ uri: String(recvUri) }, { shouldPlay: false })
+          if (!mounted) { try { s1.sound.unloadAsync() } catch { }; try { s2.sound.unloadAsync() } catch { }; return }
+          setSndSend(s1.sound)
+          setSndRecv(s2.sound)
+        } catch { }
+      })()
+    return () => { mounted = false; try { sndSend?.unloadAsync() } catch { }; try { sndRecv?.unloadAsync() } catch { } }
   }, [])
-  const playSend = async () => { try { await sndSend?.replayAsync() } catch {} }
-  const playRecv = async () => { try { await sndRecv?.replayAsync() } catch {} }
+
+
+
+  const playSend = async () => { try { await sndSend?.replayAsync() } catch { } }
+  const playRecv = async () => { try { await sndRecv?.replayAsync() } catch { } }
 
   const loadUserAndInitialize = async () => {
     try {
@@ -191,7 +194,7 @@ export default function ChatScreen() {
 
       if (userData) {
         const parsedUser = JSON.parse(userData);
-        console.log("parsed user",parsedUser)
+        console.log("parsed user", parsedUser)
         const formattedUser: User = {
           _id: parsedUser.id,
           name: parsedUser.name,
@@ -206,7 +209,7 @@ export default function ChatScreen() {
         }
 
         // Restore per-chat ephemeral preference
-        try { const rawEphemeral = await AsyncStorage.getItem(ephemeralKey); if (rawEphemeral) setEphemeralMode(rawEphemeral === '1') } catch {}
+        try { const rawEphemeral = await AsyncStorage.getItem(ephemeralKey); if (rawEphemeral) setEphemeralMode(rawEphemeral === '1') } catch { }
         // Seed other user (for brand new chats with no history yet)
         if (params.chatType === "direct" && params.chatId) {
           const seededOther: User = {
@@ -240,15 +243,15 @@ export default function ChatScreen() {
         if (d != null) setInputText(d)
         const hid = await AsyncStorage.getItem(hiddenKey)
         if (hid) setHiddenMessageIds(new Set(JSON.parse(hid)))
-      } catch {}
+      } catch { }
     })()
-    return () => {}
+    return () => { }
   }, [])
 
   // Persist draft on input change (debounced)
   useEffect(() => {
     const t = setTimeout(() => {
-      AsyncStorage.setItem(draftKey, inputText).catch(() => {})
+      AsyncStorage.setItem(draftKey, inputText).catch(() => { })
     }, 250)
     return () => clearTimeout(t)
   }, [inputText])
@@ -272,21 +275,21 @@ export default function ChatScreen() {
             apiService.getDirectPinnedCount(String(params.chatId)),
             apiService.getDirectMediaCount(String(params.chatId)),
           ])
-          setStarredCount(Number(s||0)); setPinnedCount(Number(p||0))
+          setStarredCount(Number(s || 0)); setPinnedCount(Number(p || 0))
         } else {
           const [s, p, m] = await Promise.all([
             apiService.getGroupStarredCount(String(params.chatId)),
             apiService.getGroupPinnedCount(String(params.chatId)),
             apiService.getGroupMediaCount(String(params.chatId)),
           ])
-          setStarredCount(Number(s||0)); setPinnedCount(Number(p||0))
+          setStarredCount(Number(s || 0)); setPinnedCount(Number(p || 0))
         }
-      } catch {}
+      } catch { }
     })()
   }, [menuOpen, params.chatType, params.chatId])
 
   // Derive counts for header badges; must be declared before any early return
-  
+
 
   const resolveFromUser = (rawFrom: any): User => {
     const fromId = typeof rawFrom === "object" ? rawFrom._id : rawFrom
@@ -327,7 +330,7 @@ export default function ChatScreen() {
       try {
         const res: any = await apiService.getOnlineUsers()
         if (res?.success && Array.isArray(res.userIds)) setOnlineUsers(new Set(res.userIds.map(String)))
-      } catch {}
+      } catch { }
 
       const onMessageCb = (msg: any) => {
         console.log("[v0] Received socket message:", msg)
@@ -361,9 +364,9 @@ export default function ChatScreen() {
           // Mark as read only when actively viewing (focused and at bottom)
           if (fromUserId !== user._id && isScreenFocused && isUserAtBottomRef.current) {
             if (params.chatType === "direct") {
-              try { apiService.markDirectRead(params.chatId) } catch {}
+              try { apiService.markDirectRead(params.chatId) } catch { }
             } else {
-              try { apiService.markGroupRead(params.chatId) } catch {}
+              try { apiService.markGroupRead(params.chatId) } catch { }
             }
           }
 
@@ -418,7 +421,7 @@ export default function ChatScreen() {
             // Schedule removal for ephemeral
             if ((msg as any)?.expiresAt) {
               const ms = new Date((msg as any).expiresAt).getTime() - Date.now()
-              if (ms > 0 && ms < 7*24*3600*1000) {
+              if (ms > 0 && ms < 7 * 24 * 3600 * 1000) {
                 setTimeout(() => {
                   setMessages((cur) => cur.filter((m) => m.id !== (newMessage as any).id))
                 }, ms)
@@ -469,12 +472,12 @@ export default function ChatScreen() {
       const onPinned = (payload: any) => {
         setMessages((prev) => prev.map((m) => m.id === String(payload?._id) ? ({ ...(m as any), pinnedBy: String(payload?.pinnedBy || ''), pinnedAt: payload?.pinnedAt || new Date().toISOString() } as any) : m))
       }
-      try { (socketService as any).socket?.on('messagePinned', onPinned) } catch {}
+      try { (socketService as any).socket?.on('messagePinned', onPinned) } catch { }
 
       const onPoll = (payload: any) => {
         setMessages((prev) => prev.map((m) => (m.id === String(payload?._id) ? ({ ...(m as any), poll: payload.poll } as any) : m)))
       }
-      try { socketService.onPollUpdated(onPoll) } catch {}
+      try { socketService.onPollUpdated(onPoll) } catch { }
 
       const onRead = (payload: any) => {
         setMessages((prev) => prev.map((m) => {
@@ -630,9 +633,9 @@ export default function ChatScreen() {
           const targetId = String((params as any)?.jumpToMessageId || '')
           if (targetId) {
             const idx = formattedMessages.findIndex((m) => String((m as any).id) === targetId)
-            if (idx >= 0) setTimeout(() => { try { flatListRef.current?.scrollToIndex({ index: idx, animated: true }) } catch {} }, 100)
+            if (idx >= 0) setTimeout(() => { try { flatListRef.current?.scrollToIndex({ index: idx, animated: true }) } catch { } }, 100)
           }
-        } catch {}
+        } catch { }
       } else {
         const [messagesResponse, groupResponse] = await Promise.all([
           apiService.getGroupMessages(params.chatId),
@@ -662,12 +665,12 @@ export default function ChatScreen() {
             const targetId = String((params as any)?.jumpToMessageId || '')
             if (targetId) {
               const idx = formattedMessages.findIndex((m) => String((m as any).id) === targetId)
-              if (idx >= 0) setTimeout(() => { try { flatListRef.current?.scrollToIndex({ index: idx, animated: true }) } catch {} }, 100)
+              if (idx >= 0) setTimeout(() => { try { flatListRef.current?.scrollToIndex({ index: idx, animated: true }) } catch { } }, 100)
             }
-          } catch {}
+          } catch { }
 
           // Mark as read for group
-          try { await apiService.markGroupRead(params.chatId) } catch {}
+          try { await apiService.markGroupRead(params.chatId) } catch { }
         }
 
         if (groupResponse.success) {
@@ -782,7 +785,7 @@ export default function ChatScreen() {
 
     const messageText = inputText.trim()
     setInputText("")
-    try { await AsyncStorage.setItem(draftKey, "") } catch {}
+    try { await AsyncStorage.setItem(draftKey, "") } catch { }
     const tempId = `temp-${Date.now()}`
     const tempMessage: ChatMessage = {
       id: tempId,
@@ -810,14 +813,14 @@ export default function ChatScreen() {
       if (params.chatType === "direct") {
         if (ephemeralMode) {
           let ttl = 60
-          try { const raw = await AsyncStorage.getItem(`${ephemeralKey}_ttl`); if (raw) ttl = Math.max(10, Math.min(7*24*3600, Number(raw))) } catch {}
+          try { const raw = await AsyncStorage.getItem(`${ephemeralKey}_ttl`); if (raw) ttl = Math.max(10, Math.min(7 * 24 * 3600, Number(raw))) } catch { }
           response = await apiService.sendDirectEphemeral(params.chatId, messageText, ttl, replyingTo?.id)
         }
         else response = await apiService.sendDirectMessage(params.chatId, messageText, replyingTo?.id)
       } else {
         if (ephemeralMode) {
           let ttl = 60
-          try { const raw = await AsyncStorage.getItem(`${ephemeralKey}_ttl`); if (raw) ttl = Math.max(10, Math.min(7*24*3600, Number(raw))) } catch {}
+          try { const raw = await AsyncStorage.getItem(`${ephemeralKey}_ttl`); if (raw) ttl = Math.max(10, Math.min(7 * 24 * 3600, Number(raw))) } catch { }
           response = await apiService.sendGroupEphemeral(params.chatId, messageText, ttl, replyingTo?.id)
         }
         else response = await apiService.sendGroupMessage(params.chatId, messageText, replyingTo?.id)
@@ -835,7 +838,7 @@ export default function ChatScreen() {
       setMessages((prev) => prev.map((m) => (m.id === tempId ? { ...m, status: 'failed' } : m)))
     }
     setReplyingTo(null)
-    try { playSend() } catch {}
+    try { playSend() } catch { }
   }
 
   const sendAttachment = async (assets: Array<{ uri: string; type?: string; name?: string }>) => {
@@ -843,7 +846,7 @@ export default function ChatScreen() {
       if (!currentUser || assets.length === 0) return
       // Create a temp uploading message with progress
       const tempId = `upload-${Date.now()}`
-      const att = assets.slice(0,1)[0]
+      const att = assets.slice(0, 1)[0]
       const isVid0 = /\.(mp4|mov|m4v|webm)$/i.test(att.name || att.uri)
       const tempUploading: ChatMessage = {
         id: tempId,
@@ -907,7 +910,7 @@ export default function ChatScreen() {
 
   const onAttachPress = async () => {
     try {
-      const choice = await new Promise<'gallery'|'file'|'voice'|'cancel'>((resolve) => {
+      const choice = await new Promise<'gallery' | 'file' | 'voice' | 'cancel'>((resolve) => {
         Alert.alert('Attach', 'Choose source', [
           { text: 'Gallery', onPress: () => resolve('gallery') },
           { text: 'File', onPress: () => resolve('file') },
@@ -932,7 +935,7 @@ export default function ChatScreen() {
       } else if (choice === 'voice') {
         await recordAndSendVoiceNote()
       }
-    } catch {}
+    } catch { }
   }
 
   const recordAndSendVoiceNote = async () => {
@@ -979,16 +982,16 @@ export default function ChatScreen() {
       recordingRef.current = rec
       setRecordingMs(0)
       setIsRecording(true)
-      if (recordingTimerRef.current) try { clearInterval(recordingTimerRef.current) } catch {}
+      if (recordingTimerRef.current) try { clearInterval(recordingTimerRef.current) } catch { }
       recordingTimerRef.current = setInterval(async () => {
         try {
           const st: any = await rec.getStatusAsync()
           if (st?.isRecording && typeof st?.durationMillis === 'number') setRecordingMs(st.durationMillis)
-        } catch {}
+        } catch { }
       }, 200)
       setCancelHintVisible(true)
       setHoldDx(0)
-    } catch {}
+    } catch { }
   }
 
   const stopHoldRecording = async (send: boolean) => {
@@ -996,7 +999,7 @@ export default function ChatScreen() {
       const rec = recordingRef.current
       if (!rec) { setIsRecording(false); return }
       await rec.stopAndUnloadAsync()
-      if (recordingTimerRef.current) { try { clearInterval(recordingTimerRef.current) } catch {} ; recordingTimerRef.current = null }
+      if (recordingTimerRef.current) { try { clearInterval(recordingTimerRef.current) } catch { }; recordingTimerRef.current = null }
       const uri = rec.getURI()
       const dur = recordingMs
       setIsRecording(false)
@@ -1012,7 +1015,7 @@ export default function ChatScreen() {
     } catch {
       setIsRecording(false)
       recordingRef.current = null
-      if (recordingTimerRef.current) { try { clearInterval(recordingTimerRef.current) } catch {} ; recordingTimerRef.current = null }
+      if (recordingTimerRef.current) { try { clearInterval(recordingTimerRef.current) } catch { }; recordingTimerRef.current = null }
       setRecordingMs(0)
       setCancelHintVisible(false)
       setHoldDx(0)
@@ -1099,59 +1102,59 @@ export default function ChatScreen() {
     })
     setSearchMatches(hits)
     setSearchIndex(0)
-    if (hits.length > 0) setTimeout(() => { try { flatListRef.current?.scrollToIndex({ index: hits[0], animated: true }) } catch {} }, 50)
-    // Fire-and-forget server-side search to bring older matches into view
-    ;(async () => {
-      try {
-        const q = searchQuery.trim()
-        if (q.length < 2) return
-        if (params.chatType === 'direct') {
-          const res: any = await apiService.searchDirectMessages(String(params.chatId), q, 1, 50)
-          if (Array.isArray(res?.messages) && res.messages.length > 0) {
-            setMessages((prev) => {
-              const existing = new Set(prev.map((m) => String((m as any).id || (m as any)?._id || '')))
-              const mapped = res.messages.map((m: any) => ({
-                id: String(m._id || m.id || `${m.createdAt}`),
-                text: m.text || '',
-                sender: String((m.from?._id || m.from)) === String(currentUserRef.current?._id) ? 'me' : 'other',
-                from: m.from,
-                to: m.to,
-                group: m.group,
-                messageType: 'direct' as const,
-                createdAt: m.createdAt || new Date().toISOString(),
-                attachments: m.attachments || [],
-              }))
-              const add = mapped.filter((m: any) => !existing.has(String(m.id)))
-              if (add.length === 0) return prev
-              const next = [...prev, ...add].sort((a, b) => new Date(a.createdAt || '').getTime() - new Date(b.createdAt || '').getTime())
-              return next
-            })
+    if (hits.length > 0) setTimeout(() => { try { flatListRef.current?.scrollToIndex({ index: hits[0], animated: true }) } catch { } }, 50)
+      // Fire-and-forget server-side search to bring older matches into view
+      ; (async () => {
+        try {
+          const q = searchQuery.trim()
+          if (q.length < 2) return
+          if (params.chatType === 'direct') {
+            const res: any = await apiService.searchDirectMessages(String(params.chatId), q, 1, 50)
+            if (Array.isArray(res?.messages) && res.messages.length > 0) {
+              setMessages((prev) => {
+                const existing = new Set(prev.map((m) => String((m as any).id || (m as any)?._id || '')))
+                const mapped = res.messages.map((m: any) => ({
+                  id: String(m._id || m.id || `${m.createdAt}`),
+                  text: m.text || '',
+                  sender: String((m.from?._id || m.from)) === String(currentUserRef.current?._id) ? 'me' : 'other',
+                  from: m.from,
+                  to: m.to,
+                  group: m.group,
+                  messageType: 'direct' as const,
+                  createdAt: m.createdAt || new Date().toISOString(),
+                  attachments: m.attachments || [],
+                }))
+                const add = mapped.filter((m: any) => !existing.has(String(m.id)))
+                if (add.length === 0) return prev
+                const next = [...prev, ...add].sort((a, b) => new Date(a.createdAt || '').getTime() - new Date(b.createdAt || '').getTime())
+                return next
+              })
+            }
+          } else {
+            const res: any = await apiService.searchGroupMessages(String(params.chatId), q, 1, 50)
+            if (Array.isArray(res?.messages) && res.messages.length > 0) {
+              setMessages((prev) => {
+                const existing = new Set(prev.map((m) => String((m as any).id || (m as any)?._id || '')))
+                const mapped = res.messages.map((m: any) => ({
+                  id: String(m._id || m.id || `${m.createdAt}`),
+                  text: m.text || '',
+                  sender: String((m.from?._id || m.from)) === String(currentUserRef.current?._id) ? 'me' : 'other',
+                  from: m.from,
+                  to: m.to,
+                  group: m.group,
+                  messageType: 'group' as const,
+                  createdAt: m.createdAt || new Date().toISOString(),
+                  attachments: m.attachments || [],
+                }))
+                const add = mapped.filter((m: any) => !existing.has(String(m.id)))
+                if (add.length === 0) return prev
+                const next = [...prev, ...add].sort((a, b) => new Date(a.createdAt || '').getTime() - new Date(b.createdAt || '').getTime())
+                return next
+              })
+            }
           }
-        } else {
-          const res: any = await apiService.searchGroupMessages(String(params.chatId), q, 1, 50)
-          if (Array.isArray(res?.messages) && res.messages.length > 0) {
-            setMessages((prev) => {
-              const existing = new Set(prev.map((m) => String((m as any).id || (m as any)?._id || '')))
-              const mapped = res.messages.map((m: any) => ({
-                id: String(m._id || m.id || `${m.createdAt}`),
-                text: m.text || '',
-                sender: String((m.from?._id || m.from)) === String(currentUserRef.current?._id) ? 'me' : 'other',
-                from: m.from,
-                to: m.to,
-                group: m.group,
-                messageType: 'group' as const,
-                createdAt: m.createdAt || new Date().toISOString(),
-                attachments: m.attachments || [],
-              }))
-              const add = mapped.filter((m: any) => !existing.has(String(m.id)))
-              if (add.length === 0) return prev
-              const next = [...prev, ...add].sort((a, b) => new Date(a.createdAt || '').getTime() - new Date(b.createdAt || '').getTime())
-              return next
-            })
-          }
-        }
-      } catch {}
-    })()
+        } catch { }
+      })()
   }, [searchQuery])
 
   const jumpToMatch = (delta: number) => {
@@ -1159,7 +1162,7 @@ export default function ChatScreen() {
     const next = (searchIndex + delta + searchMatches.length) % searchMatches.length
     setSearchIndex(next)
     const idx = searchMatches[next]
-    try { flatListRef.current?.scrollToIndex({ index: idx, animated: true }) } catch {}
+    try { flatListRef.current?.scrollToIndex({ index: idx, animated: true }) } catch { }
   }
 
   useEffect(() => {
@@ -1180,9 +1183,9 @@ export default function ChatScreen() {
       if (reactionListenerRef.current) socketService.removeMessageReactionsUpdated(reactionListenerRef.current)
       if (deleteListenerRef.current) socketService.removeMessageDeleted(deleteListenerRef.current)
       if (editListenerRef.current) socketService.removeMessageEdited(editListenerRef.current)
-      try { if ((onPoll as any)) socketService.removePollUpdated(onPoll) } catch {}
+      try { if ((onPoll as any)) socketService.removePollUpdated(onPoll) } catch { }
       if (readListenerRef.current) socketService.removeMessagesRead(readListenerRef.current)
-      try { (socketService as any).socket?.off('messagePinned') } catch {}
+      try { (socketService as any).socket?.off('messagePinned') } catch { }
 
       // DO NOT disconnect socket here
       // socketService.disconnect()  // keep this commented
@@ -1202,14 +1205,14 @@ export default function ChatScreen() {
     useCallback(() => {
       setIsScreenFocused(true)
       let cancelled = false
-      ;(async () => {
-        try {
-          const res: any = await apiService.getOnlineUsers()
-          if (!cancelled && res?.success && Array.isArray(res.userIds)) {
-            setOnlineUsers(new Set(res.userIds.map(String)))
-          }
-        } catch {}
-      })()
+        ; (async () => {
+          try {
+            const res: any = await apiService.getOnlineUsers()
+            if (!cancelled && res?.success && Array.isArray(res.userIds)) {
+              setOnlineUsers(new Set(res.userIds.map(String)))
+            }
+          } catch { }
+        })()
       return () => { cancelled = true; setIsScreenFocused(false) }
     }, [])
   )
@@ -1234,7 +1237,7 @@ export default function ChatScreen() {
       try {
         if (params.chatType === "direct") apiService.markDirectRead(params.chatId)
         else apiService.markGroupRead(params.chatId)
-      } catch {}
+      } catch { }
     }
   }
 
@@ -1262,7 +1265,7 @@ export default function ChatScreen() {
     return colors[index]
   }
 
-  const PollCard = ({ poll, messageId }: { poll: { question: string; options: Array<{ id: string; text: string; votes: number }>; allowMultiple?: boolean; allowChange?: boolean; endsAt?: string|null; selectedOptionIds?: string[] }; messageId: string }) => {
+  const PollCard = ({ poll, messageId }: { poll: { question: string; options: Array<{ id: string; text: string; votes: number }>; allowMultiple?: boolean; allowChange?: boolean; endsAt?: string | null; selectedOptionIds?: string[] }; messageId: string }) => {
     const [trackWidth, setTrackWidth] = useState(0)
     const widthsRef = useRef<Record<string, Animated.Value>>({})
     const totalVotes = (poll?.options || []).reduce((s, o) => s + (o.votes || 0), 0)
@@ -1274,17 +1277,17 @@ export default function ChatScreen() {
 
     useEffect(() => {
       if (!trackWidth) return
-      ;(poll?.options || []).forEach((o) => {
-        const pct = totalVotes > 0 ? Math.max(0, Math.min(100, Math.round((o.votes || 0) * 100 / totalVotes))) : 0
-        const target = Math.round((pct / 100) * trackWidth)
-        const av = ensureRef(o.id)
-        Animated.timing(av, { toValue: target, duration: 280, useNativeDriver: false }).start()
-      })
+        ; (poll?.options || []).forEach((o) => {
+          const pct = totalVotes > 0 ? Math.max(0, Math.min(100, Math.round((o.votes || 0) * 100 / totalVotes))) : 0
+          const target = Math.round((pct / 100) * trackWidth)
+          const av = ensureRef(o.id)
+          Animated.timing(av, { toValue: target, duration: 280, useNativeDriver: false }).start()
+        })
     }, [trackWidth, totalVotes, JSON.stringify((poll?.options || []).map(o => [o.id, o.votes]))])
 
     const handleVote = async (optionId: string) => {
       try {
-        try { await Haptics.selectionAsync() } catch {}
+        try { await Haptics.selectionAsync() } catch { }
         const res: any = await apiService.votePoll(messageId, optionId)
         if (res?.success && res?.poll) {
           setMessages((prev) => prev.map((m) => (m.id === messageId ? ({ ...(m as any), poll: res.poll } as any) : m)))
@@ -1348,7 +1351,7 @@ export default function ChatScreen() {
             <View style={{ flexDirection: 'row', marginTop: 6, alignItems: 'center', gap: 8 }}>
               {REACTION_EMOJIS.map((e) => (
                 <TouchableOpacity key={e} onPress={async () => {
-                  try { await apiService.request(`/messages/${String((message as any).id)}/react`, { method: 'POST', body: JSON.stringify({ type: e }) }) } catch {}
+                  try { await apiService.request(`/messages/${String((message as any).id)}/react`, { method: 'POST', body: JSON.stringify({ type: e }) }) } catch { }
                   setIsActionMode(false); setSelectedMessageIds.clear()
                 }} style={{ backgroundColor: '#fff', borderWidth: 1, borderColor: '#eee', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 4 }}>
                   <Text style={{ fontSize: 16 }}>{e}</Text>
@@ -1377,7 +1380,7 @@ export default function ChatScreen() {
           groupedWithPrev = sameSender && closeTime
         }
       }
-    } catch {}
+    } catch { }
 
     // Unread divider: show above the first unread incoming message when user is not at bottom
     const showUnreadDivider = !isMyMessage && !isUserAtBottom && newMessagesCount > 0 && (() => {
@@ -1389,293 +1392,293 @@ export default function ChatScreen() {
 
     return (
       <SwipeReply onSwipeLeft={() => setReplyingTo(message)} onSwipeRight={() => setReplyingTo(message)}>
-      {showUnreadDivider && (
-        <View style={styles.unreadDividerContainer}>
-          <View style={styles.unreadDividerLine} />
-          <Text style={styles.unreadDividerText}>New messages</Text>
-          <View style={styles.unreadDividerLine} />
-        </View>
-      )}
-      <TouchableOpacity
-        activeOpacity={0.7}
-        style={[styles.messageRow, isMyMessage ? styles.myMessageRow : styles.otherMessageRow]}
-        onPress={() => {
-          if (!isActionMode) return
-          const id = String(message.id)
-          setSelectedMessageIds((prev) => {
-            const next = new Set(prev)
-            if (next.has(id)) next.delete(id); else next.add(id)
-            if (next.size === 0) {
-              setIsActionMode(false)
-              setReactingTo(null)
-              setReactionAnchor(null)
-            } else if (next.size > 1) {
-              setReactingTo(null)
-              setReactionAnchor(null)
-            }
-            return next
-          })
-        }}
-        onLongPress={(evt: any) => {
-          try {
+        {showUnreadDivider && (
+          <View style={styles.unreadDividerContainer}>
+            <View style={styles.unreadDividerLine} />
+            <Text style={styles.unreadDividerText}>New messages</Text>
+            <View style={styles.unreadDividerLine} />
+          </View>
+        )}
+        <TouchableOpacity
+          activeOpacity={0.7}
+          style={[styles.messageRow, isMyMessage ? styles.myMessageRow : styles.otherMessageRow]}
+          onPress={() => {
+            if (!isActionMode) return
             const id = String(message.id)
-            setIsActionMode(true)
             setSelectedMessageIds((prev) => {
               const next = new Set(prev)
               if (next.has(id)) next.delete(id); else next.add(id)
-              // If only one selected, open reaction picker; more than one closes it
-              if (next.size === 1) {
-                try {
-                  const y = (evt?.nativeEvent?.pageY || 180) - 80
-                  const x = (evt?.nativeEvent?.pageX || 160)
-                  setReactingTo(message)
-                  setReactionAnchor({ x, y })
-                } catch {
-                  setReactingTo(message)
-                  setReactionAnchor({ x: 160, y: 140 })
-                }
-              } else {
+              if (next.size === 0) {
+                setIsActionMode(false)
+                setReactingTo(null)
+                setReactionAnchor(null)
+              } else if (next.size > 1) {
                 setReactingTo(null)
                 setReactionAnchor(null)
               }
               return next
             })
-          } catch {}
-        }}
-      >
-        {params.chatType === "group" && !isMyMessage && (
-          <View style={styles.avatarContainer}>
-            {message.from.profilePic ? (
-              <Avatar.Image size={32} source={{ uri: message.from.profilePic }} />
-            ) : (
-              <View style={[styles.initialsAvatar, { backgroundColor: getUserColor(message.from._id) }]}> 
-                <Text style={styles.initialsText}>{(message.from.name || 'U').slice(0,1).toUpperCase()}</Text>
-              </View>
-            )}
-          </View>
-        )}
-        <LinearGradient
-          colors={isMyMessage ? ['#DFF6FF', '#EAF4FF'] : ['#F7F8FA', '#EEF1F7']}
-          start={[0, 0]}
-          end={[1, 1]}
-          style={[
-            styles.messageContent,
-            isMyMessage ? styles.myMessageGradient : styles.otherMessageGradient,
-            groupedWithPrev && (isMyMessage ? { borderTopRightRadius: 14 } : { borderTopLeftRadius: 14 }),
-            isSelected ? { borderWidth: 2, borderColor: colors.accent } : null
-          ]}
+          }}
+          onLongPress={(evt: any) => {
+            try {
+              const id = String(message.id)
+              setIsActionMode(true)
+              setSelectedMessageIds((prev) => {
+                const next = new Set(prev)
+                if (next.has(id)) next.delete(id); else next.add(id)
+                // If only one selected, open reaction picker; more than one closes it
+                if (next.size === 1) {
+                  try {
+                    const y = (evt?.nativeEvent?.pageY || 180) - 80
+                    const x = (evt?.nativeEvent?.pageX || 160)
+                    setReactingTo(message)
+                    setReactionAnchor({ x, y })
+                  } catch {
+                    setReactingTo(message)
+                    setReactionAnchor({ x: 160, y: 140 })
+                  }
+                } else {
+                  setReactingTo(null)
+                  setReactionAnchor(null)
+                }
+                return next
+              })
+            } catch { }
+          }}
         >
           {params.chatType === "group" && !isMyMessage && (
-            <Text style={[styles.senderName, { color: getUserColor(message.from._id) }]}>{message.from.name}</Text>
+            <View style={styles.avatarContainer}>
+              {message.from.profilePic ? (
+                <Avatar.Image size={32} source={{ uri: message.from.profilePic }} />
+              ) : (
+                <View style={[styles.initialsAvatar, { backgroundColor: getUserColor(message.from._id) }]}>
+                  <Text style={styles.initialsText}>{(message.from.name || 'U').slice(0, 1).toUpperCase()}</Text>
+                </View>
+              )}
+            </View>
           )}
+          <LinearGradient
+            colors={isMyMessage ? ['#DFF6FF', '#EAF4FF'] : ['#F7F8FA', '#EEF1F7']}
+            start={[0, 0]}
+            end={[1, 1]}
+            style={[
+              styles.messageContent,
+              isMyMessage ? styles.myMessageGradient : styles.otherMessageGradient,
+              groupedWithPrev && (isMyMessage ? { borderTopRightRadius: 14 } : { borderTopLeftRadius: 14 }),
+              isSelected ? { borderWidth: 2, borderColor: colors.accent } : null
+            ]}
+          >
+            {params.chatType === "group" && !isMyMessage && (
+              <Text style={[styles.senderName, { color: getUserColor(message.from._id) }]}>{message.from.name}</Text>
+            )}
 
-          {/* Poll */}
-          {message.poll && (
-            <PollCard poll={message.poll} messageId={message.id} />
-          )}
+            {/* Poll */}
+            {message.poll && (
+              <PollCard poll={message.poll} messageId={message.id} />
+            )}
 
-          {/* Attachments */}
-          {Array.isArray((message as any).attachments) && (message as any).attachments.length > 0 && (
-            <View style={{ gap: 8 }}>
-              {(message as any).attachments.map((att: any, idx: number) => (
-                <View key={String(idx)}>
-                  {att.type === 'image' ? (
-                    <TouchableOpacity onPress={() => setMediaViewer({ visible: true, url: att.url, type: 'image' })}>
-                      <Image source={{ uri: att.url }} style={{ width: 220, height: 220, borderRadius: 10, backgroundColor: '#eaeaea' }} />
-                    </TouchableOpacity>
-                  ) : att.type === 'video' ? (
-                    <TouchableOpacity onPress={() => setMediaViewer({ visible: true, url: att.url, type: 'video' })}>
-                      <View style={{ width: 220, height: 220, borderRadius: 10, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }}>
-                        <ExpoVideo source={{ uri: att.url }} style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, borderRadius: 10 }} useNativeControls resizeMode={'cover' as any} />
-                        <Icon name="play-circle-filled" size={48} color="#fff" />
-                      </View>
-                    </TouchableOpacity>
-                  ) : att.type === 'audio' ? (
-                    <AudioPlayer sourceUrl={att.url} />
-                  ) : (
-                    <TouchableOpacity onPress={() => setMediaViewer({ visible: true, url: att.url, type: 'file' })}>
-                      <Text style={{ color: '#333', textDecorationLine: 'underline' }}>{att.name || 'file'}</Text>
+            {/* Attachments */}
+            {Array.isArray((message as any).attachments) && (message as any).attachments.length > 0 && (
+              <View style={{ gap: 8 }}>
+                {(message as any).attachments.map((att: any, idx: number) => (
+                  <View key={String(idx)}>
+                    {att.type === 'image' ? (
+                      <TouchableOpacity onPress={() => setMediaViewer({ visible: true, url: att.url, type: 'image' })}>
+                        <Image source={{ uri: att.url }} style={{ width: 220, height: 220, borderRadius: 10, backgroundColor: '#eaeaea' }} />
+                      </TouchableOpacity>
+                    ) : att.type === 'video' ? (
+                      <TouchableOpacity onPress={() => setMediaViewer({ visible: true, url: att.url, type: 'video' })}>
+                        <View style={{ width: 220, height: 220, borderRadius: 10, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }}>
+                          <ExpoVideo source={{ uri: att.url }} style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, borderRadius: 10 }} useNativeControls resizeMode={'cover' as any} />
+                          <Icon name="play-circle-filled" size={48} color="#fff" />
+                        </View>
+                      </TouchableOpacity>
+                    ) : att.type === 'audio' ? (
+                      <AudioPlayer sourceUrl={att.url} />
+                    ) : (
+                      <TouchableOpacity onPress={() => setMediaViewer({ visible: true, url: att.url, type: 'file' })}>
+                        <Text style={{ color: '#333', textDecorationLine: 'underline' }}>{att.name || 'file'}</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {/* Simple link preview */}
+            {(() => {
+              try {
+                const match = String(message.text || '').match(/https?:\/\/[^\s]+/i)
+                if (!match) return null
+                const url = match[0]
+                return (
+                  <TouchableOpacity onPress={() => { try { (require('expo-web-browser') as any).openBrowserAsync(url) } catch { } }} style={{ marginTop: 8 }}>
+                    <View style={{ backgroundColor: isMyMessage ? '#e6f2ff' : '#f5f5f5', borderRadius: 10, padding: 10, maxWidth: 260 }}>
+                      <Text numberOfLines={2} style={{ color: '#1a0dab', textDecorationLine: 'underline' }}>{url}</Text>
+                      <Text style={{ color: '#555', marginTop: 4 }} numberOfLines={2}>Open link</Text>
+                    </View>
+                  </TouchableOpacity>
+                )
+              } catch { return null }
+            })()}
+
+            {"replyTo" in (message as any) && (message as any).replyTo && (
+              <View style={styles.replyBubble}>
+                <View style={[styles.replyBar, { backgroundColor: isMyMessage ? "#9bd7a1" : "#bbb" }]} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.replyName}>
+                    {((message as any).replyTo.from?.name) || "Replied"}
+                  </Text>
+                  <Text style={styles.replyText} numberOfLines={2}>
+                    {(message as any).replyTo.text}
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            <Text style={[styles.messageText, isMyMessage ? styles.myMessageText : styles.otherMessageText]}>
+              {message.text}
+            </Text>
+
+            {/* Simple link preview */}
+            {(() => {
+              try {
+                const match = String(message.text || '').match(/https?:\/\/[^\s]+/i)
+                if (!match) return null
+                const url = match[0]
+                return (
+                  <TouchableOpacity onPress={() => { try { (require('expo-web-browser') as any).openBrowserAsync(url) } catch { } }} style={{ marginTop: 8 }}>
+                    <View style={{ backgroundColor: isMyMessage ? '#e6f2ff' : '#f5f5f5', borderRadius: 10, padding: 10, maxWidth: 260 }}>
+                      <Text numberOfLines={2} style={{ color: '#1a0dab', textDecorationLine: 'underline' }}>{url}</Text>
+                      <Text style={{ color: '#555', marginTop: 4 }} numberOfLines={2}>Open link</Text>
+                    </View>
+                  </TouchableOpacity>
+                )
+              } catch { return null }
+            })()}
+
+            {/* Reactions bar */}
+            {Array.isArray((message as any).reactions) && (message as any).reactions.length > 0 && (
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+                {Array.from(Object.entries(((message as any).reactions as any[]).reduce((acc: any, r: any) => { acc[r.type] = (acc[r.type] || 0) + 1; return acc }, {}))).map(([emoji, count]: any) => (
+                  <View key={emoji} style={{ backgroundColor: isMyMessage ? '#e6f2ff' : '#f2f2f2', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 }}>
+                    <Text style={{ color: '#333' }}>{emoji} {count > 1 ? count : ''}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
+              <Text style={[styles.timeText, isMyMessage ? styles.myTimeText : styles.otherTimeText]}>
+                {messageTime}
+                {(() => {
+                  try {
+                    const exp = (message as any).expiresAt || (message as any).expiresAt
+                    if (!exp) return ''
+                    const ms = new Date(exp).getTime() - Date.now()
+                    if (ms <= 0) return ' · expired'
+                    const s = Math.floor(ms / 1000)
+                    if (s < 60) return ` · ${s}s`
+                    const m = Math.floor(s / 60)
+                    return ` · ${m}m`
+                  } catch { return '' }
+                })()}
+              </Text>
+              {isMyMessage && (() => {
+                // direct: double if peer id present in readBy; group: double if any member besides me present
+                const rb = new Set<string>((Array.isArray((message as any).readBy) ? (message as any).readBy : []).map(String))
+                if (params.chatType === 'direct') {
+                  const peerId = String(params.chatId)
+                  const seen = rb.has(peerId)
+                  return <Text style={{ fontSize: 12, color: seen ? '#4ea1ff' : '#888' }}>{seen ? '✓✓' : '✓'}</Text>
+                } else {
+                  const me = String(currentUser?._id || '')
+                  rb.delete(me)
+                  const seen = rb.size > 0
+                  return <Text style={{ fontSize: 12, color: seen ? '#4ea1ff' : '#888' }}>{seen ? '✓✓' : '✓'}</Text>
+                }
+              })()}
+              {isMyMessage && (message as any).status && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  {(message as any).status === 'sending' && <Icon name="schedule" size={14} color="#888" />}
+                  {(message as any).status === 'failed' && <Icon name="error-outline" size={16} color="#e53935" />}
+                  {(message as any).status === 'failed' && (
+                    <TouchableOpacity onPress={async () => {
+                      try {
+                        const body: any = { text: String((message as any).text || ''), messageType: params.chatType as any, replyTo: (message as any)?.replyTo?.id }
+                        if (params.chatType === 'direct') Object.assign(body, { to: String(params.chatId) })
+                        else Object.assign(body, { group: String(params.chatId) })
+                        setMessages((prev) => prev.map((m) => (m.id === message.id ? { ...(m as any), status: 'sending' } : m)))
+                        const res = await apiService.request('/messages', { method: 'POST', body: JSON.stringify(body) })
+                        if (!(res as any)?.success) throw new Error((res as any)?.message || 'Retry failed')
+                        setMessages((prev) => prev.map((m) => (m.id === message.id ? { ...(m as any), status: 'sent' } : m)))
+                      } catch {
+                        setMessages((prev) => prev.map((m) => (m.id === message.id ? { ...(m as any), status: 'failed' } : m)))
+                      }
+                    }}>
+                      <Icon name="refresh" size={14} color="#e53935" />
                     </TouchableOpacity>
                   )}
                 </View>
-              ))}
-            </View>
-          )}
-
-          {/* Simple link preview */}
-          {(() => {
-            try {
-              const match = String(message.text || '').match(/https?:\/\/[^\s]+/i)
-              if (!match) return null
-              const url = match[0]
-              return (
-                <TouchableOpacity onPress={() => { try { (require('expo-web-browser') as any).openBrowserAsync(url) } catch {} }} style={{ marginTop: 8 }}>
-                  <View style={{ backgroundColor: isMyMessage ? '#e6f2ff' : '#f5f5f5', borderRadius: 10, padding: 10, maxWidth: 260 }}>
-                    <Text numberOfLines={2} style={{ color: '#1a0dab', textDecorationLine: 'underline' }}>{url}</Text>
-                    <Text style={{ color: '#555', marginTop: 4 }} numberOfLines={2}>Open link</Text>
-                  </View>
-                </TouchableOpacity>
-              )
-            } catch { return null }
-          })()}
-
-          {"replyTo" in (message as any) && (message as any).replyTo && (
-            <View style={styles.replyBubble}>
-              <View style={[styles.replyBar, { backgroundColor: isMyMessage ? "#9bd7a1" : "#bbb" }]} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.replyName}>
-                  {((message as any).replyTo.from?.name) || "Replied"}
-                </Text>
-                <Text style={styles.replyText} numberOfLines={2}>
-                  {(message as any).replyTo.text}
-                </Text>
-              </View>
-            </View>
-          )}
-
-          <Text style={[styles.messageText, isMyMessage ? styles.myMessageText : styles.otherMessageText]}>
-            {message.text}
-          </Text>
-
-          {/* Simple link preview */}
-          {(() => {
-            try {
-              const match = String(message.text || '').match(/https?:\/\/[^\s]+/i)
-              if (!match) return null
-              const url = match[0]
-              return (
-                <TouchableOpacity onPress={() => { try { (require('expo-web-browser') as any).openBrowserAsync(url) } catch {} }} style={{ marginTop: 8 }}>
-                  <View style={{ backgroundColor: isMyMessage ? '#e6f2ff' : '#f5f5f5', borderRadius: 10, padding: 10, maxWidth: 260 }}>
-                    <Text numberOfLines={2} style={{ color: '#1a0dab', textDecorationLine: 'underline' }}>{url}</Text>
-                    <Text style={{ color: '#555', marginTop: 4 }} numberOfLines={2}>Open link</Text>
-                  </View>
-                </TouchableOpacity>
-              )
-            } catch { return null }
-          })()}
-
-          {/* Reactions bar */}
-          {Array.isArray((message as any).reactions) && (message as any).reactions.length > 0 && (
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
-              {Array.from(Object.entries(((message as any).reactions as any[]).reduce((acc: any, r: any) => { acc[r.type] = (acc[r.type]||0)+1; return acc }, {}))).map(([emoji, count]: any) => (
-                <View key={emoji} style={{ backgroundColor: isMyMessage ? '#e6f2ff' : '#f2f2f2', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 }}>
-                  <Text style={{ color: '#333' }}>{emoji} {count > 1 ? count : ''}</Text>
-                </View>
-              ))}
-            </View>
-          )}
-
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
-            <Text style={[styles.timeText, isMyMessage ? styles.myTimeText : styles.otherTimeText]}>
-              {messageTime}
-              {(() => {
-                try {
-                  const exp = (message as any).expiresAt || (message as any).expiresAt
-                  if (!exp) return ''
-                  const ms = new Date(exp).getTime() - Date.now()
-                  if (ms <= 0) return ' · expired'
-                  const s = Math.floor(ms/1000)
-                  if (s < 60) return ` · ${s}s`
-                  const m = Math.floor(s/60)
-                  return ` · ${m}m`
-                } catch { return '' }
-              })()}
-            </Text>
-            {isMyMessage && (() => {
-              // direct: double if peer id present in readBy; group: double if any member besides me present
-              const rb = new Set<string>((Array.isArray((message as any).readBy) ? (message as any).readBy : []).map(String))
-              if (params.chatType === 'direct') {
-                const peerId = String(params.chatId)
-                const seen = rb.has(peerId)
-                return <Text style={{ fontSize: 12, color: seen ? '#4ea1ff' : '#888' }}>{seen ? '✓✓' : '✓'}</Text>
-              } else {
-                const me = String(currentUser?._id || '')
-                rb.delete(me)
-                const seen = rb.size > 0
-                return <Text style={{ fontSize: 12, color: seen ? '#4ea1ff' : '#888' }}>{seen ? '✓✓' : '✓'}</Text>
-              }
-            })()}
-            {isMyMessage && (message as any).status && (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                {(message as any).status === 'sending' && <Icon name="schedule" size={14} color="#888" />}
-                {(message as any).status === 'failed' && <Icon name="error-outline" size={16} color="#e53935" />}
-                {(message as any).status === 'failed' && (
-                  <TouchableOpacity onPress={async () => {
-                    try {
-                      const body: any = { text: String((message as any).text || ''), messageType: params.chatType as any, replyTo: (message as any)?.replyTo?.id }
-                      if (params.chatType === 'direct') Object.assign(body, { to: String(params.chatId) })
-                      else Object.assign(body, { group: String(params.chatId) })
-                      setMessages((prev) => prev.map((m) => (m.id === message.id ? { ...(m as any), status: 'sending' } : m)))
-                      const res = await apiService.request('/messages', { method: 'POST', body: JSON.stringify(body) })
-                      if (!(res as any)?.success) throw new Error((res as any)?.message || 'Retry failed')
-                      setMessages((prev) => prev.map((m) => (m.id === message.id ? { ...(m as any), status: 'sent' } : m)))
-                    } catch {
-                      setMessages((prev) => prev.map((m) => (m.id === message.id ? { ...(m as any), status: 'failed' } : m)))
-                    }
-                  }}>
-                    <Icon name="refresh" size={14} color="#e53935" />
-                  </TouchableOpacity>
-                )}
-              </View>
-            )}
-            {(message as any)?.pinnedAt && (() => {
-              const pinnedById = String((message as any)?.pinnedBy || '')
-              const meId = String(currentUser?._id || '')
-              let pinnedByName = 'Someone'
-              if (pinnedById === meId) pinnedByName = 'You'
-              else if (params.chatType === 'group') {
-                try { pinnedByName = (group?.members || []).find((m: any) => String(m?._id) === pinnedById)?.name || (message as any)?.from?.name || 'Someone' } catch {}
-              } else pinnedByName = (message as any)?.from?.name || 'Someone'
-              return (
-                <TouchableOpacity onPress={async () => {
-                  try {
-                    if (pinnedById === meId) {
-                      const r: any = await apiService.unpinMessage(String(message.id))
-                      if ((r as any)?.success) setMessages((prev) => prev.map((m) => m.id === message.id ? ({ ...(m as any), pinnedBy: null, pinnedAt: null } as any) : m))
-                    } else {
-                      Alert.alert('Pinned by', `Pinned by ${pinnedByName}`)
-                    }
-                  } catch {}
-                }} style={{ marginLeft: 6, backgroundColor: '#fee9b5', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
-                  <Text style={{ color: '#664400', fontSize: 11 }}>Pinned by {pinnedByName}</Text>
-                </TouchableOpacity>
-              )
-            })()}
-            {Array.isArray((message as any)?.starredBy) && (message as any).starredBy.length > 0 && (
-              <View style={{ marginLeft: 6, backgroundColor: '#ffeef7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
-                <Text style={{ color: '#8a004f', fontSize: 11 }}>Starred</Text>
-              </View>
-            )}
-          </View>
-          {(isMyMessage && typeof (message as any).uploadProgress === 'number' && (message as any).uploadProgress >= 0 && (message as any).uploadProgress < 100) && (
-            <View style={{ marginTop: 6, height: 4, backgroundColor: '#ddd', borderRadius: 2, overflow: 'hidden' }}>
-              <View style={{ height: 4, width: `${Math.round((message as any).uploadProgress)}%`, backgroundColor: '#4ea1ff' }} />
-            </View>
-          )}
-          <View style={{ flexDirection: 'row', marginTop: 8, alignItems: 'center', justifyContent: isMyMessage ? 'flex-end' : 'flex-start', gap: 8 }}>
-            {isMyMessage && (
-              (() => {
-                const isPinned = Boolean((message as any)?.pinnedAt)
+              )}
+              {(message as any)?.pinnedAt && (() => {
+                const pinnedById = String((message as any)?.pinnedBy || '')
+                const meId = String(currentUser?._id || '')
+                let pinnedByName = 'Someone'
+                if (pinnedById === meId) pinnedByName = 'You'
+                else if (params.chatType === 'group') {
+                  try { pinnedByName = (group?.members || []).find((m: any) => String(m?._id) === pinnedById)?.name || (message as any)?.from?.name || 'Someone' } catch { }
+                } else pinnedByName = (message as any)?.from?.name || 'Someone'
                 return (
                   <TouchableOpacity onPress={async () => {
                     try {
-                      if (!isPinned) {
-                        const r: any = await apiService.pinMessage(String(message.id))
-                        if ((r as any)?.success) setMessages((prev) => prev.map((m) => m.id === message.id ? ({ ...(m as any), pinnedBy: String(currentUser?._id || ''), pinnedAt: new Date().toISOString() } as any) : m))
-                      } else {
+                      if (pinnedById === meId) {
                         const r: any = await apiService.unpinMessage(String(message.id))
                         if ((r as any)?.success) setMessages((prev) => prev.map((m) => m.id === message.id ? ({ ...(m as any), pinnedBy: null, pinnedAt: null } as any) : m))
+                      } else {
+                        Alert.alert('Pinned by', `Pinned by ${pinnedByName}`)
                       }
-                    } catch {}
-                  }} style={{ backgroundColor: isPinned ? '#ffe5e5' : '#eaf4ff', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderColor: isPinned ? '#ffcccc' : '#cfe6ff' }}>
-                    <Text style={{ fontSize: 12 }}>{isPinned ? '🧹' : '📌'}</Text>
+                    } catch { }
+                  }} style={{ marginLeft: 6, backgroundColor: '#fee9b5', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
+                    <Text style={{ color: '#664400', fontSize: 11 }}>Pinned by {pinnedByName}</Text>
                   </TouchableOpacity>
                 )
-              })()
+              })()}
+              {Array.isArray((message as any)?.starredBy) && (message as any).starredBy.length > 0 && (
+                <View style={{ marginLeft: 6, backgroundColor: '#ffeef7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
+                  <Text style={{ color: '#8a004f', fontSize: 11 }}>Starred</Text>
+                </View>
+              )}
+            </View>
+            {(isMyMessage && typeof (message as any).uploadProgress === 'number' && (message as any).uploadProgress >= 0 && (message as any).uploadProgress < 100) && (
+              <View style={{ marginTop: 6, height: 4, backgroundColor: '#ddd', borderRadius: 2, overflow: 'hidden' }}>
+                <View style={{ height: 4, width: `${Math.round((message as any).uploadProgress)}%`, backgroundColor: '#4ea1ff' }} />
+              </View>
             )}
-          </View>
-        </LinearGradient>
-      </TouchableOpacity>
+            <View style={{ flexDirection: 'row', marginTop: 8, alignItems: 'center', justifyContent: isMyMessage ? 'flex-end' : 'flex-start', gap: 8 }}>
+              {isMyMessage && (
+                (() => {
+                  const isPinned = Boolean((message as any)?.pinnedAt)
+                  return (
+                    <TouchableOpacity onPress={async () => {
+                      try {
+                        if (!isPinned) {
+                          const r: any = await apiService.pinMessage(String(message.id))
+                          if ((r as any)?.success) setMessages((prev) => prev.map((m) => m.id === message.id ? ({ ...(m as any), pinnedBy: String(currentUser?._id || ''), pinnedAt: new Date().toISOString() } as any) : m))
+                        } else {
+                          const r: any = await apiService.unpinMessage(String(message.id))
+                          if ((r as any)?.success) setMessages((prev) => prev.map((m) => m.id === message.id ? ({ ...(m as any), pinnedBy: null, pinnedAt: null } as any) : m))
+                        }
+                      } catch { }
+                    }} style={{ backgroundColor: isPinned ? '#ffe5e5' : '#eaf4ff', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderColor: isPinned ? '#ffcccc' : '#cfe6ff' }}>
+                      <Text style={{ fontSize: 12 }}>{isPinned ? '🧹' : '📌'}</Text>
+                    </TouchableOpacity>
+                  )
+                })()
+              )}
+            </View>
+          </LinearGradient>
+        </TouchableOpacity>
       </SwipeReply>
     )
   }
@@ -1789,7 +1792,7 @@ export default function ChatScreen() {
   const headerInfo = getHeaderInfo()
 
   const persistHidden = async (setIds: Set<string>) => {
-    try { await AsyncStorage.setItem(hiddenKey, JSON.stringify(Array.from(setIds))) } catch {}
+    try { await AsyncStorage.setItem(hiddenKey, JSON.stringify(Array.from(setIds))) } catch { }
   }
 
   return (
@@ -1797,8 +1800,8 @@ export default function ChatScreen() {
       {/* Header */}
       <LinearGradient
         colors={[colors.background, '#f7f9ff']}
-        start={[0,0]}
-        end={[1,1]}
+        start={[0, 0]}
+        end={[1, 1]}
         style={{
           flexDirection: 'row',
           alignItems: 'center',
@@ -1820,7 +1823,7 @@ export default function ChatScreen() {
             </TouchableOpacity>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
               {selectedMessageIds.size === 1 && (
-                <TouchableOpacity onPress={async () => { try { const id = Array.from(selectedMessageIds)[0]; const msg = messages.find((m) => String((m as any).id) === id); if (!msg) return; await Clipboard.setStringAsync(String((msg as any).text || '')); setIsActionMode(false); setSelectedMessageIds(new Set()) } catch {} }}>
+                <TouchableOpacity onPress={async () => { try { const id = Array.from(selectedMessageIds)[0]; const msg = messages.find((m) => String((m as any).id) === id); if (!msg) return; await Clipboard.setStringAsync(String((msg as any).text || '')); setIsActionMode(false); setSelectedMessageIds(new Set()) } catch { } }}>
                   <Icon name="content-copy" size={20} color="#333" />
                 </TouchableOpacity>
               )}
@@ -1850,10 +1853,10 @@ export default function ChatScreen() {
                   const isMy = msg.sender === 'me'
                   if (isMy) {
                     const isPinned = Boolean((msg as any)?.pinnedAt)
-                    if (!isPinned) { const r: any = await apiService.pinMessage(String((msg as any).id)); if ((r as any)?.success) setMessages((prev)=>prev.map((m)=>m.id===msg.id?({...(m as any), pinnedBy:String(currentUser?._id||''), pinnedAt:new Date().toISOString()} as any):m)) }
-                    else { const r: any = await apiService.unpinMessage(String((msg as any).id)); if ((r as any)?.success) setMessages((prev)=>prev.map((m)=>m.id===msg.id?({...(m as any), pinnedBy:null, pinnedAt:null} as any):m)) }
+                    if (!isPinned) { const r: any = await apiService.pinMessage(String((msg as any).id)); if ((r as any)?.success) setMessages((prev) => prev.map((m) => m.id === msg.id ? ({ ...(m as any), pinnedBy: String(currentUser?._id || ''), pinnedAt: new Date().toISOString() } as any) : m)) }
+                    else { const r: any = await apiService.unpinMessage(String((msg as any).id)); if ((r as any)?.success) setMessages((prev) => prev.map((m) => m.id === msg.id ? ({ ...(m as any), pinnedBy: null, pinnedAt: null } as any) : m)) }
                   }
-                } catch {} finally { setIsActionMode(false); setSelectedMessageIds.clear() }
+                } catch { } finally { setIsActionMode(false); setSelectedMessageIds.clear() }
               }}>
                 <Icon name="push-pin" size={20} color="#333" />
               </TouchableOpacity>
@@ -1863,10 +1866,10 @@ export default function ChatScreen() {
                   const me = String(currentUser?._id || '')
                   const hasStar = Array.isArray((msg as any).starredBy) && (msg as any).starredBy.some((id: any) => String(id) === me)
                   const r: any = await apiService.toggleStar(String((msg as any).id))
-                  if ((r as any)?.success) setMessages((prev)=>prev.map((m)=>{
-                    if (m.id!==msg.id) return m; const next: any={...(m as any)}; const setStars=new Set<string>(Array.isArray(next.starredBy)?next.starredBy.map(String):[]); if (!hasStar) setStars.add(me); else setStars.delete(me); next.starredBy=Array.from(setStars); return next
+                  if ((r as any)?.success) setMessages((prev) => prev.map((m) => {
+                    if (m.id !== msg.id) return m; const next: any = { ...(m as any) }; const setStars = new Set<string>(Array.isArray(next.starredBy) ? next.starredBy.map(String) : []); if (!hasStar) setStars.add(me); else setStars.delete(me); next.starredBy = Array.from(setStars); return next
                   }))
-                } catch {} finally { setIsActionMode(false); setSelectedMessageIds.clear() }
+                } catch { } finally { setIsActionMode(false); setSelectedMessageIds.clear() }
               }}>
                 <Icon name="star" size={20} color="#333" />
               </TouchableOpacity>
@@ -1898,81 +1901,81 @@ export default function ChatScreen() {
             </View>
           </>
         )}
-          {params.chatType === 'group' ? (
-            <View>
-              <TouchableOpacity onPress={() => setMenuOpen((v) => !v)}>
-                <Icon name="more-vert" size={22} color="#666" />
-              </TouchableOpacity>
-              {menuOpen && (
-                <Animated.View style={{ position: 'absolute', top: 28, right: 0, backgroundColor: colors.surface, borderRadius: 12, borderWidth: 1, borderColor: colors.border, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 12, elevation: 16, width: 200, overflow: 'hidden', zIndex: 9999, transform: [{ translateY: menuAnim.interpolate({ inputRange: [0,1], outputRange: [-8,0] }) }], opacity: menuAnim }}>
-                  <TouchableOpacity onPress={() => { setMenuOpen(false); setSearchOpen(true) }} style={{ paddingVertical: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
-                    <Icon name="search" size={18} color={colors.text} /><Text style={{ marginLeft: 10, color: colors.text, fontSize: 15 }}>Search</Text>
-                  </TouchableOpacity>
-                  <View style={{ height: 1, backgroundColor: '#f1f1f1' }} />
-                  <TouchableOpacity onPress={() => { setMenuOpen(false); setPollComposerOpen(true) }} style={{ paddingVertical: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
-                    <Icon name="bar-chart" size={18} color={colors.text} /><Text style={{ marginLeft: 10, color: colors.text, fontSize: 15 }}>Create poll</Text>
-                  </TouchableOpacity>
-                  <View style={{ height: 1, backgroundColor: '#f1f1f1' }} />
-                  <TouchableOpacity onPress={() => { setMenuOpen(false); router.push({ pathname: '/mediaGallery', params: { chatType: 'group', chatId: String(params.chatId) } }) }} style={{ paddingVertical: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
-                    <Icon name="collections" size={18} color={colors.text} /><Text style={{ marginLeft: 10, color: colors.text, fontSize: 15 }}>Media gallery</Text>
-                    <View style={{ marginLeft: 8, backgroundColor: '#eef3ff', borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2 }}>
-                      <Text style={{ color: '#4a68a0', fontSize: 12 }}>{messages.filter((m: any) => Array.isArray(m?.attachments) && m.attachments.length).length}</Text>
-                    </View>
-                  </TouchableOpacity>
-                  <View style={{ height: 1, backgroundColor: '#f1f1f1' }} />
-                  <TouchableOpacity onPress={() => { setMenuOpen(false); router.push({ pathname: '/bookmarks', params: { chatType: 'group', chatId: String(params.chatId), kind: 'starred' } }) }} style={{ paddingVertical: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
-                    <Icon name="star" size={18} color={colors.text} /><Text style={{ marginLeft: 10, color: colors.text, fontSize: 15 }}>Starred</Text>
-                    <View style={{ marginLeft: 8, backgroundColor: '#fff3c8', borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2 }}>
-                      <Text style={{ color: '#7a5200', fontSize: 12 }}>{starredCount}</Text>
-                    </View>
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => { setMenuOpen(false); router.push({ pathname: '/bookmarks', params: { chatType: 'group', chatId: String(params.chatId), kind: 'pinned' } }) }} style={{ paddingVertical: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
-                    <Icon name="push-pin" size={18} color={colors.text} /><Text style={{ marginLeft: 10, color: colors.text, fontSize: 15 }}>Pinned</Text>
-                    <View style={{ marginLeft: 8, backgroundColor: '#eaf4ff', borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2 }}>
-                      <Text style={{ color: '#29527a', fontSize: 12 }}>{pinnedCount}</Text>
-                    </View>
-                  </TouchableOpacity>
-                  <View style={{ height: 1, backgroundColor: '#f1f1f1' }} />
-                  <TouchableOpacity onPress={() => { setMenuOpen(false); router.push({ pathname: '/groups/[groupId]', params: { groupId: String(params.chatId) } as any }) }} style={{ paddingVertical: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
-                    <Icon name="info-outline" size={18} color={colors.text} /><Text style={{ marginLeft: 10, color: colors.text, fontSize: 15 }}>Group info</Text>
-                  </TouchableOpacity>
-                </Animated.View>
-              )}
-            </View>
-          ) : (
-            <View>
-              <TouchableOpacity onPress={() => setMenuOpen((v) => !v)}>
-                <Icon name="more-vert" size={22} color="#666" />
-              </TouchableOpacity>
-              {menuOpen && (
-                <Animated.View style={{ position: 'absolute', top: 28, right: 0, backgroundColor: colors.surface, borderRadius: 12, borderWidth: 1, borderColor: colors.border, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 12, elevation: 16, width: 200, overflow: 'hidden', zIndex: 9999, transform: [{ translateY: menuAnim.interpolate({ inputRange: [0,1], outputRange: [-8,0] }) }], opacity: menuAnim }}>
-                  <TouchableOpacity onPress={() => { setMenuOpen(false); setSearchOpen(true) }} style={{ paddingVertical: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
-                    <Icon name="search" size={18} color={colors.text} /><Text style={{ marginLeft: 10, color: colors.text, fontSize: 15 }}>Search</Text>
-                  </TouchableOpacity>
-                  <View style={{ height: 1, backgroundColor: '#f1f1f1' }} />
-                  <TouchableOpacity onPress={() => { setMenuOpen(false); router.push({ pathname: '/mediaGallery', params: { chatType: 'direct', chatId: String(params.chatId) } }) }} style={{ paddingVertical: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
-                    <Icon name="collections" size={18} color={colors.text} /><Text style={{ marginLeft: 10, color: colors.text, fontSize: 15 }}>Media gallery</Text>
-                    <View style={{ marginLeft: 8, backgroundColor: '#eef3ff', borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2 }}>
-                      <Text style={{ color: '#4a68a0', fontSize: 12 }}>{messages.filter((m: any) => Array.isArray(m?.attachments) && m.attachments.length).length}</Text>
-                    </View>
-                  </TouchableOpacity>
-                  <View style={{ height: 1, backgroundColor: '#f1f1f1' }} />
-                  <TouchableOpacity onPress={() => { setMenuOpen(false); router.push({ pathname: '/bookmarks', params: { chatType: 'direct', chatId: String(params.chatId), kind: 'starred' } }) }} style={{ paddingVertical: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
-                    <Icon name="star" size={18} color={colors.text} /><Text style={{ marginLeft: 10, color: colors.text, fontSize: 15 }}>Starred</Text>
-                    <View style={{ marginLeft: 8, backgroundColor: '#fff3c8', borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2 }}>
-                      <Text style={{ color: '#7a5200', fontSize: 12 }}>{starredCount}</Text>
-                    </View>
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => { setMenuOpen(false); router.push({ pathname: '/bookmarks', params: { chatType: 'direct', chatId: String(params.chatId), kind: 'pinned' } }) }} style={{ paddingVertical: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
-                    <Icon name="push-pin" size={18} color={colors.text} /><Text style={{ marginLeft: 10, color: colors.text, fontSize: 15 }}>Pinned</Text>
-                    <View style={{ marginLeft: 8, backgroundColor: '#eaf4ff', borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2 }}>
-                      <Text style={{ color: '#29527a', fontSize: 12 }}>{pinnedCount}</Text>
-                    </View>
-                  </TouchableOpacity>
-                </Animated.View>
-              )}
-            </View>
-          )}
+        {params.chatType === 'group' ? (
+          <View>
+            <TouchableOpacity onPress={() => setMenuOpen((v) => !v)}>
+              <Icon name="more-vert" size={22} color="#666" />
+            </TouchableOpacity>
+            {menuOpen && (
+              <Animated.View style={{ position: 'absolute', top: 28, right: 0, backgroundColor: colors.surface, borderRadius: 12, borderWidth: 1, borderColor: colors.border, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 12, elevation: 16, width: 200, overflow: 'hidden', zIndex: 9999, transform: [{ translateY: menuAnim.interpolate({ inputRange: [0, 1], outputRange: [-8, 0] }) }], opacity: menuAnim }}>
+                <TouchableOpacity onPress={() => { setMenuOpen(false); setSearchOpen(true) }} style={{ paddingVertical: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
+                  <Icon name="search" size={18} color={colors.text} /><Text style={{ marginLeft: 10, color: colors.text, fontSize: 15 }}>Search</Text>
+                </TouchableOpacity>
+                <View style={{ height: 1, backgroundColor: '#f1f1f1' }} />
+                <TouchableOpacity onPress={() => { setMenuOpen(false); setPollComposerOpen(true) }} style={{ paddingVertical: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
+                  <Icon name="bar-chart" size={18} color={colors.text} /><Text style={{ marginLeft: 10, color: colors.text, fontSize: 15 }}>Create poll</Text>
+                </TouchableOpacity>
+                <View style={{ height: 1, backgroundColor: '#f1f1f1' }} />
+                <TouchableOpacity onPress={() => { setMenuOpen(false); router.push({ pathname: '/mediaGallery', params: { chatType: 'group', chatId: String(params.chatId) } }) }} style={{ paddingVertical: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
+                  <Icon name="collections" size={18} color={colors.text} /><Text style={{ marginLeft: 10, color: colors.text, fontSize: 15 }}>Media gallery</Text>
+                  <View style={{ marginLeft: 8, backgroundColor: '#eef3ff', borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2 }}>
+                    <Text style={{ color: '#4a68a0', fontSize: 12 }}>{messages.filter((m: any) => Array.isArray(m?.attachments) && m.attachments.length).length}</Text>
+                  </View>
+                </TouchableOpacity>
+                <View style={{ height: 1, backgroundColor: '#f1f1f1' }} />
+                <TouchableOpacity onPress={() => { setMenuOpen(false); router.push({ pathname: '/bookmarks', params: { chatType: 'group', chatId: String(params.chatId), kind: 'starred' } }) }} style={{ paddingVertical: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
+                  <Icon name="star" size={18} color={colors.text} /><Text style={{ marginLeft: 10, color: colors.text, fontSize: 15 }}>Starred</Text>
+                  <View style={{ marginLeft: 8, backgroundColor: '#fff3c8', borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2 }}>
+                    <Text style={{ color: '#7a5200', fontSize: 12 }}>{starredCount}</Text>
+                  </View>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => { setMenuOpen(false); router.push({ pathname: '/bookmarks', params: { chatType: 'group', chatId: String(params.chatId), kind: 'pinned' } }) }} style={{ paddingVertical: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
+                  <Icon name="push-pin" size={18} color={colors.text} /><Text style={{ marginLeft: 10, color: colors.text, fontSize: 15 }}>Pinned</Text>
+                  <View style={{ marginLeft: 8, backgroundColor: '#eaf4ff', borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2 }}>
+                    <Text style={{ color: '#29527a', fontSize: 12 }}>{pinnedCount}</Text>
+                  </View>
+                </TouchableOpacity>
+                <View style={{ height: 1, backgroundColor: '#f1f1f1' }} />
+                <TouchableOpacity onPress={() => { setMenuOpen(false); router.push({ pathname: '/groups/[groupId]', params: { groupId: String(params.chatId) } as any }) }} style={{ paddingVertical: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
+                  <Icon name="info-outline" size={18} color={colors.text} /><Text style={{ marginLeft: 10, color: colors.text, fontSize: 15 }}>Group info</Text>
+                </TouchableOpacity>
+              </Animated.View>
+            )}
+          </View>
+        ) : (
+          <View>
+            <TouchableOpacity onPress={() => setMenuOpen((v) => !v)}>
+              <Icon name="more-vert" size={22} color="#666" />
+            </TouchableOpacity>
+            {menuOpen && (
+              <Animated.View style={{ position: 'absolute', top: 28, right: 0, backgroundColor: colors.surface, borderRadius: 12, borderWidth: 1, borderColor: colors.border, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 12, elevation: 16, width: 200, overflow: 'hidden', zIndex: 9999, transform: [{ translateY: menuAnim.interpolate({ inputRange: [0, 1], outputRange: [-8, 0] }) }], opacity: menuAnim }}>
+                <TouchableOpacity onPress={() => { setMenuOpen(false); setSearchOpen(true) }} style={{ paddingVertical: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
+                  <Icon name="search" size={18} color={colors.text} /><Text style={{ marginLeft: 10, color: colors.text, fontSize: 15 }}>Search</Text>
+                </TouchableOpacity>
+                <View style={{ height: 1, backgroundColor: '#f1f1f1' }} />
+                <TouchableOpacity onPress={() => { setMenuOpen(false); router.push({ pathname: '/mediaGallery', params: { chatType: 'direct', chatId: String(params.chatId) } }) }} style={{ paddingVertical: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
+                  <Icon name="collections" size={18} color={colors.text} /><Text style={{ marginLeft: 10, color: colors.text, fontSize: 15 }}>Media gallery</Text>
+                  <View style={{ marginLeft: 8, backgroundColor: '#eef3ff', borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2 }}>
+                    <Text style={{ color: '#4a68a0', fontSize: 12 }}>{messages.filter((m: any) => Array.isArray(m?.attachments) && m.attachments.length).length}</Text>
+                  </View>
+                </TouchableOpacity>
+                <View style={{ height: 1, backgroundColor: '#f1f1f1' }} />
+                <TouchableOpacity onPress={() => { setMenuOpen(false); router.push({ pathname: '/bookmarks', params: { chatType: 'direct', chatId: String(params.chatId), kind: 'starred' } }) }} style={{ paddingVertical: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
+                  <Icon name="star" size={18} color={colors.text} /><Text style={{ marginLeft: 10, color: colors.text, fontSize: 15 }}>Starred</Text>
+                  <View style={{ marginLeft: 8, backgroundColor: '#fff3c8', borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2 }}>
+                    <Text style={{ color: '#7a5200', fontSize: 12 }}>{starredCount}</Text>
+                  </View>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => { setMenuOpen(false); router.push({ pathname: '/bookmarks', params: { chatType: 'direct', chatId: String(params.chatId), kind: 'pinned' } }) }} style={{ paddingVertical: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
+                  <Icon name="push-pin" size={18} color={colors.text} /><Text style={{ marginLeft: 10, color: colors.text, fontSize: 15 }}>Pinned</Text>
+                  <View style={{ marginLeft: 8, backgroundColor: '#eaf4ff', borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2 }}>
+                    <Text style={{ color: '#29527a', fontSize: 12 }}>{pinnedCount}</Text>
+                  </View>
+                </TouchableOpacity>
+              </Animated.View>
+            )}
+          </View>
+        )}
       </LinearGradient>
 
       {/* Pinned messages banner */}
@@ -2074,11 +2077,11 @@ export default function ChatScreen() {
             />
           </View>
         )}
-        <TouchableOpacity onPress={async () => { setEphemeralMode((v) => { const nv = !v; try { AsyncStorage.setItem(ephemeralKey, nv ? '1' : '0') } catch {}; return nv }) }} style={[styles.attachButton]}>
+        <TouchableOpacity onPress={async () => { setEphemeralMode((v) => { const nv = !v; try { AsyncStorage.setItem(ephemeralKey, nv ? '1' : '0') } catch { }; return nv }) }} style={[styles.attachButton]}>
           <Icon name={ephemeralMode ? 'timer' : 'timer-off'} size={22} color={ephemeralMode ? '#d32f2f' : '#333'} />
         </TouchableOpacity>
         {ephemeralMode && (
-          <TouchableOpacity onPress={async () => setShowTtlPicker(true)} style={[styles.attachButton]}> 
+          <TouchableOpacity onPress={async () => setShowTtlPicker(true)} style={[styles.attachButton]}>
             <Icon name="update" size={20} color="#333" />
           </TouchableOpacity>
         )}
@@ -2088,16 +2091,16 @@ export default function ChatScreen() {
         <TouchableOpacity
           onPressIn={startHoldRecording}
           onPressOut={() => stopHoldRecording(holdDx > -60)}
-          onPress={(e: any) => { try { setHoldDx(e?.nativeEvent?.pageX || 0) } catch {} }}
-          onLongPress={() => {}}
+          onPress={(e: any) => { try { setHoldDx(e?.nativeEvent?.pageX || 0) } catch { } }}
+          onLongPress={() => { }}
           delayLongPress={50}
-          onResponderMove={(evt: any) => { try { setHoldDx(Math.min(0, (evt?.nativeEvent?.locationX || 0) - 80)) } catch {} }}
+          onResponderMove={(evt: any) => { try { setHoldDx(Math.min(0, (evt?.nativeEvent?.locationX || 0) - 80)) } catch { } }}
           style={[styles.attachButton]}
         >
           <Icon name="mic" size={22} color="#333" />
         </TouchableOpacity>
         <TouchableOpacity
-          onPress={async () => { try { await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium) } catch {}; sendMessage() }}
+          onPress={async () => { try { await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium) } catch { }; sendMessage() }}
           style={[
             styles.sendButton,
             { opacity: inputText.trim() ? 1 : 0.5 },
@@ -2171,7 +2174,7 @@ export default function ChatScreen() {
             ) : mediaViewer.type === 'video' ? (
               <ExpoVideo source={{ uri: mediaViewer.url }} style={{ width: '92%', height: '70%' }} useNativeControls resizeMode={'contain' as any} shouldPlay={false} isLooping={false} />
             ) : (
-              <TouchableOpacity onPress={() => { try { (require('expo-web-browser') as any).openBrowserAsync(mediaViewer.url) } catch {} }}>
+              <TouchableOpacity onPress={() => { try { (require('expo-web-browser') as any).openBrowserAsync(mediaViewer.url) } catch { } }}>
                 <Text style={{ color: '#fff', textDecorationLine: 'underline' }}>Open file</Text>
               </TouchableOpacity>
             )}
@@ -2183,9 +2186,9 @@ export default function ChatScreen() {
           <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' }}>
             <View style={{ backgroundColor: '#fff', padding: 16, borderRadius: 12, width: 260 }}>
               <Text style={{ fontWeight: '800', fontSize: 16, marginBottom: 8, color: '#000' }}>Ephemeral duration</Text>
-              {[30,60,300,3600].map((opt) => (
-                <TouchableOpacity key={opt} onPress={async () => { try { await AsyncStorage.setItem(`${ephemeralKey}_ttl`, String(opt)); setShowTtlPicker(false) } catch {} }} style={{ paddingVertical: 10 }}>
-                  <Text style={{ color: '#000' }}>{opt < 60 ? `${opt}s` : opt < 3600 ? `${opt/60}m` : `${opt/3600}h`}</Text>
+              {[30, 60, 300, 3600].map((opt) => (
+                <TouchableOpacity key={opt} onPress={async () => { try { await AsyncStorage.setItem(`${ephemeralKey}_ttl`, String(opt)); setShowTtlPicker(false) } catch { } }} style={{ paddingVertical: 10 }}>
+                  <Text style={{ color: '#000' }}>{opt < 60 ? `${opt}s` : opt < 3600 ? `${opt / 60}m` : `${opt / 3600}h`}</Text>
                 </TouchableOpacity>
               ))}
               <TouchableOpacity onPress={() => setShowTtlPicker(false)} style={{ marginTop: 10, alignSelf: 'flex-end' }}>
@@ -2211,7 +2214,7 @@ export default function ChatScreen() {
               return { ...(m as any), reactions: filtered }
             }))
             // fire and forget server
-            try { await apiService.request(`/messages/${msgId}/react`, { method: 'POST', body: JSON.stringify({ type: emoji }) }) } catch {}
+            try { await apiService.request(`/messages/${msgId}/react`, { method: 'POST', body: JSON.stringify({ type: emoji }) }) } catch { }
             setReactingTo(null)
             setReactionAnchor(null)
           }}
@@ -2221,11 +2224,11 @@ export default function ChatScreen() {
       {/* Quick actions for star/pin when a message is selected (reuse reacting state) */}
       {reactingTo && (
         <View style={{ position: 'absolute', right: 16, bottom: 160, backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#eee', shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 8 }}>
-          <TouchableOpacity onPress={async () => { try { await apiService.toggleStar(String((reactingTo as any).id)) } catch {} ; setReactingTo(null) }} style={{ paddingHorizontal: 12, paddingVertical: 10, flexDirection: 'row', alignItems: 'center' }}>
+          <TouchableOpacity onPress={async () => { try { await apiService.toggleStar(String((reactingTo as any).id)) } catch { }; setReactingTo(null) }} style={{ paddingHorizontal: 12, paddingVertical: 10, flexDirection: 'row', alignItems: 'center' }}>
             <Icon name="star" size={18} color="#f5a623" /><Text style={{ marginLeft: 8, color: '#333' }}>Star</Text>
           </TouchableOpacity>
           <View style={{ height: 1, backgroundColor: '#f2f2f2' }} />
-          <TouchableOpacity onPress={async () => { try { await apiService.pinMessage(String((reactingTo as any).id)) } catch {} ; setReactingTo(null) }} style={{ paddingHorizontal: 12, paddingVertical: 10, flexDirection: 'row', alignItems: 'center' }}>
+          <TouchableOpacity onPress={async () => { try { await apiService.pinMessage(String((reactingTo as any).id)) } catch { }; setReactingTo(null) }} style={{ paddingHorizontal: 12, paddingVertical: 10, flexDirection: 'row', alignItems: 'center' }}>
             <Icon name="push-pin" size={18} color="#333" /><Text style={{ marginLeft: 8, color: '#333' }}>Pin</Text>
           </TouchableOpacity>
         </View>
@@ -2238,7 +2241,7 @@ export default function ChatScreen() {
           <View style={{ flexDirection: 'row', gap: 2, marginTop: 8 }}>
             {Array.from({ length: 32 }).map((_, i) => {
               const h = 8 + ((i % 6) * 3)
-              const pulse = Math.max(0.5, Math.min(1.4, 0.5 + Math.sin((Date.now()/120 + i) % (Math.PI*2))))
+              const pulse = Math.max(0.5, Math.min(1.4, 0.5 + Math.sin((Date.now() / 120 + i) % (Math.PI * 2))))
               return <View key={i} style={{ width: 3, height: Math.round(h * pulse), backgroundColor: '#ff6b6b', borderRadius: 2 }} />
             })}
           </View>
@@ -2255,7 +2258,7 @@ export default function ChatScreen() {
               {deleteModal.anyOthers && (
                 <TouchableOpacity onPress={async () => {
                   // Hide locally
-                  setHiddenMessageIds((prev) => { const next = new Set(prev); deleteModal.ids.forEach((i)=> next.add(String(i))); persistHidden(next); return next })
+                  setHiddenMessageIds((prev) => { const next = new Set(prev); deleteModal.ids.forEach((i) => next.add(String(i))); persistHidden(next); return next })
                   setDeleteModal({ visible: false, ids: [], anyMine: false, anyOthers: false })
                   setIsActionMode(false); setSelectedMessageIds(new Set()); setReactingTo(null); setReactionAnchor(null)
                 }} style={{ paddingVertical: 12 }}>
@@ -2268,10 +2271,10 @@ export default function ChatScreen() {
                   const mine = deleteModal.ids.filter((id) => { const msg = messages.find((m) => String((m as any).id) === id); return msg?.sender === 'me' })
                   const others = deleteModal.ids.filter((id) => !mine.includes(id))
                   if (mine.length) setMessages((prev) => prev.filter((m) => !mine.includes(String((m as any).id))))
-                  if (others.length) setHiddenMessageIds((prev) => { const next = new Set(prev); others.forEach((i)=> next.add(String(i))); persistHidden(next); return next })
+                  if (others.length) setHiddenMessageIds((prev) => { const next = new Set(prev); others.forEach((i) => next.add(String(i))); persistHidden(next); return next })
                   setDeleteModal({ visible: false, ids: [], anyMine: false, anyOthers: false })
                   setIsActionMode(false); setSelectedMessageIds(new Set()); setReactingTo(null); setReactionAnchor(null)
-                  try { await Promise.all(mine.map((id) => apiService.request(`/messages/${id}`, { method: 'DELETE' }))) } catch {}
+                  try { await Promise.all(mine.map((id) => apiService.request(`/messages/${id}`, { method: 'DELETE' }))) } catch { }
                 }} style={{ paddingVertical: 12 }}>
                   <Text style={{ color: '#d32f2f', fontWeight: '800' }}>Delete for everyone</Text>
                 </TouchableOpacity>
@@ -2308,12 +2311,12 @@ function AudioPlayer({ sourceUrl }: { sourceUrl: string }) {
           }
         })
         setSound(s)
-      } catch {}
+      } catch { }
     }
     setup()
     return () => {
       mounted = false
-      try { sound?.unloadAsync() } catch {}
+      try { sound?.unloadAsync() } catch { }
     }
   }, [sourceUrl])
 
@@ -2322,7 +2325,7 @@ function AudioPlayer({ sourceUrl }: { sourceUrl: string }) {
       if (!sound) return
       const st: any = await sound.getStatusAsync()
       if (st?.isPlaying) { await sound.pauseAsync() } else { await sound.playAsync() }
-    } catch {}
+    } catch { }
   }
 
   const cycleRate = async () => {
@@ -2332,8 +2335,8 @@ function AudioPlayer({ sourceUrl }: { sourceUrl: string }) {
       const idx = options.indexOf(rate)
       const next = options[(idx + 1) % options.length]
       setRate(next)
-      try { await sound.setRateAsync(next, true) } catch {}
-    } catch {}
+      try { await sound.setRateAsync(next, true) } catch { }
+    } catch { }
   }
 
   const onWaveformPress = async (evt: any) => {
@@ -2344,7 +2347,7 @@ function AudioPlayer({ sourceUrl }: { sourceUrl: string }) {
       const frac = Math.max(0, Math.min(1, x / width))
       const target = Math.floor(frac * duration)
       await sound.setPositionAsync(target)
-    } catch {}
+    } catch { }
   }
 
   const bars = 40
