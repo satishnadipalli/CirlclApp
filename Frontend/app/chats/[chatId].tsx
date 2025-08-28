@@ -169,10 +169,12 @@ export default function ChatScreen() {
     let mounted = true
     ;(async () => {
       try {
-        const sendAsset = require('@/assets/sounds/send.mp3')
-        const recvAsset = require('@/assets/sounds/receive.mp3')
-        const s1 = await Audio.Sound.createAsync(sendAsset, { shouldPlay: false })
-        const s2 = await Audio.Sound.createAsync(recvAsset, { shouldPlay: false })
+        const DEFAULT_SEND = 'https://cdn.jsdelivr.net/gh/naptha/tiny-sfx/beep-07.mp3'
+        const DEFAULT_RECV = 'https://cdn.jsdelivr.net/gh/naptha/tiny-sfx/pop-07.mp3'
+        const sendUri = (process?.env as any)?.EXPO_PUBLIC_SEND_SOUND_URI || DEFAULT_SEND
+        const recvUri = (process?.env as any)?.EXPO_PUBLIC_RECV_SOUND_URI || DEFAULT_RECV
+        const s1 = await Audio.Sound.createAsync({ uri: String(sendUri) }, { shouldPlay: false })
+        const s2 = await Audio.Sound.createAsync({ uri: String(recvUri) }, { shouldPlay: false })
         if (!mounted) { try { s1.sound.unloadAsync() } catch {}; try { s2.sound.unloadAsync() } catch {}; return }
         setSndSend(s1.sound)
         setSndRecv(s2.sound)
