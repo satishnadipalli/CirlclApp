@@ -1610,11 +1610,24 @@ export default function ChatScreen() {
               <Text style={{ fontSize: 12 }}>⭐</Text>
             </TouchableOpacity>
             {isMyMessage && (
-              <TouchableOpacity onPress={async () => {
-                try { const r: any = await apiService.request(`/messages/${message.id}/pin`, { method: 'POST' }); if ((r as any)?.success) setMessages((prev) => prev.map((m) => m.id === message.id ? ({ ...(m as any), pinnedBy: String(currentUser?._id || ''), pinnedAt: new Date().toISOString() } as any) : m)) } catch {}
-              }} style={{ backgroundColor: '#eaf4ff', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderColor: '#cfe6ff' }}>
-                <Text style={{ fontSize: 12 }}>📌</Text>
-              </TouchableOpacity>
+              (() => {
+                const isPinned = Boolean((message as any)?.pinnedAt)
+                return (
+                  <TouchableOpacity onPress={async () => {
+                    try {
+                      if (!isPinned) {
+                        const r: any = await apiService.pinMessage(String(message.id))
+                        if ((r as any)?.success) setMessages((prev) => prev.map((m) => m.id === message.id ? ({ ...(m as any), pinnedBy: String(currentUser?._id || ''), pinnedAt: new Date().toISOString() } as any) : m))
+                      } else {
+                        const r: any = await apiService.unpinMessage(String(message.id))
+                        if ((r as any)?.success) setMessages((prev) => prev.map((m) => m.id === message.id ? ({ ...(m as any), pinnedBy: null, pinnedAt: null } as any) : m))
+                      }
+                    } catch {}
+                  }} style={{ backgroundColor: isPinned ? '#ffe5e5' : '#eaf4ff', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderColor: isPinned ? '#ffcccc' : '#cfe6ff' }}>
+                    <Text style={{ fontSize: 12 }}>{isPinned ? '🧹' : '📌'}</Text>
+                  </TouchableOpacity>
+                )
+              })()
             )}
           </View>
         </LinearGradient>
@@ -1730,6 +1743,30 @@ export default function ChatScreen() {
   }
 
   const headerInfo = getHeaderInfo()
+
+  // Load accurate counts from server when header menu opens
+  useEffect(() => {
+    (async () => {
+      try {
+        if (!menuOpen) return
+        if (params.chatType === 'direct') {
+          const [s, p, m] = await Promise.all([
+            apiService.getDirectStarredCount(String(params.chatId)),
+            apiService.getDirectPinnedCount(String(params.chatId)),
+            apiService.getDirectMediaCount(String(params.chatId)),
+          ])
+          setStarredCount(Number(s||0)); setPinnedCount(Number(p||0))
+        } else {
+          const [s, p, m] = await Promise.all([
+            apiService.getGroupStarredCount(String(params.chatId)),
+            apiService.getGroupPinnedCount(String(params.chatId)),
+            apiService.getGroupMediaCount(String(params.chatId)),
+          ])
+          setStarredCount(Number(s||0)); setPinnedCount(Number(p||0))
+        }
+      } catch {}
+    })()
+  }, [menuOpen, params.chatType, params.chatId])
 
   return (
     <View style={styles.container}>

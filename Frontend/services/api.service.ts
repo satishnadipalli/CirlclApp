@@ -327,6 +327,14 @@ class ApiService {
   async getDirectPinned(peerId: string, page = 1, limit = 50) { return this.request(`/messages/direct/${peerId}/pinned?page=${page}&limit=${limit}`) }
   async getGroupPinned(groupId: string, page = 1, limit = 50) { return this.request(`/messages/group/${groupId}/pinned?page=${page}&limit=${limit}`) }
 
+  // Counts helpers (use total from list endpoints)
+  async getDirectStarredCount(peerId: string) { const r: any = await this.getDirectStarred(peerId, 1, 1); return Number(r?.total || 0) }
+  async getGroupStarredCount(groupId: string) { const r: any = await this.getGroupStarred(groupId, 1, 1); return Number(r?.total || 0) }
+  async getDirectPinnedCount(peerId: string) { const r: any = await this.getDirectPinned(peerId, 1, 1); return Number(r?.total || 0) }
+  async getGroupPinnedCount(groupId: string) { const r: any = await this.getGroupPinned(groupId, 1, 1); return Number(r?.total || 0) }
+  async getDirectMediaCount(peerId: string) { const r: any = await this.getDirectMedia(peerId, 1, 1); return Number(r?.total || 0) }
+  async getGroupMediaCount(groupId: string) { const r: any = await this.getGroupMedia(groupId, 1, 1); return Number(r?.total || 0) }
+
   // Polls
   async sendDirectPoll(toUserId: string, poll: { question: string; options: string[] | Array<{ id?: string; text: string }>; allowMultiple?: boolean; allowChange?: boolean; endsAt?: string|Date }, text = '') {
     return this.request('/messages', { method: 'POST', body: JSON.stringify({ to: toUserId, text, messageType: 'direct', poll }) })

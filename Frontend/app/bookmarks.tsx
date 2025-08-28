@@ -45,10 +45,10 @@ export default function Bookmarks() {
         {!kind && (
           <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
             <TouchableOpacity onPress={() => setTab('starred')} style={{ backgroundColor: tab==='starred' ? '#fff3c8' : '#f7f7f7', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: tab==='starred' ? '#ffe38a' : '#eee' }}>
-              <Text style={{ fontWeight: '700', color: '#7a5200' }}>⭐ Starred</Text>
+              <Text style={{ fontWeight: '700', color: '#7a5200' }}>⭐ Starred ({items.length})</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setTab('pinned')} style={{ backgroundColor: tab==='pinned' ? '#eaf4ff' : '#f7f7f7', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: tab==='pinned' ? '#cfe6ff' : '#eee' }}>
-              <Text style={{ fontWeight: '700', color: '#29527a' }}>📌 Pinned</Text>
+              <Text style={{ fontWeight: '700', color: '#29527a' }}>📌 Pinned ({items.length})</Text>
             </TouchableOpacity>
           </View>
         )}
