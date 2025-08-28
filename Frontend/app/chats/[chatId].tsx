@@ -233,6 +233,30 @@ export default function ChatScreen() {
     groupRef.current = group
   }, [group])
 
+  // Load accurate counts from server when header menu opens (moved above early returns)
+  useEffect(() => {
+    (async () => {
+      try {
+        if (!menuOpen) return
+        if (params.chatType === 'direct') {
+          const [s, p, m] = await Promise.all([
+            apiService.getDirectStarredCount(String(params.chatId)),
+            apiService.getDirectPinnedCount(String(params.chatId)),
+            apiService.getDirectMediaCount(String(params.chatId)),
+          ])
+          setStarredCount(Number(s||0)); setPinnedCount(Number(p||0))
+        } else {
+          const [s, p, m] = await Promise.all([
+            apiService.getGroupStarredCount(String(params.chatId)),
+            apiService.getGroupPinnedCount(String(params.chatId)),
+            apiService.getGroupMediaCount(String(params.chatId)),
+          ])
+          setStarredCount(Number(s||0)); setPinnedCount(Number(p||0))
+        }
+      } catch {}
+    })()
+  }, [menuOpen, params.chatType, params.chatId])
+
   // Derive counts for header badges; must be declared before any early return
   
 
@@ -1755,30 +1779,6 @@ export default function ChatScreen() {
   }
 
   const headerInfo = getHeaderInfo()
-
-  // Load accurate counts from server when header menu opens
-  useEffect(() => {
-    (async () => {
-      try {
-        if (!menuOpen) return
-        if (params.chatType === 'direct') {
-          const [s, p, m] = await Promise.all([
-            apiService.getDirectStarredCount(String(params.chatId)),
-            apiService.getDirectPinnedCount(String(params.chatId)),
-            apiService.getDirectMediaCount(String(params.chatId)),
-          ])
-          setStarredCount(Number(s||0)); setPinnedCount(Number(p||0))
-        } else {
-          const [s, p, m] = await Promise.all([
-            apiService.getGroupStarredCount(String(params.chatId)),
-            apiService.getGroupPinnedCount(String(params.chatId)),
-            apiService.getGroupMediaCount(String(params.chatId)),
-          ])
-          setStarredCount(Number(s||0)); setPinnedCount(Number(p||0))
-        }
-      } catch {}
-    })()
-  }, [menuOpen, params.chatType, params.chatId])
 
   return (
     <View style={styles.container}>
