@@ -229,6 +229,9 @@ export default function ChatScreen() {
     groupRef.current = group
   }, [group])
 
+  // Derive counts for header badges; must be declared before any early return
+  
+
   const resolveFromUser = (rawFrom: any): User => {
     const fromId = typeof rawFrom === "object" ? rawFrom._id : rawFrom
     const me = currentUserRef.current
