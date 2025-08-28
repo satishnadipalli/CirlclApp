@@ -1659,9 +1659,22 @@ export default function ChatScreen() {
               )}
             </View>
           ) : (
-            <TouchableOpacity onPress={() => setSearchOpen((v) => !v)}>
-              <Icon name={searchOpen ? "close" : "search"} size={22} color="#666" />
-            </TouchableOpacity>
+            <View>
+              <TouchableOpacity onPress={() => setMenuOpen((v) => !v)}>
+                <Icon name="more-vert" size={22} color="#666" />
+              </TouchableOpacity>
+              {menuOpen && (
+                <Animated.View style={{ position: 'absolute', top: 28, right: 0, backgroundColor: colors.surface, borderRadius: 12, borderWidth: 1, borderColor: colors.border, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 12, elevation: 16, width: 200, overflow: 'hidden', zIndex: 9999, transform: [{ translateY: menuAnim.interpolate({ inputRange: [0,1], outputRange: [-8,0] }) }], opacity: menuAnim }}>
+                  <TouchableOpacity onPress={() => { setMenuOpen(false); setSearchOpen(true) }} style={{ paddingVertical: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
+                    <Icon name="search" size={18} color={colors.text} /><Text style={{ marginLeft: 10, color: colors.text, fontSize: 15 }}>Search</Text>
+                  </TouchableOpacity>
+                  <View style={{ height: 1, backgroundColor: '#f1f1f1' }} />
+                  <TouchableOpacity onPress={() => { setMenuOpen(false); router.push({ pathname: '/mediaGallery', params: { chatType: 'direct', chatId: String(params.chatId) } }) }} style={{ paddingVertical: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
+                    <Icon name="collections" size={18} color={colors.text} /><Text style={{ marginLeft: 10, color: colors.text, fontSize: 15 }}>Media gallery</Text>
+                  </TouchableOpacity>
+                </Animated.View>
+              )}
+            </View>
           )}
         </View>
       </View>

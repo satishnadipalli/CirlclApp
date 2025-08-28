@@ -66,6 +66,7 @@ export default function DailyViewer() {
   const [groupRings, setGroupRings] = useState<Array<{ _id: string; name: string; profilePic?: string; index: number }>>([])
   const [promptText, setPromptText] = useState<string | null>(null)
   const [typingUsers, setTypingUsers] = useState<Array<{ from: string; name?: string }>>([])
+  const [streakInfo, setStreakInfo] = useState<{ current?: number; nextMilestone?: number; hitMilestone?: boolean } | null>(null)
 
   const defaultSegMs = Math.max(1000, Math.min(45000, Number.parseInt(String(dur || "")) || 5000))
   const segMsRef = useRef<number>(defaultSegMs)
@@ -120,10 +121,14 @@ export default function DailyViewer() {
           }
         }
         setGroupRings(rings)
-        // Fetch today's prompt (theme)
+        // Show group prompt text if provided; fallback to global
         try {
-          const pr: any = await api.getDailyPrompt()
-          if ((pr as any)?.prompt?.text) setPromptText((pr as any).prompt.text)
+          const rx: any = res
+          if (rx?.promptText) setPromptText(rx.promptText)
+          else {
+            const pr: any = await api.getDailyPrompt()
+            if ((pr as any)?.prompt?.text) setPromptText((pr as any).prompt.text)
+          }
         } catch {}
       } catch {
         setEntries([])
@@ -131,6 +136,16 @@ export default function DailyViewer() {
       } finally { setLoading(false) }
     })()
   }, [groupId, defaultSegMs])
+
+  // Load my streak info to show milestone banner
+  useEffect(() => {
+    ;(async () => {
+      try {
+        const r: any = await api.getDailyStreak()
+        if (r?.success && r?.streak) setStreakInfo(r.streak)
+      } catch {}
+    })()
+  }, [])
 
   // Sequence mode: load entries for the active user
   useEffect(() => {
@@ -505,6 +520,15 @@ export default function DailyViewer() {
               <Text style={{ color: '#fff', fontSize: 12 }} numberOfLines={1}>Theme: {promptText}</Text>
             </View>
           ) : null}
+        </View>
+      )}
+
+      {/* Streak milestone banner */}
+      {streakInfo?.hitMilestone && (
+        <View style={{ alignItems: 'center', marginTop: 8 }}>
+          <View style={{ backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 6 }}>
+            <Text style={{ color: '#fff', fontWeight: '800' }}>Milestone! Streak {streakInfo?.current}</Text>
+          </View>
         </View>
       )}
 

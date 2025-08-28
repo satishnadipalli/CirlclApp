@@ -311,7 +311,14 @@ const getGroupDailyFeed = async (req, res) => {
       .where('user').nin(Array.from(blockedIds))
       .populate('user', 'name profilePic')
 
-    res.json({ success: true, entries })
+    // Look up group-specific prompt (if set)
+    let promptText = ''
+    try {
+      const gp = await DailyPrompt.findOne({ dateKey: `${dateKey}#${groupId}` }).select('text')
+      if (gp?.text) promptText = gp.text
+    } catch {}
+
+    res.json({ success: true, entries, promptText })
   } catch (e) {
     res.status(500).json({ success: false, message: e.message })
   }
