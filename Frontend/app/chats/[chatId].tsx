@@ -28,6 +28,7 @@ import * as ImagePicker from 'expo-image-picker'
 import * as DocumentPicker from 'expo-document-picker'
 import { Video as ExpoVideo } from 'expo-av'
 import { Audio } from 'expo-av'
+import * as Clipboard from 'expo-clipboard'
 
 import { Avatar } from "react-native-paper"
 import Icon from "react-native-vector-icons/MaterialIcons"
@@ -114,6 +115,9 @@ export default function ChatScreen() {
   const menuAnim = useRef(new Animated.Value(0)).current
   const [starredCount, setStarredCount] = useState(0)
   const [pinnedCount, setPinnedCount] = useState(0)
+  const [isActionMode, setIsActionMode] = useState(false)
+  const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null)
+  const REACTION_EMOJIS = ['❤️','👍','😂','😮','😢','🔥']
 
   useEffect(() => {
     Animated.timing(menuAnim, { toValue: menuOpen ? 1 : 0, duration: 160, useNativeDriver: true }).start()
@@ -1285,6 +1289,19 @@ export default function ChatScreen() {
           <View style={styles.systemChip}>
             <Text style={styles.systemChipText}>{item.text}</Text>
           </View>
+          {/* Inline reactions strip in action mode */}
+          {isActionMode && String((message as any).id) === String(selectedMessageId) && (
+            <View style={{ flexDirection: 'row', marginTop: 6, alignItems: 'center', gap: 8 }}>
+              {REACTION_EMOJIS.map((e) => (
+                <TouchableOpacity key={e} onPress={async () => {
+                  try { await apiService.request(`/messages/${String((message as any).id)}/react`, { method: 'POST', body: JSON.stringify({ type: e }) }) } catch {}
+                  setIsActionMode(false); setSelectedMessageId(null)
+                }} style={{ backgroundColor: '#fff', borderWidth: 1, borderColor: '#eee', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 4 }}>
+                  <Text style={{ fontSize: 16 }}>{e}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
         </View>
       )
     }
@@ -1360,14 +1377,9 @@ export default function ChatScreen() {
                 }
               } catch {}
             }})
-            // Simple native prompt
-            await new Promise<void>((resolve) => {
-              Alert.alert('Message actions', undefined, [
-                { text: actions[0].label, onPress: () => { actions[0].run(); resolve() } },
-                { text: actions[1].label, onPress: () => { actions[1].run(); resolve() } },
-                { text: 'Cancel', style: 'cancel', onPress: () => resolve() },
-              ])
-            })
+            // Enter action mode (WhatsApp-like)
+            setSelectedMessageId(String(message.id))
+            setIsActionMode(true)
           } catch {}
         }}
       >
@@ -1782,24 +1794,68 @@ export default function ChatScreen() {
           backgroundColor: colors.background,
         }}
       >
-        <TouchableOpacity onPress={() => router.back()}>
-          <Icon name="chevron-left" size={28} color="#333" />
-        </TouchableOpacity>
-        <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
-          <View>
-            <Avatar.Image size={40} source={{ uri: headerInfo.avatar }} />
-            {params.chatType === 'direct' && onlineUsers.has(params.chatId) && (
-              <View style={{ position: 'absolute', right: -2, bottom: -2, width: 14, height: 14, borderRadius: 7, backgroundColor: '#4CAF50', borderWidth: 2, borderColor: '#fff', shadowColor: '#4CAF50', shadowOpacity: 0.9, shadowRadius: 6 }} />
-            )}
-          </View>
-          <View style={{ marginLeft: 10, flex: 1 }}>
-            <Text style={[styles.nameText, { color: colors.text }]}>{headerInfo.name}</Text>
-            {params.chatType === 'direct' ? (
-              <PresenceBadge isOnline={onlineUsers.has(params.chatId)} lastSeen={undefined} size="sm" customStatus={undefined} />
-            ) : (
-              <Text style={[styles.statusText, { color: colors.muted }]}>{headerInfo.status}</Text>
-            )}
-          </View>
+        {isActionMode ? (
+          <>
+            <TouchableOpacity onPress={() => { setIsActionMode(false); setSelectedMessageId(null) }}>
+              <Icon name="close" size={24} color="#333" />
+            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+              <TouchableOpacity onPress={async () => { try { const msg = messages.find((m) => String((m as any).id) === selectedMessageId); if (!msg) return; await Clipboard.setStringAsync(String((msg as any).text || '')); setIsActionMode(false); setSelectedMessageId(null) } catch {} }}>
+                <Icon name="content-copy" size={20} color="#333" />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={async () => {
+                try {
+                  const msg = messages.find((m) => String((m as any).id) === selectedMessageId); if (!msg) return;
+                  const isMy = msg.sender === 'me'
+                  if (isMy) {
+                    const isPinned = Boolean((msg as any)?.pinnedAt)
+                    if (!isPinned) { const r: any = await apiService.pinMessage(String((msg as any).id)); if ((r as any)?.success) setMessages((prev)=>prev.map((m)=>m.id===msg.id?({...(m as any), pinnedBy:String(currentUser?._id||''), pinnedAt:new Date().toISOString()} as any):m)) }
+                    else { const r: any = await apiService.unpinMessage(String((msg as any).id)); if ((r as any)?.success) setMessages((prev)=>prev.map((m)=>m.id===msg.id?({...(m as any), pinnedBy:null, pinnedAt:null} as any):m)) }
+                  }
+                } catch {} finally { setIsActionMode(false); setSelectedMessageId(null) }
+              }}>
+                <Icon name="push-pin" size={20} color="#333" />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={async () => {
+                try {
+                  const msg = messages.find((m) => String((m as any).id) === selectedMessageId); if (!msg) return;
+                  const me = String(currentUser?._id || '')
+                  const hasStar = Array.isArray((msg as any).starredBy) && (msg as any).starredBy.some((id: any) => String(id) === me)
+                  const r: any = await apiService.toggleStar(String((msg as any).id))
+                  if ((r as any)?.success) setMessages((prev)=>prev.map((m)=>{
+                    if (m.id!==msg.id) return m; const next: any={...(m as any)}; const setStars=new Set<string>(Array.isArray(next.starredBy)?next.starredBy.map(String):[]); if (!hasStar) setStars.add(me); else setStars.delete(me); next.starredBy=Array.from(setStars); return next
+                  }))
+                } catch {} finally { setIsActionMode(false); setSelectedMessageId(null) }
+              }}>
+                <Icon name="star" size={20} color="#333" />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => { setIsActionMode(false); setSelectedMessageId(null) }}>
+                <Icon name="done" size={20} color="#333" />
+              </TouchableOpacity>
+            </View>
+          </>
+        ) : (
+          <>
+            <TouchableOpacity onPress={() => router.back()}>
+              <Icon name="chevron-left" size={28} color="#333" />
+            </TouchableOpacity>
+            <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
+              <View>
+                <Avatar.Image size={40} source={{ uri: headerInfo.avatar }} />
+                {params.chatType === 'direct' && onlineUsers.has(params.chatId) && (
+                  <View style={{ position: 'absolute', right: -2, bottom: -2, width: 14, height: 14, borderRadius: 7, backgroundColor: '#4CAF50', borderWidth: 2, borderColor: '#fff', shadowColor: '#4CAF50', shadowOpacity: 0.9, shadowRadius: 6 }} />
+                )}
+              </View>
+              <View style={{ marginLeft: 10, flex: 1 }}>
+                <Text style={[styles.nameText, { color: colors.text }]}>{headerInfo.name}</Text>
+                {params.chatType === 'direct' ? (
+                  <PresenceBadge isOnline={onlineUsers.has(params.chatId)} lastSeen={undefined} size="sm" customStatus={undefined} />
+                ) : (
+                  <Text style={[styles.statusText, { color: colors.muted }]}>{headerInfo.status}</Text>
+                )}
+              </View>
+          </>
+        )}
           {params.chatType === 'group' ? (
             <View>
               <TouchableOpacity onPress={() => setMenuOpen((v) => !v)}>
