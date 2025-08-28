@@ -4,7 +4,7 @@ import { apiService } from "@/services/api.service"
 import { socketService } from "@/services/socket.service"
 import type { ChatParams, Group, TypingUser, User } from "@/types/chat.types"
 import AsyncStorage from "@react-native-async-storage/async-storage"
-import { useLocalSearchParams, useRouter, usePathname } from "expo-router"
+import { useLocalSearchParams, useRouter } from "expo-router"
 import { useEffect, useRef, useState, useCallback } from "react"
 import { useFocusEffect } from "@react-navigation/native"
 import {
@@ -146,7 +146,6 @@ export default function ChatScreen() {
   const readListenerRef = useRef<((payload: any) => void) | null>(null)
   const isUserAtBottomRef = useRef<boolean>(true)
   const router = useRouter()
-  const pathname = usePathname()
   const params = useLocalSearchParams() as unknown as (ChatParams & { jumpToMessageId?: string })
   const draftKey = `chat_draft_${params.chatType}_${params.chatId}`
   const ephemeralKey = `chat_ephemeral_${params.chatType}_${params.chatId}`
@@ -364,9 +363,8 @@ export default function ChatScreen() {
             poll: msg.poll,
           }
 
-          // Mark as read only when actively viewing THIS chat (focused, correct route, at bottom, app active)
-          const isOnThisChat = isScreenFocused && typeof pathname === 'string' && pathname.startsWith('/chats/') && pathname.split('/')[2] === String(params.chatId)
-          if (fromUserId !== user._id && isOnThisChat && isUserAtBottomRef.current && AppState.currentState === 'active') {
+          // Mark as read only when actively viewing this chat (focused, at bottom, app active)
+          if (fromUserId !== user._id && isScreenFocused && isUserAtBottomRef.current && AppState.currentState === 'active') {
             if (params.chatType === "direct") {
               try { apiService.markDirectRead(params.chatId) } catch { }
             } else {
@@ -489,17 +487,18 @@ export default function ChatScreen() {
 
       const onRead = (payload: any) => {
         setMessages((prev) => prev.map((m) => {
-          if (
-            params.chatType === 'direct' &&
-            payload?.chatType === 'direct' &&
-            String(payload?.readerId || '') === String(params.chatId) &&
-            String(payload?.peerId || '') === String(currentUser?._id || '')
-          ) {
+          if (params.chatType === 'direct' && payload?.chatType === 'direct') {
+            // Only messages from me are affected by the peer's read
             // any message from me to peer is now read by peer
             if (m.sender === 'me') {
               const rb = Array.isArray((m as any).readBy) ? new Set((m as any).readBy.map(String)) : new Set<string>()
-              // Reader is the other user who just marked messages as read
-              if (payload?.readerId) rb.add(String(payload.readerId))
+              // backend uses readerId (who read) and peerId (whose messages were read)
+              const peerId = String(payload?.peerId || '')
+              const readerId = String(payload?.readerId || '')
+              const myId = String(currentUser?._id || '')
+              const otherId = String(params.chatId)
+              // Accept only if peerId is me and readerId is the other participant
+              if (peerId === myId && readerId === otherId) rb.add(readerId)
               return { ...(m as any), readBy: Array.from(rb) } as any
             }
           } else if (params.chatType === 'group' && payload?.chatType === 'group' && String(payload?.groupId) === String(params.chatId)) {
@@ -1601,6 +1600,7 @@ export default function ChatScreen() {
                 // direct: double if peer id present in readBy; group: double if any member besides me present
                 const rb = new Set<string>((Array.isArray((message as any).readBy) ? (message as any).readBy : []).map(String))
                 if (params.chatType === 'direct') {
+                  // seen if the other participant (peer) is present in readBy
                   const peerId = String(params.chatId)
                   const seen = rb.has(peerId)
                   return <Text style={{ fontSize: 12, color: seen ? '#4ea1ff' : '#888' }}>{seen ? '✓✓' : '✓'}</Text>
