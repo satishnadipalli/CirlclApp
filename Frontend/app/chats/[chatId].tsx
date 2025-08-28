@@ -1628,35 +1628,6 @@ export default function ChatScreen() {
             </View>
           )}
           <View style={{ flexDirection: 'row', marginTop: 8, alignItems: 'center', justifyContent: isMyMessage ? 'flex-end' : 'flex-start', gap: 8 }}>
-            <TouchableOpacity onPress={(evt: any) => {
-              setReactingTo(message)
-              try {
-                const y = (evt?.nativeEvent?.pageY || 100) - 50
-                const x = (evt?.nativeEvent?.pageX || 160)
-                setReactionAnchor({ x, y })
-              } catch { setReactionAnchor({ x: 160, y: 120 }) }
-            }} style={{ backgroundColor: '#f5f5f5', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 }}>
-              <Text style={{ fontSize: 12 }}>😊</Text>
-            </TouchableOpacity>
-            {/* Quick bookmark/pin chips */}
-            <TouchableOpacity onPress={async () => {
-              try {
-                const r: any = await apiService.request(`/messages/${message.id}/star`, { method: 'POST' })
-                if ((r as any)?.success) {
-                  setMessages((prev) => prev.map((m) => {
-                    if (m.id !== message.id) return m
-                    const next: any = { ...(m as any) }
-                    const me = String(currentUser?._id || '')
-                    const setStars = new Set<string>(Array.isArray(next.starredBy) ? next.starredBy.map(String) : [])
-                    if ((r as any)?.starred) setStars.add(me); else setStars.delete(me)
-                    next.starredBy = Array.from(setStars)
-                    return next
-                  }))
-                }
-              } catch {}
-            }} style={{ backgroundColor: '#fff5c2', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderColor: '#ffe38a' }}>
-              <Text style={{ fontSize: 12 }}>⭐</Text>
-            </TouchableOpacity>
             {isMyMessage && (
               (() => {
                 const isPinned = Boolean((message as any)?.pinnedAt)
@@ -1795,15 +1766,22 @@ export default function ChatScreen() {
   return (
     <View style={styles.container}>
       {/* Header */}
-      <View
+      <LinearGradient
+        colors={[colors.background, '#f7f9ff']}
+        start={[0,0]}
+        end={[1,1]}
         style={{
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
           padding: 12,
           borderBottomWidth: 1,
           borderBottomColor: colors.border,
-          backgroundColor: colors.background,
+          shadowColor: '#000',
+          shadowOpacity: 0.06,
+          shadowRadius: 6,
+          shadowOffset: { width: 0, height: 2 },
+          elevation: 2,
         }}
       >
         {isActionMode ? (
@@ -1944,7 +1922,7 @@ export default function ChatScreen() {
               )}
             </View>
           )}
-      </View>
+      </LinearGradient>
 
       {/* Pinned messages banner */}
       {messages.some((m: any) => !!(m as any)?.pinnedAt) && (
