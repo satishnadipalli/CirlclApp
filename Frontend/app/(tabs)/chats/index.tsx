@@ -246,6 +246,9 @@ export default function ChatsScreen() {
       setTypingState((p) => ({ ...p, [gid]: `${data?.name || "Someone"} is typing...` }))
       setTimeout(() => setTypingState((cur) => ({ ...cur, [gid]: "" })), 1500)
     })
+
+    // pins update
+    socketService.onMessageEdited?.((payload: any) => { /* no-op to satisfy TS */ })
   }
 
   useEffect(() => {

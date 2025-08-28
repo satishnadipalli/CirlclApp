@@ -275,6 +275,11 @@ class ApiService {
     return this.request(`/messages/direct/${withUserId}`)
   }
 
+  async searchDirectMessages(peerId: string, q: string, page = 1, limit = 20) {
+    const qp = `q=${encodeURIComponent(q)}&page=${page}&limit=${limit}`
+    return this.request(`/messages/direct/${peerId}/search?${qp}`)
+  }
+
   async sendDirectMessage(toUserId, text, replyTo) {
     return this.request("/messages", {
       method: "POST",
@@ -296,8 +301,18 @@ class ApiService {
   async getUserGroups() { return this.request("/groups") }
   async getGroupInfo(groupId) { return this.request(`/groups/${groupId}`) }
   async getGroupMessages(groupId) { return this.request(`/groups/${groupId}/messages`) }
+  async searchGroupMessages(groupId: string, q: string, page = 1, limit = 20) {
+    const qp = `q=${encodeURIComponent(q)}&page=${page}&limit=${limit}`
+    return this.request(`/messages/group/${groupId}/search?${qp}`)
+  }
   async sendGroupMessage(groupId, text, replyTo) {
     return this.request("/messages", { method: "POST", body: JSON.stringify({ group: groupId, text, messageType: "group", replyTo, }), }) }
+
+  // Message stars/pins
+  async toggleStar(messageId: string) { return this.request(`/messages/${messageId}/star`, { method: 'POST' }) }
+  async pinMessage(messageId: string) { return this.request(`/messages/${messageId}/pin`, { method: 'POST' }) }
+  async getDirectMedia(peerId: string, page = 1, limit = 24) { return this.request(`/messages/direct/${peerId}/media?page=${page}&limit=${limit}`) }
+  async getGroupMedia(groupId: string, page = 1, limit = 24) { return this.request(`/messages/group/${groupId}/media?page=${page}&limit=${limit}`) }
 
   // Polls
   async sendDirectPoll(toUserId: string, poll: { question: string; options: string[] | Array<{ id?: string; text: string }>; allowMultiple?: boolean; allowChange?: boolean; endsAt?: string|Date }, text = '') {

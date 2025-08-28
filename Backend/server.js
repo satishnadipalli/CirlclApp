@@ -10,6 +10,14 @@ const jwt = require("jsonwebtoken");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const morgan = require("morgan");
+// Optional Sentry + OpenTelemetry hooks (no-ops if env not set)
+let Sentry = null
+try {
+  if (process.env.SENTRY_DSN) {
+    Sentry = require('@sentry/node')
+    Sentry.init({ dsn: process.env.SENTRY_DSN, tracesSampleRate: Number(process.env.SENTRY_TRACES_SAMPLE_RATE || 0.1) })
+  }
+} catch {}
 
 const User = require("./models/user.models");
 
@@ -17,6 +25,9 @@ dotenv.config();
 connectDB();
 
 const app = express();
+if (Sentry) {
+  try { app.use(Sentry.Handlers.requestHandler()) } catch {}
+}
 
 app.use(helmet());
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
@@ -235,6 +246,9 @@ io.on("connection", (socket) => {
 });
 
 // Register error handler after routes and socket
+if (Sentry) {
+  try { app.use(Sentry.Handlers.errorHandler()) } catch {}
+}
 app.use(errorHandler);
 
 // Start server

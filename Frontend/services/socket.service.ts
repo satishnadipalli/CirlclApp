@@ -183,6 +183,9 @@ class SocketService {
     this.socket.on("messagesRead", (payload) => {
       this.messageReadListeners.forEach((l) => l(payload));
     });
+    this.socket.on("messagePinned", (payload) => {
+      try { (this.messageEditListeners || []).forEach((l) => l({ ...payload, pinned: true })) } catch {}
+    });
 
     this.socket.on("connect", () => {
       console.log("[v0] Socket connected:", this.socket.id);
