@@ -275,6 +275,11 @@ class ApiService {
     return this.request(`/messages/direct/${withUserId}`)
   }
 
+  // Paged variants for deep-jump
+  async getDirectMessagesPaged(withUserId: string, page = 1, limit = 50) {
+    return this.request(`/messages/direct/${withUserId}?page=${page}&limit=${limit}`)
+  }
+
   async searchDirectMessages(peerId: string, q: string, page = 1, limit = 20) {
     const qp = `q=${encodeURIComponent(q)}&page=${page}&limit=${limit}`
     return this.request(`/messages/direct/${peerId}/search?${qp}`)
@@ -301,6 +306,9 @@ class ApiService {
   async getUserGroups() { return this.request("/groups") }
   async getGroupInfo(groupId) { return this.request(`/groups/${groupId}`) }
   async getGroupMessages(groupId) { return this.request(`/groups/${groupId}/messages`) }
+  async getGroupMessagesPaged(groupId: string, page = 1, limit = 50) {
+    return this.request(`/groups/${groupId}/messages?page=${page}&limit=${limit}`)
+  }
   async searchGroupMessages(groupId: string, q: string, page = 1, limit = 20) {
     const qp = `q=${encodeURIComponent(q)}&page=${page}&limit=${limit}`
     return this.request(`/messages/group/${groupId}/search?${qp}`)

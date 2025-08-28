@@ -1,12 +1,13 @@
 "use client"
 
-import { useLocalSearchParams } from "expo-router"
+import { useLocalSearchParams, useRouter } from "expo-router"
 import { useEffect, useState } from "react"
 import { FlatList, Text, TouchableOpacity, View, TextInput, Image } from "react-native"
 import { apiService } from "@/services/api.service"
 
 export default function Bookmarks() {
   const { chatType, chatId, kind } = useLocalSearchParams<{ chatType: 'direct'|'group'; chatId: string; kind?: 'starred'|'pinned' }>()
+  const router = useRouter()
   const [items, setItems] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const isStarred = (kind || 'starred') === 'starred'
@@ -68,7 +69,7 @@ export default function Bookmarks() {
             const att = Array.isArray(item.attachments) && item.attachments.length ? item.attachments[0] : null
             const thumb = att?.url
             return (
-              <View style={{ width: '33.33%', aspectRatio: 1, padding: 2 }}>
+              <TouchableOpacity onPress={() => router.push({ pathname: `/chats/[chatId]`, params: { chatId: String(chatId), chatType: String(chatType), jumpToMessageId: String(item?._id || '') } })} style={{ width: '33.33%', aspectRatio: 1, padding: 2 }}>
                 <View style={{ flex: 1, backgroundColor: '#e9eef5', borderRadius: 10, overflow: 'hidden' }}>
                   {thumb ? (
                     <Image source={{ uri: thumb }} style={{ flex: 1 }} resizeMode="cover" />
@@ -78,7 +79,7 @@ export default function Bookmarks() {
                     </View>
                   )}
                 </View>
-              </View>
+              </TouchableOpacity>
             )
           }}
         />
@@ -87,7 +88,7 @@ export default function Bookmarks() {
           data={items.filter((m: any) => !q.trim() || String(m?.text || '').toLowerCase().includes(q.toLowerCase()))}
           keyExtractor={(m: any) => String(m._id)}
           renderItem={({ item }) => (
-            <View style={{ paddingHorizontal: 12, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#eee', flexDirection: 'row', gap: 10 }}>
+            <TouchableOpacity onPress={() => router.push({ pathname: `/chats/[chatId]`, params: { chatId: String(chatId), chatType: String(chatType), jumpToMessageId: String(item?._id || '') } })} style={{ paddingHorizontal: 12, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#eee', flexDirection: 'row', gap: 10 }}>
               <View style={{ width: 44, height: 44, borderRadius: 8, backgroundColor: '#eef3ff', alignItems: 'center', justifyContent: 'center' }}>
                 <Text style={{ fontSize: 16 }}>⭐</Text>
               </View>
@@ -96,7 +97,7 @@ export default function Bookmarks() {
                 <Text numberOfLines={2} style={{ color: '#333', marginTop: 2 }}>{item?.text || (Array.isArray(item?.attachments) && item.attachments.length ? '[attachment]' : '')}</Text>
                 <Text style={{ color: '#999', fontSize: 12, marginTop: 4 }}>{new Date(item?.createdAt).toLocaleString()}</Text>
               </View>
-            </View>
+            </TouchableOpacity>
           )}
         />
       )}

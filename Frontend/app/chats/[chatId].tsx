@@ -135,7 +135,7 @@ export default function ChatScreen() {
   const readListenerRef = useRef<((payload: any) => void) | null>(null)
   const isUserAtBottomRef = useRef<boolean>(true)
   const router = useRouter()
-  const params = useLocalSearchParams() as unknown as ChatParams
+  const params = useLocalSearchParams() as unknown as (ChatParams & { jumpToMessageId?: string })
   const draftKey = `chat_draft_${params.chatType}_${params.chatId}`
   const ephemeralKey = `chat_ephemeral_${params.chatType}_${params.chatId}`
 
@@ -569,6 +569,14 @@ export default function ChatScreen() {
         }))
         console.log("[v0] Loaded direct messages:", formattedMessages.length)
         setMessages(formattedMessages)
+        // Jump-to-message if requested
+        try {
+          const targetId = String((params as any)?.jumpToMessageId || '')
+          if (targetId) {
+            const idx = formattedMessages.findIndex((m) => String((m as any).id) === targetId)
+            if (idx >= 0) setTimeout(() => { try { flatListRef.current?.scrollToIndex({ index: idx, animated: true }) } catch {} }, 100)
+          }
+        } catch {}
       } else {
         const [messagesResponse, groupResponse] = await Promise.all([
           apiService.getGroupMessages(params.chatId),
@@ -593,6 +601,14 @@ export default function ChatScreen() {
           }))
           console.log("[v0] Loaded group messages:", formattedMessages.length)
           setMessages(formattedMessages)
+          // Jump-to-message if requested
+          try {
+            const targetId = String((params as any)?.jumpToMessageId || '')
+            if (targetId) {
+              const idx = formattedMessages.findIndex((m) => String((m as any).id) === targetId)
+              if (idx >= 0) setTimeout(() => { try { flatListRef.current?.scrollToIndex({ index: idx, animated: true }) } catch {} }, 100)
+            }
+          } catch {}
 
           // Mark as read for group
           try { await apiService.markGroupRead(params.chatId) } catch {}
