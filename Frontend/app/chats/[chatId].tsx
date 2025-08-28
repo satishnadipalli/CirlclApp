@@ -490,6 +490,10 @@ export default function ChatScreen() {
       const onRead = (payload: any) => {
         setMessages((prev) => prev.map((m) => {
           if (params.chatType === 'direct' && payload?.chatType === 'direct') {
+            // Delivery ack -> mark delivered on my sent messages
+            if ((payload as any)?.delivered && m.sender === 'me') {
+              return { ...(m as any), delivered: true } as any
+            }
             // Only messages from me are affected by the peer's read
             // any message from me to peer is now read by peer
             if (m.sender === 'me') {

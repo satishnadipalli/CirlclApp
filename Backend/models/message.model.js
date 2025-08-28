@@ -84,6 +84,9 @@ const messageSchema = new mongoose.Schema(
     // Ephemeral TTL
     expiresAt: { type: Date },
     burnAfterReadSeconds: { type: Number, default: null },
+    // Delivery tracking (per-recipient)
+    deliveredTo: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    deliveredAt: { type: Date },
   },
   { timestamps: true },
 )

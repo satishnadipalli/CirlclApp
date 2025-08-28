@@ -240,6 +240,21 @@ io.on("connection", (socket) => {
     try { await User.findByIdAndUpdate(userId, { $set: { lastActiveAt: new Date() } }) } catch {}
     //here thihs userStatus Chage helps us to chage the status of the user to make the status to noarmal to probable stuff and it eliminates the other user info profiles to a broging stuff
   });
+
+  // Delivery ack from clients (optional enhancement): when a client receives a message, it can ack delivery
+  socket.on('delivered', async (payload) => {
+    try {
+      const Message = require('./models/message.model')
+      const userId = socketToUser.get(socket.id) || socket.userId
+      if (!userId) return
+      const msgId = String(payload?.messageId || '')
+      if (!msgId) return
+      await Message.updateOne({ _id: msgId }, { $addToSet: { deliveredTo: userId }, $set: { deliveredAt: new Date() } })
+      const io = socket.server
+      const senderSocket = app.get('onlineUsers').get(String(payload?.senderId || ''))
+      if (senderSocket) io.to(senderSocket).emit('messagesDelivered', { messageId: msgId, deliveredTo: String(userId), at: new Date().toISOString() })
+    } catch {}
+  })
   // this will make the process simple and clear 
   // so that the userId with the user can follow the flow of the game though which the game can continue side
   // the power resides 

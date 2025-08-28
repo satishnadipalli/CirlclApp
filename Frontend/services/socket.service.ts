@@ -180,6 +180,9 @@ class SocketService {
     this.socket.on("pollUpdated", (payload) => {
       try { (this.pollUpdatedListeners || []).forEach((l) => l(payload)); } catch {}
     });
+    this.socket.on("messagesDelivered", (payload) => {
+      try { (this.messageReadListeners || []).forEach((l) => l({ ...(payload || {}), chatType: 'direct', delivered: true })); } catch {}
+    });
     this.socket.on("messagesRead", (payload) => {
       this.messageReadListeners.forEach((l) => l(payload));
     });

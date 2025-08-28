@@ -448,6 +448,15 @@ const sendMessage = async (req, res) => {
         if (recipientSocketId) io.to(recipientSocketId).emit("receiveDirectMessage", payload)
         const senderSocketId = onlineUsers.get((req.user.id || "").toString())
         if (senderSocketId) io.to(senderSocketId).emit("receiveDirectMessage", payload)
+        // Mark delivered when receiver is online (WhatsApp-like double gray)
+        try {
+          if (recipientSocketId) {
+            const MessageModel = require('../models/message.model')
+            await MessageModel.updateOne({ _id: message._id }, { $addToSet: { deliveredTo: to }, $set: { deliveredAt: new Date() } })
+            const ack = { chatType: 'direct', messageId: String(message._id), deliveredTo: String(to), at: new Date().toISOString() }
+            if (senderSocketId) io.to(senderSocketId).emit('messagesDelivered', ack)
+          }
+        } catch {}
       } else {
         const payload = {
           from: message.from?._id || message.from,
