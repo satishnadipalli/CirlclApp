@@ -1854,6 +1854,7 @@ export default function ChatScreen() {
                   <Text style={[styles.statusText, { color: colors.muted }]}>{headerInfo.status}</Text>
                 )}
               </View>
+            </View>
           </>
         )}
           {params.chatType === 'group' ? (
