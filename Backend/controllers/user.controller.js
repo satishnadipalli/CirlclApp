@@ -618,4 +618,5 @@ module.exports = {
   getSuggestions,
   getMutuals,
   getLastSeen,
+  setCustomStatus
 };

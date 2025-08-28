@@ -815,6 +815,7 @@ module.exports = {
   autoCaptions,
   useLatePass,
   deleteEntry,
-  listViewers
+  listViewers,
+  setGroupPrompt
 };
 

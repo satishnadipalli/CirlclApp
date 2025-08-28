@@ -940,4 +940,5 @@ module.exports = {
   toggleStar,
   pinMessage,
   unpinMessage,
+  listMedia
 }
