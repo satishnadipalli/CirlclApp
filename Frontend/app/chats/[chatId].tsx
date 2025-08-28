@@ -1529,20 +1529,29 @@ export default function ChatScreen() {
                 )}
               </View>
             )}
-            {(message as any)?.pinnedAt && (
-              <TouchableOpacity onPress={async () => {
-                try {
-                  if (String((message as any)?.pinnedBy || '') === String(currentUser?._id || '')) {
-                    const r: any = await apiService.unpinMessage(String(message.id))
-                    if ((r as any)?.success) setMessages((prev) => prev.map((m) => m.id === message.id ? ({ ...(m as any), pinnedBy: null, pinnedAt: null } as any) : m))
-                  } else {
-                    Alert.alert('Pinned by', `Pinned by ${((message as any)?.from?.name || 'someone')}`)
-                  }
-                } catch {}
-              }} style={{ marginLeft: 6, backgroundColor: '#fee9b5', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
-                <Text style={{ color: '#664400', fontSize: 11 }}>Pinned</Text>
-              </TouchableOpacity>
-            )}
+            {(message as any)?.pinnedAt && (() => {
+              const pinnedById = String((message as any)?.pinnedBy || '')
+              const meId = String(currentUser?._id || '')
+              let pinnedByName = 'Someone'
+              if (pinnedById === meId) pinnedByName = 'You'
+              else if (params.chatType === 'group') {
+                try { pinnedByName = (group?.members || []).find((m: any) => String(m?._id) === pinnedById)?.name || (message as any)?.from?.name || 'Someone' } catch {}
+              } else pinnedByName = (message as any)?.from?.name || 'Someone'
+              return (
+                <TouchableOpacity onPress={async () => {
+                  try {
+                    if (pinnedById === meId) {
+                      const r: any = await apiService.unpinMessage(String(message.id))
+                      if ((r as any)?.success) setMessages((prev) => prev.map((m) => m.id === message.id ? ({ ...(m as any), pinnedBy: null, pinnedAt: null } as any) : m))
+                    } else {
+                      Alert.alert('Pinned by', `Pinned by ${pinnedByName}`)
+                    }
+                  } catch {}
+                }} style={{ marginLeft: 6, backgroundColor: '#fee9b5', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
+                  <Text style={{ color: '#664400', fontSize: 11 }}>Pinned by {pinnedByName}</Text>
+                </TouchableOpacity>
+              )
+            })()}
             {Array.isArray((message as any)?.starredBy) && (message as any).starredBy.length > 0 && (
               <View style={{ marginLeft: 6, backgroundColor: '#ffeef7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
                 <Text style={{ color: '#8a004f', fontSize: 11 }}>Starred</Text>
@@ -1815,6 +1824,16 @@ export default function ChatScreen() {
           )}
         </View>
       </View>
+
+      {/* Pinned messages banner */}
+      {messages.some((m: any) => !!(m as any)?.pinnedAt) && (
+        <TouchableOpacity onPress={() => router.push({ pathname: '/bookmarks', params: { chatType: String(params.chatType), chatId: String(params.chatId), kind: 'pinned' } })} style={{ marginHorizontal: 12, marginTop: 8, marginBottom: 4, backgroundColor: '#fff6db', borderColor: '#ffe38a', borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Text style={{ color: '#765a00', fontWeight: '700' }}>Pinned messages</Text>
+          <View style={{ backgroundColor: '#ffe8a6', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 }}>
+            <Text style={{ color: '#7a5200', fontSize: 12 }}>{messages.filter((m: any) => !!(m as any)?.pinnedAt).length}</Text>
+          </View>
+        </TouchableOpacity>
+      )}
 
       {searchOpen && (
         <View style={{ paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: colors.border, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.background }}>
