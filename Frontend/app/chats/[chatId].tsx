@@ -23,6 +23,7 @@ import {
   View,
   Image,
   StatusBar,
+  AppState,
 } from "react-native"
 import * as ImagePicker from 'expo-image-picker'
 import * as DocumentPicker from 'expo-document-picker'
@@ -362,8 +363,8 @@ export default function ChatScreen() {
             poll: msg.poll,
           }
 
-          // Mark as read only when actively viewing (focused and at bottom)
-          if (fromUserId !== user._id && isScreenFocused && isUserAtBottomRef.current) {
+          // Mark as read only when actively viewing (focused, at bottom, and app active)
+          if (fromUserId !== user._id && isScreenFocused && isUserAtBottomRef.current && AppState.currentState === 'active') {
             if (params.chatType === "direct") {
               try { apiService.markDirectRead(params.chatId) } catch { }
             } else {
@@ -486,7 +487,7 @@ export default function ChatScreen() {
 
       const onRead = (payload: any) => {
         setMessages((prev) => prev.map((m) => {
-          if (params.chatType === 'direct' && payload?.chatType === 'direct') {
+          if (params.chatType === 'direct' && payload?.chatType === 'direct' && String(payload?.readerId || '') === String(params.chatId)) {
             // any message from me to peer is now read by peer
             if (m.sender === 'me') {
               const rb = Array.isArray((m as any).readBy) ? new Set((m as any).readBy.map(String)) : new Set<string>()
