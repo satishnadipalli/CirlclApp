@@ -362,6 +362,7 @@ export default function ChatScreen() {
             attachments: msg.attachments,
             poll: msg.poll,
             readBy: Array.isArray((msg as any)?.readBy) ? (msg as any).readBy : [],
+            delivered: String(fromUserId) === String(user._id) ? true : undefined,
           }
 
           // Mark as read only when actively viewing this chat (focused, at bottom, app active)
@@ -500,12 +501,12 @@ export default function ChatScreen() {
               const otherId = String(params.chatId)
               // Accept only if peerId is me and readerId is the other participant
               if (peerId === myId && readerId === otherId) rb.add(readerId)
-              return { ...(m as any), readBy: Array.from(rb) } as any
+              return { ...(m as any), readBy: Array.from(rb), delivered: true } as any
             }
           } else if (params.chatType === 'group' && payload?.chatType === 'group' && String(payload?.groupId) === String(params.chatId)) {
             const rb = new Set<string>((Array.isArray((m as any).readBy) ? (m as any).readBy : []).map(String))
             if (payload?.readerId) rb.add(String(payload.readerId))
-            return { ...(m as any), readBy: Array.from(rb) } as any
+            return { ...(m as any), readBy: Array.from(rb), delivered: true } as any
           }
           return m
         }))
@@ -639,6 +640,7 @@ export default function ChatScreen() {
           pinnedAt: (msg as any)?.pinnedAt || null,
           poll: msg.poll,
           readBy: Array.isArray((msg as any)?.readBy) ? (msg as any).readBy : [],
+          delivered: ((typeof msg.from === 'object' ? msg.from?._id : msg.from) === user._id) ? !!(Array.isArray((msg as any)?.readBy) && (msg as any).readBy.length >= 0) : undefined,
         }))
         console.log("[v0] Loaded direct messages:", formattedMessages.length)
         setMessages(formattedMessages)
@@ -1603,10 +1605,13 @@ export default function ChatScreen() {
                 // direct: double if peer id present in readBy; group: double if any member besides me present
                 const rb = new Set<string>((Array.isArray((message as any).readBy) ? (message as any).readBy : []).map(String))
                 if (params.chatType === 'direct') {
-                  // seen if the other participant (peer) is present in readBy
+                  // delivered assumed true once our message is echoed back via socket
+                  const delivered = (message as any).delivered === true
                   const peerId = String(params.chatId)
                   const seen = rb.has(peerId)
-                  return <Text style={{ fontSize: 12, color: seen ? '#4ea1ff' : '#888' }}>{seen ? '✓✓' : '✓'}</Text>
+                  if (seen) return <Text style={{ fontSize: 12, color: '#4ea1ff' }}>✓✓</Text>
+                  if (delivered) return <Text style={{ fontSize: 12, color: '#888' }}>✓✓</Text>
+                  return <Text style={{ fontSize: 12, color: '#888' }}>✓</Text>
                 } else {
                   const me = String(currentUser?._id || '')
                   rb.delete(me)
