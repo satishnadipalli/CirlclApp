@@ -2,7 +2,7 @@
 
 import { useLocalSearchParams } from "expo-router"
 import { useEffect, useState } from "react"
-import { FlatList, Text, TouchableOpacity, View } from "react-native"
+import { FlatList, Text, TouchableOpacity, View, TextInput, Image } from "react-native"
 import { apiService } from "@/services/api.service"
 
 export default function Bookmarks() {
@@ -11,37 +11,56 @@ export default function Bookmarks() {
   const [loading, setLoading] = useState(true)
   const isStarred = (kind || 'starred') === 'starred'
   const [view, setView] = useState<'list'|'grid'>('list')
+  const [tab, setTab] = useState<'starred'|'pinned'>(isStarred ? 'starred' : 'pinned')
+  const [q, setQ] = useState('')
 
   useEffect(() => {
     ;(async () => {
       setLoading(true)
       try {
         let res: any
-        if (chatType === 'direct') res = isStarred ? await apiService.getDirectStarred(String(chatId)) : await apiService.getDirectPinned(String(chatId))
-        else res = isStarred ? await apiService.getGroupStarred(String(chatId)) : await apiService.getGroupPinned(String(chatId))
+        const useStar = (kind ? isStarred : tab === 'starred')
+        if (chatType === 'direct') res = useStar ? await apiService.getDirectStarred(String(chatId)) : await apiService.getDirectPinned(String(chatId))
+        else res = useStar ? await apiService.getGroupStarred(String(chatId)) : await apiService.getGroupPinned(String(chatId))
         setItems(Array.isArray(res?.messages) ? res.messages : [])
       } finally { setLoading(false) }
     })()
-  }, [chatType, chatId, kind])
+  }, [chatType, chatId, kind, tab])
 
   return (
     <View style={{ flex: 1 }}>
-      <View style={{ paddingHorizontal: 12, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Text style={{ fontSize: 18, fontWeight: '800' }}>{isStarred ? 'Starred' : 'Pinned'}</Text>
-        <View style={{ flexDirection: 'row', gap: 10 }}>
-          <TouchableOpacity onPress={() => setView('list')} style={{ backgroundColor: view==='list' ? '#111' : '#f1f1f1', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 }}>
-            <Text style={{ color: view==='list' ? '#fff' : '#333', fontWeight: '700' }}>List</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => setView('grid')} style={{ backgroundColor: view==='grid' ? '#111' : '#f1f1f1', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 }}>
-            <Text style={{ color: view==='grid' ? '#fff' : '#333', fontWeight: '700' }}>Grid</Text>
-          </TouchableOpacity>
+      <View style={{ paddingHorizontal: 12, paddingVertical: 10 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Text style={{ fontSize: 18, fontWeight: '800' }}>{(kind ? isStarred : tab === 'starred') ? 'Starred' : 'Pinned'}</Text>
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <TouchableOpacity onPress={() => setView('list')} style={{ backgroundColor: view==='list' ? '#111' : '#f1f1f1', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 }}>
+              <Text style={{ color: view==='list' ? '#fff' : '#333', fontWeight: '700' }}>List</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setView('grid')} style={{ backgroundColor: view==='grid' ? '#111' : '#f1f1f1', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 }}>
+              <Text style={{ color: view==='grid' ? '#fff' : '#333', fontWeight: '700' }}>Grid</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+        {!kind && (
+          <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+            <TouchableOpacity onPress={() => setTab('starred')} style={{ backgroundColor: tab==='starred' ? '#fff3c8' : '#f7f7f7', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: tab==='starred' ? '#ffe38a' : '#eee' }}>
+              <Text style={{ fontWeight: '700', color: '#7a5200' }}>⭐ Starred</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setTab('pinned')} style={{ backgroundColor: tab==='pinned' ? '#eaf4ff' : '#f7f7f7', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: tab==='pinned' ? '#cfe6ff' : '#eee' }}>
+              <Text style={{ fontWeight: '700', color: '#29527a' }}>📌 Pinned</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+        <View style={{ marginTop: 10, backgroundColor: '#f2f2f2', borderRadius: 10, paddingHorizontal: 10, height: 40, flexDirection: 'row', alignItems: 'center' }}>
+          <Text style={{ color: '#888' }}>🔎</Text>
+          <TextInput value={q} onChangeText={setQ} placeholder="Search saved messages" placeholderTextColor="#999" style={{ marginLeft: 8, flex: 1, color: '#333' }} />
         </View>
       </View>
       {loading ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><Text>Loading…</Text></View>
       ) : view === 'grid' ? (
         <FlatList
-          data={items}
+          data={items.filter((m: any) => !q.trim() || String(m?.text || '').toLowerCase().includes(q.toLowerCase()))}
           keyExtractor={(m: any) => String(m._id)}
           numColumns={3}
           contentContainerStyle={{ paddingHorizontal: 2 }}
@@ -65,7 +84,7 @@ export default function Bookmarks() {
         />
       ) : (
         <FlatList
-          data={items}
+          data={items.filter((m: any) => !q.trim() || String(m?.text || '').toLowerCase().includes(q.toLowerCase()))}
           keyExtractor={(m: any) => String(m._id)}
           renderItem={({ item }) => (
             <View style={{ paddingHorizontal: 12, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#eee', flexDirection: 'row', gap: 10 }}>

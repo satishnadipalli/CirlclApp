@@ -112,6 +112,8 @@ export default function ChatScreen() {
   const [lastReadAt, setLastReadAt] = useState<string | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const menuAnim = useRef(new Animated.Value(0)).current
+  const [starredCount, setStarredCount] = useState(0)
+  const [pinnedCount, setPinnedCount] = useState(0)
 
   useEffect(() => {
     Animated.timing(menuAnim, { toValue: menuOpen ? 1 : 0, duration: 160, useNativeDriver: true }).start()
@@ -1697,6 +1699,16 @@ export default function ChatScreen() {
 
   const headerInfo = getHeaderInfo()
 
+  useEffect(() => {
+    try {
+      const me = String(currentUser?._id || '')
+      const starred = messages.filter((m: any) => Array.isArray(m?.starredBy) && m.starredBy.some((id: any) => String(id) === me)).length
+      const pinned = messages.filter((m: any) => !!m?.pinnedAt).length
+      setStarredCount(starred)
+      setPinnedCount(pinned)
+    } catch {}
+  }, [messages, currentUser])
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -1746,13 +1758,22 @@ export default function ChatScreen() {
                   <View style={{ height: 1, backgroundColor: '#f1f1f1' }} />
                   <TouchableOpacity onPress={() => { setMenuOpen(false); router.push({ pathname: '/mediaGallery', params: { chatType: 'group', chatId: String(params.chatId) } }) }} style={{ paddingVertical: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
                     <Icon name="collections" size={18} color={colors.text} /><Text style={{ marginLeft: 10, color: colors.text, fontSize: 15 }}>Media gallery</Text>
+                    <View style={{ marginLeft: 8, backgroundColor: '#eef3ff', borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2 }}>
+                      <Text style={{ color: '#4a68a0', fontSize: 12 }}>{messages.filter((m: any) => Array.isArray(m?.attachments) && m.attachments.length).length}</Text>
+                    </View>
                   </TouchableOpacity>
                   <View style={{ height: 1, backgroundColor: '#f1f1f1' }} />
                   <TouchableOpacity onPress={() => { setMenuOpen(false); router.push({ pathname: '/bookmarks', params: { chatType: 'group', chatId: String(params.chatId), kind: 'starred' } }) }} style={{ paddingVertical: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
                     <Icon name="star" size={18} color={colors.text} /><Text style={{ marginLeft: 10, color: colors.text, fontSize: 15 }}>Starred</Text>
+                    <View style={{ marginLeft: 8, backgroundColor: '#fff3c8', borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2 }}>
+                      <Text style={{ color: '#7a5200', fontSize: 12 }}>{starredCount}</Text>
+                    </View>
                   </TouchableOpacity>
                   <TouchableOpacity onPress={() => { setMenuOpen(false); router.push({ pathname: '/bookmarks', params: { chatType: 'group', chatId: String(params.chatId), kind: 'pinned' } }) }} style={{ paddingVertical: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
                     <Icon name="push-pin" size={18} color={colors.text} /><Text style={{ marginLeft: 10, color: colors.text, fontSize: 15 }}>Pinned</Text>
+                    <View style={{ marginLeft: 8, backgroundColor: '#eaf4ff', borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2 }}>
+                      <Text style={{ color: '#29527a', fontSize: 12 }}>{pinnedCount}</Text>
+                    </View>
                   </TouchableOpacity>
                   <View style={{ height: 1, backgroundColor: '#f1f1f1' }} />
                   <TouchableOpacity onPress={() => { setMenuOpen(false); router.push({ pathname: '/groups/[groupId]', params: { groupId: String(params.chatId) } as any }) }} style={{ paddingVertical: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
@@ -1774,13 +1795,22 @@ export default function ChatScreen() {
                   <View style={{ height: 1, backgroundColor: '#f1f1f1' }} />
                   <TouchableOpacity onPress={() => { setMenuOpen(false); router.push({ pathname: '/mediaGallery', params: { chatType: 'direct', chatId: String(params.chatId) } }) }} style={{ paddingVertical: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
                     <Icon name="collections" size={18} color={colors.text} /><Text style={{ marginLeft: 10, color: colors.text, fontSize: 15 }}>Media gallery</Text>
+                    <View style={{ marginLeft: 8, backgroundColor: '#eef3ff', borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2 }}>
+                      <Text style={{ color: '#4a68a0', fontSize: 12 }}>{messages.filter((m: any) => Array.isArray(m?.attachments) && m.attachments.length).length}</Text>
+                    </View>
                   </TouchableOpacity>
                   <View style={{ height: 1, backgroundColor: '#f1f1f1' }} />
                   <TouchableOpacity onPress={() => { setMenuOpen(false); router.push({ pathname: '/bookmarks', params: { chatType: 'direct', chatId: String(params.chatId), kind: 'starred' } }) }} style={{ paddingVertical: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
                     <Icon name="star" size={18} color={colors.text} /><Text style={{ marginLeft: 10, color: colors.text, fontSize: 15 }}>Starred</Text>
+                    <View style={{ marginLeft: 8, backgroundColor: '#fff3c8', borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2 }}>
+                      <Text style={{ color: '#7a5200', fontSize: 12 }}>{starredCount}</Text>
+                    </View>
                   </TouchableOpacity>
                   <TouchableOpacity onPress={() => { setMenuOpen(false); router.push({ pathname: '/bookmarks', params: { chatType: 'direct', chatId: String(params.chatId), kind: 'pinned' } }) }} style={{ paddingVertical: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
                     <Icon name="push-pin" size={18} color={colors.text} /><Text style={{ marginLeft: 10, color: colors.text, fontSize: 15 }}>Pinned</Text>
+                    <View style={{ marginLeft: 8, backgroundColor: '#eaf4ff', borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2 }}>
+                      <Text style={{ color: '#29527a', fontSize: 12 }}>{pinnedCount}</Text>
+                    </View>
                   </TouchableOpacity>
                 </Animated.View>
               )}

@@ -2,7 +2,7 @@
 
 import { useLocalSearchParams } from "expo-router"
 import { useEffect, useState } from "react"
-import { FlatList, Image, Text, TouchableOpacity, View } from "react-native"
+import { FlatList, Image, Modal, Text, TouchableOpacity, View } from "react-native"
 import { apiService } from "@/services/api.service"
 
 export default function MediaGallery() {
@@ -10,6 +10,7 @@ export default function MediaGallery() {
   const [items, setItems] = useState<Array<{ _id: string; attachments: Array<{ url: string; type: string }>; createdAt: string }>>([])
   const [loading, setLoading] = useState(true)
   const [sort, setSort] = useState<'new'|'old'>('new')
+  const [lightbox, setLightbox] = useState<{ visible: boolean; url?: string }>(() => ({ visible: false }))
 
   useEffect(() => {
     ;(async () => {
@@ -29,7 +30,7 @@ export default function MediaGallery() {
     if (!att) return null
     const isVideo = /video/i.test(String(att.type || ''))
     return (
-      <TouchableOpacity style={{ width: '33.33%', aspectRatio: 1, padding: 1 }}>
+      <TouchableOpacity style={{ width: '33.33%', aspectRatio: 1, padding: 1 }} onPress={() => setLightbox({ visible: true, url: att.url })}>
         <View style={{ flex: 1, backgroundColor: '#e9eef5', borderRadius: 8, overflow: 'hidden' }}>
           <Image source={{ uri: att.url }} style={{ flex: 1 }} resizeMode="cover" />
           <View style={{ position: 'absolute', left: 6, bottom: 6, backgroundColor: 'rgba(0,0,0,0.45)', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
@@ -66,6 +67,16 @@ export default function MediaGallery() {
         renderItem={renderItem}
         numColumns={3}
       />
+      <Modal visible={lightbox.visible} transparent animationType="fade" onRequestClose={() => setLightbox({ visible: false })}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', alignItems: 'center', justifyContent: 'center' }}>
+          <TouchableOpacity onPress={() => setLightbox({ visible: false })} style={{ position: 'absolute', top: 40, right: 20 }}>
+            <Text style={{ color: '#fff', fontSize: 18 }}>Close</Text>
+          </TouchableOpacity>
+          {lightbox.url ? (
+            <Image source={{ uri: lightbox.url }} style={{ width: '92%', height: '80%', borderRadius: 12 }} resizeMode="contain" />
+          ) : null}
+        </View>
+      </Modal>
     </View>
   )
 }
