@@ -38,6 +38,7 @@ import SwipeReply from "@/components/SwipeReply"
 import { LinearGradient } from "expo-linear-gradient"
 import * as Haptics from 'expo-haptics'
 import { useTheme } from '@/contexts/ThemeContext'
+import { SafeAreaView } from 'react-native-safe-area-context'
 
 interface ChatMessage {
   id: string
@@ -119,6 +120,7 @@ export default function ChatScreen() {
   const [selectedMessageIds, setSelectedMessageIds] = useState<Set<string>>(new Set())
   const [hiddenMessageIds, setHiddenMessageIds] = useState<Set<string>>(new Set())
   const REACTION_EMOJIS = ['❤️','👍','😂','😮','😢','🔥']
+  const [deleteModal, setDeleteModal] = useState<{ visible: boolean; ids: string[]; anyMine: boolean; anyOthers: boolean }>( { visible: false, ids: [], anyMine: false, anyOthers: false } )
 
   useEffect(() => {
     Animated.timing(menuAnim, { toValue: menuOpen ? 1 : 0, duration: 160, useNativeDriver: true }).start()
@@ -1764,7 +1766,7 @@ export default function ChatScreen() {
   const headerInfo = getHeaderInfo()
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       {/* Header */}
       <LinearGradient
         colors={[colors.background, '#f7f9ff']}
@@ -1796,53 +1798,21 @@ export default function ChatScreen() {
                 </TouchableOpacity>
               )}
               {selectedMessageIds.size === 1 && (
-                <TouchableOpacity onPress={async () => {
-                  try {
-                    const id = Array.from(selectedMessageIds)[0]
-                    const msg = messages.find((m) => String((m as any).id) === id)
-                    if (!msg) return
-                    const isMine = msg.sender === 'me'
-                    const options = [
-                      { text: 'Delete for me', style: 'default', onPress: async () => {
-                        setHiddenMessageIds((prev) => { const next = new Set(prev); next.add(String(id)); persistHidden(next); return next })
-                        setIsActionMode(false); setSelectedMessageIds(new Set()); setReactingTo(null); setReactionAnchor(null)
-                      }},
-                      ...(isMine ? [{ text: 'Delete for everyone', style: 'destructive', onPress: async () => {
-                        // optimistic remove
-                        setMessages((prev) => prev.filter((m) => String((m as any).id) !== String(id)))
-                        try { await apiService.request(`/messages/${id}`, { method: 'DELETE' }) } catch {}
-                        setIsActionMode(false); setSelectedMessageIds(new Set()); setReactingTo(null); setReactionAnchor(null)
-                      }}] : []),
-                      { text: 'Cancel', style: 'cancel', onPress: () => {} },
-                    ] as any
-                    Alert.alert('Delete message', 'Choose an option', options)
-                  } catch {}
+                <TouchableOpacity onPress={() => {
+                  const id = Array.from(selectedMessageIds)[0]
+                  const msg = messages.find((m) => String((m as any).id) === id)
+                  if (!msg) return
+                  setDeleteModal({ visible: true, ids: [id], anyMine: msg.sender === 'me', anyOthers: msg.sender !== 'me' })
                 }}>
                   <Icon name="delete-outline" size={20} color="#d32f2f" />
                 </TouchableOpacity>
               )}
               {selectedMessageIds.size > 1 && (
-                <TouchableOpacity onPress={async () => {
-                  try {
-                    const ids = Array.from(selectedMessageIds)
-                    const mine = ids.filter((id) => { const msg = messages.find((m) => String((m as any).id) === id); return msg?.sender === 'me' })
-                    Alert.alert('Delete messages', 'Choose an option', [
-                      { text: 'Delete for me', style: 'default', onPress: async () => {
-                        setHiddenMessageIds((prev) => { const next = new Set(prev); ids.forEach((i)=> next.add(String(i))); persistHidden(next); return next })
-                        setIsActionMode(false); setSelectedMessageIds(new Set()); setReactingTo(null); setReactionAnchor(null)
-                      }},
-                      { text: 'Delete for everyone', style: 'destructive', onPress: async () => {
-                        // optimistic remove only mine from list; leave others hidden for me
-                        setMessages((prev) => prev.filter((m) => !mine.includes(String((m as any).id))))
-                        try { await Promise.all(mine.map((id) => apiService.request(`/messages/${id}`, { method: 'DELETE' }))) } catch {}
-                        // for non-mine selected, just hide for me
-                        const others = ids.filter((id) => !mine.includes(id))
-                        if (others.length) setHiddenMessageIds((prev) => { const next = new Set(prev); others.forEach((i)=> next.add(String(i))); persistHidden(next); return next })
-                        setIsActionMode(false); setSelectedMessageIds(new Set()); setReactingTo(null); setReactionAnchor(null)
-                      }},
-                      { text: 'Cancel', style: 'cancel', onPress: () => {} },
-                    ])
-                  } catch {}
+                <TouchableOpacity onPress={() => {
+                  const ids = Array.from(selectedMessageIds)
+                  const anyMine = ids.some((id) => { const msg = messages.find((m) => String((m as any).id) === id); return msg?.sender === 'me' })
+                  const anyOthers = ids.some((id) => { const msg = messages.find((m) => String((m as any).id) === id); return msg?.sender !== 'me' })
+                  setDeleteModal({ visible: true, ids, anyMine, anyOthers })
                 }}>
                   <Icon name="delete-forever" size={22} color="#d32f2f" />
                 </TouchableOpacity>
@@ -2247,7 +2217,47 @@ export default function ChatScreen() {
           </View>
         </View>
       )}
-    </View>
+      {/* Delete Confirmation Modal */}
+      {deleteModal.visible && (
+        <Modal visible transparent animationType="fade" onRequestClose={() => setDeleteModal({ visible: false, ids: [], anyMine: false, anyOthers: false })}>
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' }}>
+            <View style={{ width: 300, backgroundColor: '#fff', borderRadius: 16, padding: 16 }}>
+              <Text style={{ fontSize: 16, fontWeight: '800', color: '#111' }}>{deleteModal.ids.length > 1 ? 'Delete messages?' : 'Delete message?'}</Text>
+              <Text style={{ color: '#555', marginTop: 6 }}>{deleteModal.ids.length > 1 ? 'Choose how you want to delete the selected messages.' : 'Choose how you want to delete this message.'}</Text>
+              <View style={{ height: 12 }} />
+              {deleteModal.anyOthers && (
+                <TouchableOpacity onPress={async () => {
+                  // Hide locally
+                  setHiddenMessageIds((prev) => { const next = new Set(prev); deleteModal.ids.forEach((i)=> next.add(String(i))); persistHidden(next); return next })
+                  setDeleteModal({ visible: false, ids: [], anyMine: false, anyOthers: false })
+                  setIsActionMode(false); setSelectedMessageIds(new Set()); setReactingTo(null); setReactionAnchor(null)
+                }} style={{ paddingVertical: 12 }}>
+                  <Text style={{ color: '#111', fontWeight: '700' }}>Delete for me</Text>
+                </TouchableOpacity>
+              )}
+              {deleteModal.anyMine && (
+                <TouchableOpacity onPress={async () => {
+                  // Optimistic remove my messages from list; hide others for me
+                  const mine = deleteModal.ids.filter((id) => { const msg = messages.find((m) => String((m as any).id) === id); return msg?.sender === 'me' })
+                  const others = deleteModal.ids.filter((id) => !mine.includes(id))
+                  if (mine.length) setMessages((prev) => prev.filter((m) => !mine.includes(String((m as any).id))))
+                  if (others.length) setHiddenMessageIds((prev) => { const next = new Set(prev); others.forEach((i)=> next.add(String(i))); persistHidden(next); return next })
+                  setDeleteModal({ visible: false, ids: [], anyMine: false, anyOthers: false })
+                  setIsActionMode(false); setSelectedMessageIds(new Set()); setReactingTo(null); setReactionAnchor(null)
+                  try { await Promise.all(mine.map((id) => apiService.request(`/messages/${id}`, { method: 'DELETE' }))) } catch {}
+                }} style={{ paddingVertical: 12 }}>
+                  <Text style={{ color: '#d32f2f', fontWeight: '800' }}>Delete for everyone</Text>
+                </TouchableOpacity>
+              )}
+              <View style={{ height: 8 }} />
+              <TouchableOpacity onPress={() => setDeleteModal({ visible: false, ids: [], anyMine: false, anyOthers: false })} style={{ alignSelf: 'flex-end', paddingVertical: 10 }}>
+                <Text style={{ color: '#007aff', fontWeight: '700' }}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      )}
+    </SafeAreaView>
   )
 }
 
@@ -2347,7 +2357,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#fff",
-    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
   },
   loadingContainer: {
     justifyContent: "center",
