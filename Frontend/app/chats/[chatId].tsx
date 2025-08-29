@@ -93,7 +93,7 @@ export default function ChatScreen() {
   const [group, setGroup] = useState<Group | null>(null)
   const [typingUsers, setTypingUsers] = useState<TypingUser[]>([])
   const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set())
-  const [isUserAtBottom, setIsUserAtBottom] = useState(true)
+  const [isUserAtBottom, setIsUserAtBottom] = useState(false)
   const [showGroupInfo, setShowGroupInfo] = useState(false)
   const [showScrollToBottom, setShowScrollToBottom] = useState(false)
   const [newMessagesCount, setNewMessagesCount] = useState(0)
@@ -144,7 +144,7 @@ export default function ChatScreen() {
   const deleteListenerRef = useRef<((payload: any) => void) | null>(null)
   const editListenerRef = useRef<((payload: any) => void) | null>(null)
   const readListenerRef = useRef<((payload: any) => void) | null>(null)
-  const isUserAtBottomRef = useRef<boolean>(true)
+  const isUserAtBottomRef = useRef<boolean>(false)
   const router = useRouter()
   const params = useLocalSearchParams() as unknown as (ChatParams & { jumpToMessageId?: string })
   const draftKey = `chat_draft_${params.chatType}_${params.chatId}`
@@ -365,11 +365,11 @@ export default function ChatScreen() {
             delivered: String(fromUserId) === String(user._id) ? true : undefined,
           }
 
-          // Mark as read when actively viewing
-          if (fromUserId !== user._id && isScreenFocused && AppState.currentState === 'active') {
+          // Mark as read when actively viewing and message is brought into view (at-bottom)
+          if (fromUserId !== user._id && isScreenFocused && AppState.currentState === 'active' && isUserAtBottomRef.current) {
             if (params.chatType === "direct") {
               try { apiService.markDirectRead(params.chatId) } catch { }
-            } else if (isUserAtBottomRef.current) {
+            } else {
               try { apiService.markGroupRead(params.chatId) } catch { }
             }
           }
@@ -1617,7 +1617,7 @@ export default function ChatScreen() {
                   const peerId = String(params.chatId)
                   const seen = rb.has(peerId)
                   if (seen) return <Text style={{ fontSize: 12, color: '#4ea1ff' }}>✓✓</Text>
-                  if (delivered) return <Text style={{ fontSize: 12, color: '#888' }}>✓✓</Text>
+                  if (delivered && isUserAtBottom) return <Text style={{ fontSize: 12, color: '#888' }}>✓✓</Text>
                   return <Text style={{ fontSize: 12, color: '#888' }}>✓</Text>
                 } else {
                   const me = String(currentUser?._id || '')

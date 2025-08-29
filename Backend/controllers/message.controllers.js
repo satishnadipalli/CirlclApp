@@ -448,7 +448,7 @@ const sendMessage = async (req, res) => {
         if (recipientSocketId) io.to(recipientSocketId).emit("receiveDirectMessage", payload)
         const senderSocketId = onlineUsers.get((req.user.id || "").toString())
         if (senderSocketId) io.to(senderSocketId).emit("receiveDirectMessage", payload)
-        // Mark delivered when receiver is online (WhatsApp-like double gray)
+        // Mark delivered when receiver is online AND a socket emit succeeded (WhatsApp-like double gray)
         try {
           if (recipientSocketId) {
             const MessageModel = require('../models/message.model')
