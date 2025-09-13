@@ -187,11 +187,15 @@ export default function GroupDetailsScreen() {
         })()}
       </View>
 
-      <View style={styles.groupHero}>
-        <Image source={{ uri: group.groupPic || "https://i.pravatar.cc/150?img=14" }} style={styles.heroAvatar} />
-        <Text style={styles.heroName}>{group.name}</Text>
-        {group.description ? <Text style={styles.heroDesc}>{group.description}</Text> : null}
-        <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+      <View style={[styles.groupHero, { paddingHorizontal: 16 }]}>
+        <View style={{ width: '100%', backgroundColor: '#eef2ff', borderRadius: 14, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <Image source={{ uri: group.groupPic || "https://i.pravatar.cc/150?img=14" }} style={styles.heroAvatar} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.heroName}>{group.name}</Text>
+            {group.description ? <Text style={styles.heroDesc}>{group.description}</Text> : null}
+          </View>
+        </View>
+        <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
           <TouchableOpacity onPress={() => router.push({ pathname: '/mediaGallery', params: { chatType: 'group', chatId: String(groupId) } })} style={{ backgroundColor: '#111', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 }}>
             <Text style={{ color: '#fff', fontWeight: '800' }}>Media gallery</Text>
           </TouchableOpacity>

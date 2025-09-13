@@ -5,6 +5,7 @@ import socketService from "@/services/socket.service"
 import { useLocalSearchParams, useRouter } from "expo-router"
 import React, { useEffect, useMemo, useRef, useState } from "react"
 import { Alert, FlatList, KeyboardAvoidingView, Platform, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View, ScrollView } from "react-native"
+import { LinearGradient } from "expo-linear-gradient"
 
 interface Idea { _id: string; author: string; text: string; votes: number }
 interface Cluster { _id?: string; title: string; ideaIds: string[] }
@@ -23,6 +24,7 @@ export default function SwarmLiveScreen() {
   const [newClusterTitle, setNewClusterTitle] = useState("")
   const [selectedForCluster, setSelectedForCluster] = useState<Record<string, boolean>>({})
   const [actionText, setActionText] = useState("")
+  const sendingRef = useRef<boolean>(false)
 
   useEffect(() => {
     let mounted = true
@@ -110,10 +112,30 @@ export default function SwarmLiveScreen() {
 
   const sendIdea = async () => {
     const t = ideaText.trim()
-    if (t.length < 2) return
-    const r: any = await apiService.addIdea(String(swarmId), t)
-    if (!(r?.success)) Alert.alert('Failed', r?.message || 'Could not add idea')
+    if (t.length < 2) { Alert.alert('Idea too short', 'Please write a bit more.'); return }
+    if (phase !== 'diverge') { Alert.alert('Not accepting ideas', 'The host needs to open the Diverge phase.'); return }
+    if (sendingRef.current) return
+    sendingRef.current = true
+    // Optimistic add
+    const tempId = `temp_${Date.now()}`
+    setSwarm((prev: any) => ({ ...(prev || {}), ideas: [ ...(prev?.ideas || []), { _id: tempId, author: 'me', text: t, votes: 0 } ] }))
     setIdeaText("")
+    try {
+      const r: any = await apiService.addIdea(String(swarmId), t)
+      if (!(r?.success && r?.idea)) {
+        // Revert optimistic on failure
+        setSwarm((prev: any) => ({ ...(prev || {}), ideas: (prev?.ideas || []).filter((i: any) => String(i._id) !== tempId) }))
+        Alert.alert('Failed', r?.message || 'Could not add idea')
+      } else {
+        // Replace temp with server idea
+        setSwarm((prev: any) => ({ ...(prev || {}), ideas: (prev?.ideas || []).map((i: any) => String(i._id) === tempId ? r.idea : i) }))
+      }
+    } catch (e) {
+      setSwarm((prev: any) => ({ ...(prev || {}), ideas: (prev?.ideas || []).filter((i: any) => String(i._id) !== tempId) }))
+      Alert.alert('Failed', (e as Error).message)
+    } finally {
+      sendingRef.current = false
+    }
   }
 
   const vote = async (ideaId: string) => {
@@ -161,28 +183,32 @@ export default function SwarmLiveScreen() {
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <View style={styles.header}>
+      <LinearGradient colors={["#0f172a", "#1e293b"]} start={[0,0]} end={[1,1]} style={styles.topBar}>
         <TouchableOpacity onPress={() => router.back()}><Text style={styles.back}>{"‹"}</Text></TouchableOpacity>
-        <Text style={styles.title}>Swarm</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.title, { color: '#fff' }]}>Swarm Session</Text>
+          <Text style={{ color: '#a5b4fc', fontWeight: '700' }}>{phase.toUpperCase()}</Text>
+        </View>
+        {endsIn > 0 && (
+          <View style={styles.countdownPill}><Text style={{ color: '#0f172a', fontWeight: '800' }}>{Math.floor(endsIn/60)}:{String(endsIn%60).padStart(2,'0')}</Text></View>
+        )}
         {isHost && phase !== 'ended' ? (
-          <TouchableOpacity onPress={endIfHost}><Text style={styles.actionDanger}>End</Text></TouchableOpacity>
+          <TouchableOpacity onPress={endIfHost}><Text style={[styles.actionDanger, { color: '#fecaca' }]}>End</Text></TouchableOpacity>
         ) : <View style={{ width: 40 }} />}
-      </View>
+      </LinearGradient>
 
       <View style={styles.promptBox}>
         <Text style={styles.prompt}>{swarm?.prompt}</Text>
-        <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
+        <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
           {isHost && phase === 'lobby' && <TouchableOpacity onPress={startIfHost}><Text style={styles.primary}>Start</Text></TouchableOpacity>}
           {isHost && phase !== 'lobby' && phase !== 'ended' && (
-            <View style={{ flexDirection: 'row', gap: 8 }}>
-              <TouchableOpacity onPress={() => gotoPhase('diverge')}><Text style={styles.chip}>Diverge</Text></TouchableOpacity>
-              <TouchableOpacity onPress={() => gotoPhase('cluster')}><Text style={styles.chip}>Cluster</Text></TouchableOpacity>
-              <TouchableOpacity onPress={() => gotoPhase('vote')}><Text style={styles.chip}>Vote</Text></TouchableOpacity>
-              <TouchableOpacity onPress={() => gotoPhase('converge')}><Text style={styles.chip}>Converge</Text></TouchableOpacity>
+            <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+              <TouchableOpacity onPress={() => gotoPhase('diverge')}><Text style={[styles.chip, phase==='diverge' && styles.chipOn]}>Diverge</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => gotoPhase('cluster')}><Text style={[styles.chip, phase==='cluster' && styles.chipOn]}>Cluster</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => gotoPhase('vote')}><Text style={[styles.chip, phase==='vote' && styles.chipOn]}>Vote</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => gotoPhase('converge')}><Text style={[styles.chip, phase==='converge' && styles.chipOn]}>Converge</Text></TouchableOpacity>
             </View>
           )}
-          <Text style={styles.phase}>Phase: {phase}</Text>
-          {endsIn > 0 && <Text style={styles.countdown}>{Math.floor(endsIn/60)}:{String(endsIn%60).padStart(2,'0')}</Text>}
         </View>
       </View>
 
@@ -190,11 +216,13 @@ export default function SwarmLiveScreen() {
         {/* Ideas list */}
         <Text style={{ fontWeight: '800', marginBottom: 6 }}>Ideas</Text>
         {ideas.map((item) => (
-          <View key={item._id} style={styles.ideaRow}>
-            <TouchableOpacity disabled={!isHost || phase !== 'cluster'} onPress={() => setSelectedForCluster((p) => ({ ...p, [item._id]: !p[item._id] }))}>
-              <Text style={[styles.selector, selectedForCluster[item._id] && styles.selectorOn]}>{selectedForCluster[item._id] ? '●' : '○'}</Text>
-            </TouchableOpacity>
-            <Text style={styles.ideaText}>{item.text}</Text>
+          <View key={item._id} style={styles.ideaCard}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <TouchableOpacity disabled={!isHost || phase !== 'cluster'} onPress={() => setSelectedForCluster((p) => ({ ...p, [item._id]: !p[item._id] }))}>
+                <Text style={[styles.selector, selectedForCluster[item._id] && styles.selectorOn]}>{selectedForCluster[item._id] ? '●' : '○'}</Text>
+              </TouchableOpacity>
+              <Text style={styles.ideaText}>{item.text}</Text>
+            </View>
             <TouchableOpacity disabled={phase !== 'vote'} onPress={() => vote(item._id)}><Text style={[styles.voteBtn, phase !== 'vote' && { opacity: 0.4 }]}>▲ {item.votes || 0}</Text></TouchableOpacity>
           </View>
         ))}
@@ -249,8 +277,21 @@ export default function SwarmLiveScreen() {
       </ScrollView>
 
       <View style={styles.inputBar}>
-        <TextInput value={ideaText} onChangeText={setIdeaText} placeholder="Add an idea…" placeholderTextColor="#999" style={styles.input} editable={phase === 'diverge'} />
-        <TouchableOpacity disabled={phase !== 'diverge'} onPress={sendIdea}><Text style={[styles.send, phase !== 'diverge' && { opacity: 0.4 }]}>Send</Text></TouchableOpacity>
+        <TextInput
+          value={ideaText}
+          onChangeText={setIdeaText}
+          placeholder={phase === 'diverge' ? "Add an idea…" : "Waiting for host to open Diverge"}
+          placeholderTextColor="#9ca3af"
+          style={styles.input}
+          editable={phase === 'diverge'}
+          onSubmitEditing={sendIdea}
+          returnKeyType="send"
+        />
+        {phase !== 'diverge' && isHost ? (
+          <TouchableOpacity onPress={() => gotoPhase('diverge')}><Text style={styles.primary}>Open Diverge</Text></TouchableOpacity>
+        ) : (
+          <TouchableOpacity onPress={sendIdea}><Text style={styles.send}>Send</Text></TouchableOpacity>
+        )}
       </View>
     </KeyboardAvoidingView>
   )
@@ -258,15 +299,16 @@ export default function SwarmLiveScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff', paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) - 10 : 0 },
-  header: { paddingHorizontal: 16, paddingBottom: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  topBar: { paddingHorizontal: 16, paddingBottom: 10, paddingTop: 10, flexDirection: 'row', alignItems: 'center' },
   back: { fontSize: 24 },
-  title: { fontSize: 18, fontWeight: '700' },
+  title: { fontSize: 18, fontWeight: '800' },
   actionDanger: { color: '#f33', fontSize: 14, fontWeight: '700' },
   promptBox: { backgroundColor: '#f7f7f7', margin: 16, padding: 12, borderRadius: 12 },
   prompt: { fontWeight: '700', marginBottom: 6 },
   phase: { color: '#555', fontWeight: '600' },
-  chip: { color: '#111', backgroundColor: '#eee', borderRadius: 12, overflow: 'hidden', paddingHorizontal: 8, paddingVertical: 4, fontWeight: '700' },
-  ideaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  chip: { color: '#111', backgroundColor: '#eef2ff', borderRadius: 999, overflow: 'hidden', paddingHorizontal: 10, paddingVertical: 6, fontWeight: '800' },
+  chipOn: { backgroundColor: '#c7d2fe' },
+  ideaCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fff', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, borderWidth: 1, borderColor: '#eee' },
   ideaText: { flex: 1, fontSize: 14, fontWeight: '600', marginRight: 10 },
   voteBtn: { color: '#0095f6', fontWeight: '800' },
   sep: { height: 1, backgroundColor: '#eee', marginVertical: 8 },
@@ -275,6 +317,7 @@ const styles = StyleSheet.create({
   send: { marginLeft: 10, color: '#0095f6', fontWeight: '800' },
   loading: { marginTop: 40, textAlign: 'center' },
   countdown: { marginLeft: 'auto', color: '#111', fontWeight: '700' },
+  countdownPill: { backgroundColor: '#bfdbfe', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, marginRight: 8 },
   selector: { width: 24, textAlign: 'center', color: '#888', fontWeight: '900' },
   selectorOn: { color: '#0095f6' },
 })
