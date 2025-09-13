@@ -13,6 +13,7 @@ router.get("/:swarmId", ctrl.getSwarm)
 router.post("/:swarmId/join", ctrl.joinSwarm)
 // Start
 router.post("/:swarmId/start", ctrl.startSwarm)
+router.post("/:swarmId/phase", ctrl.setPhase)
 // Ideas
 router.post("/:swarmId/ideas", ctrl.addIdea)
 // Clusters

@@ -435,6 +435,7 @@ class ApiService {
   async getSwarm(swarmId: string) { return this.request(`/swarms/${swarmId}`) }
   async joinSwarm(swarmId: string) { return this.request(`/swarms/${swarmId}/join`, { method: 'POST' }) }
   async startSwarm(swarmId: string) { return this.request(`/swarms/${swarmId}/start`, { method: 'POST' }) }
+  async setSwarmPhase(swarmId: string, phase: 'diverge'|'cluster'|'vote'|'converge') { return this.request(`/swarms/${swarmId}/phase`, { method: 'POST', body: JSON.stringify({ phase }) }) }
   async addIdea(swarmId: string, text: string) { return this.request(`/swarms/${swarmId}/ideas`, { method: 'POST', body: JSON.stringify({ text }) }) }
   async clusterIdeas(swarmId: string, clusters: Array<{ title: string; ideaIds: string[] }>) { return this.request(`/swarms/${swarmId}/clusters`, { method: 'POST', body: JSON.stringify({ clusters }) }) }
   async voteIdea(swarmId: string, ideaId: string) { return this.request(`/swarms/${swarmId}/ideas/${ideaId}/vote`, { method: 'POST' }) }

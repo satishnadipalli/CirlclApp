@@ -61,7 +61,8 @@ exports.getSwarm = async (req, res) => {
   const group = await Group.findById(doc.group)
   if (!group) return res.status(404).json({ success: false, message: "Group not found" })
   if (!isMember(group, req.user._id)) return res.status(403).json({ success: false, message: "Forbidden" })
-  return res.json({ success: true, swarm: doc })
+  const isHost = isAdmin(group, req.user._id) || String(doc.creator) === String(req.user._id)
+  return res.json({ success: true, swarm: doc, me: String(req.user._id), isHost, serverNow: new Date().toISOString() })
 }
 
 // Join lobby or active session
@@ -109,6 +110,27 @@ exports.startSwarm = async (req, res) => {
   return res.json({ success: true, swarm: doc })
 }
 
+// Set phase (host only)
+exports.setPhase = async (req, res) => {
+  const { swarmId } = req.params
+  const { phase } = req.body || {}
+  const allowed = ["diverge", "cluster", "vote", "converge"]
+  if (!allowed.includes(String(phase))) return res.status(400).json({ success: false, message: "Invalid phase" })
+  const doc = await SwarmSession.findById(swarmId)
+  if (!doc) return res.status(404).json({ success: false, message: "Not found" })
+  const group = await Group.findById(doc.group)
+  if (!group) return res.status(404).json({ success: false, message: "Group not found" })
+  if (!isAdmin(group, req.user._id) && String(doc.creator) !== String(req.user._id)) return res.status(403).json({ success: false, message: 'Only host' })
+  if (doc.status !== 'active') return res.status(400).json({ success: false, message: 'Not active' })
+  doc.lastPhase = String(phase)
+  await doc.save()
+  try {
+    const io = req.app.get("io")
+    if (io) io.to(`swarm_${doc._id}`).emit("swarm:phase", { swarmId: String(doc._id), phase: doc.lastPhase })
+  } catch {}
+  return res.json({ success: true, phase: doc.lastPhase })
+}
+
 // Post an idea
 exports.addIdea = async (req, res) => {
   const { swarmId } = req.params
@@ -120,6 +142,7 @@ exports.addIdea = async (req, res) => {
   if (!group) return res.status(404).json({ success: false, message: "Group not found" })
   if (!isMember(group, req.user._id)) return res.status(403).json({ success: false, message: "Forbidden" })
   if (doc.status !== "active") return res.status(400).json({ success: false, message: "Session not active" })
+  if (!['diverge', 'vote'].includes(doc.lastPhase)) return res.status(400).json({ success: false, message: "Not accepting ideas now" })
   const idea = { author: req.user._id, text: String(text).trim(), votes: 0 }
   doc.ideas.push(idea)
   await doc.save()
@@ -162,6 +185,7 @@ exports.voteIdea = async (req, res) => {
   const group = await Group.findById(doc.group)
   if (!group) return res.status(404).json({ success: false, message: "Group not found" })
   if (!isMember(group, req.user._id)) return res.status(403).json({ success: false, message: "Forbidden" })
+  if (doc.status !== 'active' || doc.lastPhase !== 'vote') return res.status(400).json({ success: false, message: "Voting is not open" })
   const idea = doc.ideas.id(ideaId)
   if (!idea) return res.status(404).json({ success: false, message: "Idea not found" })
   const existing = doc.votes.find((v) => String(v.user) === String(req.user._id) && String(v.ideaId) === String(ideaId))
@@ -185,6 +209,7 @@ exports.setActions = async (req, res) => {
   const group = await Group.findById(doc.group)
   if (!group) return res.status(404).json({ success: false, message: "Group not found" })
   if (!isMember(group, req.user._id)) return res.status(403).json({ success: false, message: "Forbidden" })
+  if (!(isAdmin(group, req.user._id) || String(doc.creator) === String(req.user._id))) return res.status(403).json({ success: false, message: 'Only host can set actions' })
 
   doc.actions = (Array.isArray(actions) ? actions : []).map((a) => ({
     text: String(a.text || "Action").slice(0, 200),

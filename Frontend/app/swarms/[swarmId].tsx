@@ -17,6 +17,8 @@ export default function SwarmLiveScreen() {
   const [swarm, setSwarm] = useState<any>(null)
   const [ideaText, setIdeaText] = useState("")
   const [phase, setPhase] = useState<string>("lobby")
+  const [isHost, setIsHost] = useState<boolean>(false)
+  const [endsIn, setEndsIn] = useState<number>(0)
 
   useEffect(() => {
     let mounted = true
@@ -25,8 +27,18 @@ export default function SwarmLiveScreen() {
         const r: any = await apiService.getSwarm(String(swarmId))
         if (r?.success) {
           if (!mounted) return
-          setSwarm(r.swarm)
+          setSwarm({ ...(r.swarm || {}), me: r.me })
           setPhase(r.swarm?.lastPhase || r.swarm?.status || 'lobby')
+          setIsHost(!!r.isHost)
+          try {
+            if (r?.swarm?.endsAt) {
+              const end = new Date(r.swarm.endsAt).getTime()
+              const tick = () => setEndsIn(Math.max(0, Math.floor((end - Date.now()) / 1000)))
+              tick()
+              const id = setInterval(tick, 1000)
+              return () => clearInterval(id)
+            }
+          } catch {}
           try { socketService.joinSwarm(String(swarmId)) } catch {}
           try { await apiService.joinSwarm(String(swarmId)) } catch {}
         } else {
@@ -107,6 +119,10 @@ export default function SwarmLiveScreen() {
     const r: any = await apiService.startSwarm(String(swarmId))
     if (!(r?.success)) Alert.alert('Start failed', r?.message || 'Not allowed')
   }
+  const gotoPhase = async (p: 'diverge'|'cluster'|'vote'|'converge') => {
+    const r: any = await apiService.setSwarmPhase(String(swarmId), p)
+    if (!(r?.success)) Alert.alert('Failed', r?.message || 'Not allowed')
+  }
 
   const endIfHost = async () => {
     const r: any = await apiService.endSwarm(String(swarmId))
@@ -120,14 +136,25 @@ export default function SwarmLiveScreen() {
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}><Text style={styles.back}>{"‹"}</Text></TouchableOpacity>
         <Text style={styles.title}>Swarm</Text>
-        <View style={{ width: 40 }} />
+        {isHost && phase !== 'ended' ? (
+          <TouchableOpacity onPress={endIfHost}><Text style={styles.actionDanger}>End</Text></TouchableOpacity>
+        ) : <View style={{ width: 40 }} />}
       </View>
 
       <View style={styles.promptBox}>
         <Text style={styles.prompt}>{swarm?.prompt}</Text>
-        <View style={{ flexDirection: 'row', gap: 10 }}>
-          {phase === 'lobby' && <TouchableOpacity onPress={startIfHost}><Text style={styles.primary}>Start</Text></TouchableOpacity>}
+        <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
+          {isHost && phase === 'lobby' && <TouchableOpacity onPress={startIfHost}><Text style={styles.primary}>Start</Text></TouchableOpacity>}
+          {isHost && phase !== 'lobby' && phase !== 'ended' && (
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <TouchableOpacity onPress={() => gotoPhase('diverge')}><Text style={styles.chip}>Diverge</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => gotoPhase('cluster')}><Text style={styles.chip}>Cluster</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => gotoPhase('vote')}><Text style={styles.chip}>Vote</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => gotoPhase('converge')}><Text style={styles.chip}>Converge</Text></TouchableOpacity>
+            </View>
+          )}
           <Text style={styles.phase}>Phase: {phase}</Text>
+          {endsIn > 0 && <Text style={styles.countdown}>{Math.floor(endsIn/60)}:{String(endsIn%60).padStart(2,'0')}</Text>}
         </View>
       </View>
 
@@ -161,6 +188,7 @@ const styles = StyleSheet.create({
   promptBox: { backgroundColor: '#f7f7f7', margin: 16, padding: 12, borderRadius: 12 },
   prompt: { fontWeight: '700', marginBottom: 6 },
   phase: { color: '#555', fontWeight: '600' },
+  chip: { color: '#111', backgroundColor: '#eee', borderRadius: 12, overflow: 'hidden', paddingHorizontal: 8, paddingVertical: 4, fontWeight: '700' },
   ideaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   ideaText: { flex: 1, fontSize: 14, fontWeight: '600', marginRight: 10 },
   voteBtn: { color: '#0095f6', fontWeight: '800' },
@@ -169,5 +197,6 @@ const styles = StyleSheet.create({
   input: { flex: 1, height: 40, borderWidth: 1, borderColor: '#eee', borderRadius: 10, paddingHorizontal: 10, color: '#000' },
   send: { marginLeft: 10, color: '#0095f6', fontWeight: '800' },
   loading: { marginTop: 40, textAlign: 'center' },
+  countdown: { marginLeft: 'auto', color: '#111', fontWeight: '700' },
 })
 
