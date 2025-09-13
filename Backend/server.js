@@ -76,6 +76,7 @@ app.use("/api/messages", require("./routes/message.routes")); // new chat route
 app.use("/api/groups", require("./routes/group.routes")); // Added group routes for group chat functionality
 app.use("/api/daily", require("./routes/daily.routes")); // Daily Circle feature
 app.use("/api/safety", require("./routes/safety.routes"));
+app.use("/api/swarms", require("./routes/swarm.routes"));
 
 // Test Route
 app.get("/", (req, res) => res.send("API is running..."));
@@ -145,6 +146,14 @@ io.on("connection", (socket) => {
   socket.on("joinGroup", (groupId) => {
     socket.join(`group_${groupId}`);
   });
+
+  // Swarm rooms
+  socket.on("joinSwarm", (swarmId) => {
+    socket.join(`swarm_${swarmId}`)
+  })
+  socket.on("leaveSwarm", (swarmId) => {
+    socket.leave(`swarm_${swarmId}`)
+  })
 
   // Leave group room
   socket.on("leaveGroup", (groupId) => {
