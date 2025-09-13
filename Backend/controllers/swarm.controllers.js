@@ -164,6 +164,7 @@ exports.clusterIdeas = async (req, res) => {
   if (!group) return res.status(404).json({ success: false, message: "Group not found" })
   if (!isMember(group, req.user._id)) return res.status(403).json({ success: false, message: "Forbidden" })
   if (doc.status !== "active") return res.status(400).json({ success: false, message: "Session not active" })
+  if (!(isAdmin(group, req.user._id) || String(doc.creator) === String(req.user._id))) return res.status(403).json({ success: false, message: 'Only host can cluster' })
 
   doc.clusters = Array.isArray(clusters)
     ? clusters.map((c) => ({ title: String(c.title || "Cluster").slice(0, 100), ideaIds: (Array.isArray(c.ideaIds) ? c.ideaIds : []).map((x) => x) }))

@@ -4,7 +4,7 @@ import { apiService } from "@/services/api.service"
 import socketService from "@/services/socket.service"
 import { useLocalSearchParams, useRouter } from "expo-router"
 import React, { useEffect, useMemo, useRef, useState } from "react"
-import { Alert, FlatList, KeyboardAvoidingView, Platform, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native"
+import { Alert, FlatList, KeyboardAvoidingView, Platform, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View, ScrollView } from "react-native"
 
 interface Idea { _id: string; author: string; text: string; votes: number }
 interface Cluster { _id?: string; title: string; ideaIds: string[] }
@@ -19,6 +19,10 @@ export default function SwarmLiveScreen() {
   const [phase, setPhase] = useState<string>("lobby")
   const [isHost, setIsHost] = useState<boolean>(false)
   const [endsIn, setEndsIn] = useState<number>(0)
+  const [clusters, setClusters] = useState<Cluster[]>([])
+  const [newClusterTitle, setNewClusterTitle] = useState("")
+  const [selectedForCluster, setSelectedForCluster] = useState<Record<string, boolean>>({})
+  const [actionText, setActionText] = useState("")
 
   useEffect(() => {
     let mounted = true
@@ -30,6 +34,7 @@ export default function SwarmLiveScreen() {
           setSwarm({ ...(r.swarm || {}), me: r.me })
           setPhase(r.swarm?.lastPhase || r.swarm?.status || 'lobby')
           setIsHost(!!r.isHost)
+          setClusters((r?.swarm?.clusters || []) as any)
           try {
             if (r?.swarm?.endsAt) {
               const end = new Date(r.swarm.endsAt).getTime()
@@ -74,6 +79,7 @@ export default function SwarmLiveScreen() {
     const onClusters = (p: any) => {
       if (String(p?.swarmId) !== String(swarmId)) return
       setSwarm((prev: any) => ({ ...(prev || {}), clusters: p.clusters || [] }))
+      setClusters((p?.clusters || []) as any)
       setPhase('cluster')
     }
     const onActions = (p: any) => {
@@ -124,6 +130,28 @@ export default function SwarmLiveScreen() {
     if (!(r?.success)) Alert.alert('Failed', r?.message || 'Not allowed')
   }
 
+  const addCluster = async () => {
+    const title = newClusterTitle.trim()
+    const ids = Object.keys(selectedForCluster).filter((k) => selectedForCluster[k])
+    if (!isHost) return
+    if (!title || ids.length === 0) return
+    const next = [...clusters, { title, ideaIds: ids } as Cluster]
+    setClusters(next)
+    setNewClusterTitle("")
+    setSelectedForCluster({})
+    const r: any = await apiService.clusterIdeas(String(swarmId), next as any)
+    if (!(r?.success)) Alert.alert('Failed', r?.message || 'Could not cluster')
+  }
+
+  const setAction = async () => {
+    const t = actionText.trim()
+    if (!isHost || !t) return
+    const payload = [{ text: t }]
+    const r: any = await apiService.setActions(String(swarmId), payload)
+    if (!(r?.success)) Alert.alert('Failed', r?.message || 'Could not set actions')
+    else setActionText("")
+  }
+
   const endIfHost = async () => {
     const r: any = await apiService.endSwarm(String(swarmId))
     if (!(r?.success)) Alert.alert('End failed', r?.message || 'Not allowed')
@@ -158,18 +186,48 @@ export default function SwarmLiveScreen() {
         </View>
       </View>
 
-      <FlatList
-        data={ideas}
-        keyExtractor={(i) => i._id}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}
-        renderItem={({ item }) => (
-          <View style={styles.ideaRow}>
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 140 }}>
+        {/* Ideas list */}
+        <Text style={{ fontWeight: '800', marginBottom: 6 }}>Ideas</Text>
+        {ideas.map((item) => (
+          <View key={item._id} style={styles.ideaRow}>
+            <TouchableOpacity disabled={!isHost || phase !== 'cluster'} onPress={() => setSelectedForCluster((p) => ({ ...p, [item._id]: !p[item._id] }))}>
+              <Text style={[styles.selector, selectedForCluster[item._id] && styles.selectorOn]}>{selectedForCluster[item._id] ? '●' : '○'}</Text>
+            </TouchableOpacity>
             <Text style={styles.ideaText}>{item.text}</Text>
-            <TouchableOpacity onPress={() => vote(item._id)}><Text style={styles.voteBtn}>▲ {item.votes || 0}</Text></TouchableOpacity>
+            <TouchableOpacity disabled={phase !== 'vote'} onPress={() => vote(item._id)}><Text style={[styles.voteBtn, phase !== 'vote' && { opacity: 0.4 }]}>▲ {item.votes || 0}</Text></TouchableOpacity>
+          </View>
+        ))}
+        <View style={styles.sep} />
+
+        {/* Cluster UI (host only) */}
+        {isHost && phase === 'cluster' && (
+          <View style={{ marginTop: 8 }}>
+            <Text style={{ fontWeight: '800', marginBottom: 6 }}>Clusters</Text>
+            {(clusters || []).map((c, idx) => (
+              <Text key={String(idx)} style={{ marginBottom: 4 }}>- {c.title} ({c.ideaIds?.length || 0})</Text>
+            ))}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 }}>
+              <TextInput value={newClusterTitle} onChangeText={setNewClusterTitle} placeholder="Cluster title" placeholderTextColor="#999" style={[styles.input, { flex: 0.7 }]} />
+              <TouchableOpacity onPress={addCluster}><Text style={styles.primary}>Add cluster</Text></TouchableOpacity>
+            </View>
           </View>
         )}
-        ItemSeparatorComponent={() => <View style={styles.sep} />}
-      />
+
+        {/* Converge actions (host) */}
+        {isHost && phase === 'converge' && (
+          <View style={{ marginTop: 8 }}>
+            <Text style={{ fontWeight: '800', marginBottom: 6 }}>Actions</Text>
+            {Array.isArray(swarm?.actions) && (swarm.actions as any[]).map((a: any, i: number) => (
+              <Text key={String(i)} style={{ marginBottom: 4 }}>- {a.text}</Text>
+            ))}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 }}>
+              <TextInput value={actionText} onChangeText={setActionText} placeholder="Add action" placeholderTextColor="#999" style={[styles.input, { flex: 0.7 }]} />
+              <TouchableOpacity onPress={setAction}><Text style={styles.primary}>Save</Text></TouchableOpacity>
+            </View>
+          </View>
+        )}
+      </ScrollView>
 
       <View style={styles.inputBar}>
         <TextInput value={ideaText} onChangeText={setIdeaText} placeholder="Add an idea…" placeholderTextColor="#999" style={styles.input} />
@@ -198,5 +256,7 @@ const styles = StyleSheet.create({
   send: { marginLeft: 10, color: '#0095f6', fontWeight: '800' },
   loading: { marginTop: 40, textAlign: 'center' },
   countdown: { marginLeft: 'auto', color: '#111', fontWeight: '700' },
+  selector: { width: 24, textAlign: 'center', color: '#888', fontWeight: '900' },
+  selectorOn: { color: '#0095f6' },
 })
 
