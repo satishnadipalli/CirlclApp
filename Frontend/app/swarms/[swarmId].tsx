@@ -28,6 +28,7 @@ export default function SwarmLiveScreen() {
           setSwarm(r.swarm)
           setPhase(r.swarm?.lastPhase || r.swarm?.status || 'lobby')
           try { socketService.joinSwarm(String(swarmId)) } catch {}
+          try { await apiService.joinSwarm(String(swarmId)) } catch {}
         } else {
           Alert.alert('Not found', r?.message || 'Swarm not found')
           router.back()
@@ -119,9 +120,7 @@ export default function SwarmLiveScreen() {
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}><Text style={styles.back}>{"‹"}</Text></TouchableOpacity>
         <Text style={styles.title}>Swarm</Text>
-        {swarm?.creator === swarm?.me ? (
-          <TouchableOpacity onPress={endIfHost}><Text style={styles.actionDanger}>End</Text></TouchableOpacity>
-        ) : <View style={{ width: 40 }} />}
+        <View style={{ width: 40 }} />
       </View>
 
       <View style={styles.promptBox}>
