@@ -1,5 +1,6 @@
 const SwarmSession = require("../models/swarmSession.model")
 const Group = require("../models/group.model")
+const { createNotification } = require("../utils/functions")
 
 // Helpers
 function isMember(group, userId) {
@@ -35,6 +36,19 @@ exports.createSwarm = async (req, res) => {
     startedAt: null,
     endsAt,
   })
+
+  // Notify invitees (best-effort)
+  try {
+    const uniqueInvitees = Array.from(new Set((invited || []).map(String))).filter((id) => String(id) !== String(req.user._id))
+    await Promise.all(uniqueInvitees.map((uid) => createNotification({
+      req,
+      receiverId: uid,
+      senderId: req.user._id,
+      type: 'swarm_invite',
+      text: String(prompt).slice(0, 140),
+      actionLink: `/swarms/${String(doc._id)}`,
+    })))
+  } catch {}
 
   return res.json({ success: true, swarm: doc })
 }

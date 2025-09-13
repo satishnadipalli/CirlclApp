@@ -8,6 +8,7 @@ import { Alert, FlatList, Image, StyleSheet, Text, TextInput, TouchableOpacity, 
 import Icon from "react-native-vector-icons/MaterialIcons"
 import * as ImagePicker from 'expo-image-picker'
 import socketService from "@/services/socket.service"
+import { Modal } from "react-native"
 
 interface Member { _id: string; name: string; profilePic?: string }
 interface Group {
@@ -37,6 +38,7 @@ export default function GroupDetailsScreen() {
   const [postingDaily, setPostingDaily] = useState(false)
   const [promptModal, setPromptModal] = useState(false)
   const [promptText, setPromptText] = useState("")
+  const [startModal, setStartModal] = useState(false)
 
   const isAdmin = (userId: string) => {
     const admins = (group?.admins || []) as any[]
@@ -192,17 +194,7 @@ export default function GroupDetailsScreen() {
           <TouchableOpacity onPress={() => router.push({ pathname: '/bookmarks', params: { chatType: 'group', chatId: String(groupId), kind: 'pinned' } })} style={{ backgroundColor: '#f1f1f1', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 }}>
             <Text style={{ color: '#111', fontWeight: '800' }}>Pinned</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={async () => {
-            try {
-              const resp: any = await apiService.createSwarm({ groupId: String(groupId), prompt: `Quick brainstorm: How might we improve ${group.name}?`, invitedUserIds: (group.members || []).slice(0, 6).map((m) => (typeof m === 'string' ? m : (m as any)._id)) })
-              if (resp?.success && resp?.swarm?._id) {
-                try { socketService.joinSwarm(String(resp.swarm._id)) } catch {}
-                router.push({ pathname: '/swarms/[swarmId]', params: { swarmId: String(resp.swarm._id) } })
-              } else {
-                Alert.alert('Failed', resp?.message || 'Could not start')
-              }
-            } catch (e) { Alert.alert('Error', (e as Error).message) }
-          }} style={{ backgroundColor: '#111', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 }}>
+          <TouchableOpacity onPress={() => setStartModal(true)} style={{ backgroundColor: '#111', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 }}>
             <Text style={{ color: '#fff', fontWeight: '800' }}>Start Swarm</Text>
           </TouchableOpacity>
         </View>
@@ -377,6 +369,12 @@ export default function GroupDetailsScreen() {
         </View>
       </Modal>
 
+      {/* Start Swarm modal */}
+      <StartSwarmModal visible={startModal} onClose={() => setStartModal(false)} group={group} groupId={String(groupId)} onStarted={(sid) => {
+        setStartModal(false)
+        router.push({ pathname: '/swarms/[swarmId]', params: { swarmId: String(sid) } })
+      }} />
+
       <FlatList
         data={members}
         keyExtractor={(m) => m._id}
@@ -419,6 +417,55 @@ export default function GroupDetailsScreen() {
         ItemSeparatorComponent={() => <View style={styles.sep} />}
       />
     </View>
+  )
+}
+const StartSwarmModal: React.FC<{ visible: boolean; onClose: () => void; group: Group; groupId: string; onStarted: (sid: string) => void }> = ({ visible, onClose, group, groupId, onStarted }) => {
+  const [prompt, setPrompt] = useState(`Quick brainstorm: How might we improve ${group?.name || 'this group'}?`)
+  const [duration, setDuration] = useState('15')
+  const [busy, setBusy] = useState(false)
+  const suggestedInvites = (group?.members || []).slice(0, 6).map((m) => (typeof m === 'string' ? m : (m as any)._id))
+  const [invited, setInvited] = useState<Record<string, boolean>>(() => Object.fromEntries(suggestedInvites.map((id) => [id, true])))
+
+  const start = async () => {
+    if (busy) return
+    setBusy(true)
+    try {
+      const invitedUserIds = Object.keys(invited).filter((id) => invited[id])
+      const resp: any = await apiService.createSwarm({ groupId, prompt: prompt.trim(), invitedUserIds, durationMinutes: Number(duration) || 15 })
+      if (resp?.success && resp?.swarm?._id) {
+        try { socketService.joinSwarm(String(resp.swarm._id)) } catch {}
+        onStarted(String(resp.swarm._id))
+      } else {
+        Alert.alert('Failed', resp?.message || 'Could not start')
+      }
+    } catch (e) { Alert.alert('Error', (e as Error).message) } finally { setBusy(false) }
+  }
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+        <View style={{ backgroundColor: '#fff', borderRadius: 14, padding: 16, width: '100%' }}>
+          <Text style={{ fontWeight: '800', fontSize: 16, marginBottom: 8 }}>Start a Swarm</Text>
+          <TextInput value={prompt} onChangeText={setPrompt} placeholder="Swarm prompt" placeholderTextColor="#888" style={{ borderWidth: 1, borderColor: '#eee', borderRadius: 10, paddingHorizontal: 10, height: 44, color: '#000', marginBottom: 8 }} />
+          <TextInput value={duration} onChangeText={setDuration} keyboardType="number-pad" placeholder="Duration (minutes)" placeholderTextColor="#888" style={{ borderWidth: 1, borderColor: '#eee', borderRadius: 10, paddingHorizontal: 10, height: 44, color: '#000', marginBottom: 8 }} />
+          <Text style={{ fontWeight: '700', marginTop: 4, marginBottom: 4 }}>Invite (up to 6)</Text>
+          <FlatList data={(group?.members || []) as any} keyExtractor={(m: any) => (typeof m === 'string' ? m : m._id)} horizontal style={{ maxHeight: 60 }} renderItem={({ item }: any) => {
+            const id = typeof item === 'string' ? item : item._id
+            const name = typeof item === 'string' ? id.slice(-4) : (item.name || id.slice(-4))
+            const on = !!invited[id]
+            return (
+              <TouchableOpacity onPress={() => setInvited((p) => ({ ...p, [id]: !p[id] }))} style={{ marginRight: 8, backgroundColor: on ? '#0095f6' : '#eee', borderRadius: 14, paddingHorizontal: 10, paddingVertical: 6 }}>
+                <Text style={{ color: on ? '#fff' : '#111', fontWeight: '700' }}>{name}</Text>
+              </TouchableOpacity>
+            )
+          }} />
+          <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 12 }}>
+            <TouchableOpacity onPress={onClose}><Text style={{ color: '#666', fontWeight: '700' }}>Cancel</Text></TouchableOpacity>
+            <TouchableOpacity disabled={busy} onPress={start}><Text style={{ color: busy ? '#aaa' : '#0095f6', fontWeight: '800' }}>{busy ? 'Starting…' : 'Start'}</Text></TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
   )
 }
 
