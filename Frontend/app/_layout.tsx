@@ -111,6 +111,7 @@ export default function RootLayout() {
 
         {/* Swarm session screen */}
         <Stack.Screen name="swarms/[swarmId]" />
+        <Stack.Screen name="swarms/outcomes/[groupId]" />
 
       </Stack>
       </NotificationProvider>

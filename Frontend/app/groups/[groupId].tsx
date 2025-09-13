@@ -194,6 +194,9 @@ export default function GroupDetailsScreen() {
           <TouchableOpacity onPress={() => router.push({ pathname: '/bookmarks', params: { chatType: 'group', chatId: String(groupId), kind: 'pinned' } })} style={{ backgroundColor: '#f1f1f1', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 }}>
             <Text style={{ color: '#111', fontWeight: '800' }}>Pinned</Text>
           </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push({ pathname: '/swarms/outcomes/[groupId]', params: { groupId: String(groupId) } })} style={{ backgroundColor: '#f1f1f1', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 }}>
+            <Text style={{ color: '#111', fontWeight: '800' }}>Outcomes</Text>
+          </TouchableOpacity>
           <TouchableOpacity onPress={() => setStartModal(true)} style={{ backgroundColor: '#111', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 }}>
             <Text style={{ color: '#fff', fontWeight: '800' }}>Start Swarm</Text>
           </TouchableOpacity>

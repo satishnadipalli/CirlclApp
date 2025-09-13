@@ -442,6 +442,7 @@ class ApiService {
   async setActions(swarmId: string, actions: Array<{ text: string; owner?: string; dueAt?: string }>) { return this.request(`/swarms/${swarmId}/actions`, { method: 'POST', body: JSON.stringify({ actions }) }) }
   async endSwarm(swarmId: string) { return this.request(`/swarms/${swarmId}/end`, { method: 'POST' }) }
   async listGroupSwarms(groupId: string) { return this.request(`/swarms/group/${groupId}`) }
+  async listGroupOutcomes(groupId: string) { return this.request(`/swarms/group/${groupId}/outcomes`) }
 
   // Auth Methods
   async login(email, password) {

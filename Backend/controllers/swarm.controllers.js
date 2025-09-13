@@ -1,6 +1,7 @@
 const SwarmSession = require("../models/swarmSession.model")
 const Group = require("../models/group.model")
 const { createNotification } = require("../utils/functions")
+const Message = require("../models/message.model")
 
 // Helpers
 function isMember(group, userId) {
@@ -243,6 +244,36 @@ exports.endSwarm = async (req, res) => {
     const io = req.app.get("io")
     if (io) io.to(`swarm_${doc._id}`).emit("swarm:ended", { swarmId: String(doc._id) })
   } catch {}
+
+  // Post summary message to the group (best-effort)
+  try {
+    const topIdeas = (doc.ideas || [])
+      .map((i) => ({ id: String(i._id), text: i.text, votes: Number(i.votes || 0) }))
+      .sort((a, b) => b.votes - a.votes)
+      .slice(0, 5)
+    const actions = (doc.actions || []).map((a) => `- ${a.text}`).join("\n")
+    let summary = `Swarm ended: "${doc.prompt}"
+Top ideas:\n${topIdeas.map((i, idx) => `${idx + 1}. ${i.text} (${i.votes})`).join("\n") || '- none'}\n\nActions:\n${actions || '- none'}`
+    if (summary.length > 1800) summary = summary.slice(0, 1800) + '…'
+    const message = new Message({ from: req.user._id, group: doc.group, text: summary, messageType: 'group', readBy: [req.user._id] })
+    await message.save()
+    try {
+      const io = req.app.get('io')
+      io.to(`group_${doc.group}`).emit('receiveGroupMessage', {
+        from: String(req.user._id),
+        group: String(doc.group),
+        text: message.text,
+        createdAt: message.createdAt,
+        messageType: 'group',
+        replyTo: null,
+        attachments: [],
+        linkPreview: null,
+        _id: message._id,
+        expiresAt: null,
+        burnAfterReadSeconds: null,
+      })
+    } catch {}
+  } catch {}
   return res.json({ success: true, swarm: doc })
 }
 
@@ -253,6 +284,16 @@ exports.listGroupSwarms = async (req, res) => {
   if (!group) return res.status(404).json({ success: false, message: "Group not found" })
   if (!isMember(group, req.user._id)) return res.status(403).json({ success: false, message: "Forbidden" })
   const swarms = await SwarmSession.find({ group: groupId }).sort({ createdAt: -1 }).limit(20)
+  return res.json({ success: true, swarms })
+}
+
+// List ended swarms (outcomes) by group
+exports.listGroupOutcomes = async (req, res) => {
+  const { groupId } = req.params
+  const group = await Group.findById(groupId)
+  if (!group) return res.status(404).json({ success: false, message: 'Group not found' })
+  if (!isMember(group, req.user._id)) return res.status(403).json({ success: false, message: 'Forbidden' })
+  const swarms = await SwarmSession.find({ group: groupId, status: 'ended' }).sort({ updatedAt: -1 }).limit(50)
   return res.json({ success: true, swarms })
 }
 
