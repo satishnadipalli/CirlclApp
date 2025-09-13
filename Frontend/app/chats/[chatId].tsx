@@ -1828,6 +1828,7 @@ export default function ChatScreen() {
       {/* Header */}
       <LinearGradient
         colors={[colors.background, '#f7f9ff']}
+        style={{ zIndex: 10000, elevation: 1000, position: 'relative' }}
         start={[0, 0]}
         end={[1, 1]}
         style={{
@@ -1935,7 +1936,7 @@ export default function ChatScreen() {
               <Icon name="more-vert" size={22} color="#666" />
             </TouchableOpacity>
             {menuOpen && (
-              <Animated.View style={{ position: 'absolute', top: 28, right: 0, backgroundColor: colors.surface, borderRadius: 12, borderWidth: 1, borderColor: colors.border, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 12, elevation: 16, width: 200, overflow: 'hidden', zIndex: 9999, transform: [{ translateY: menuAnim.interpolate({ inputRange: [0, 1], outputRange: [-8, 0] }) }], opacity: menuAnim }}>
+              <Animated.View style={{ position: 'absolute', top: 28, right: 0, backgroundColor: colors.surface, borderRadius: 12, borderWidth: 1, borderColor: colors.border, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 12, elevation: 50, width: 220, overflow: 'hidden', zIndex: 10001, transform: [{ translateY: menuAnim.interpolate({ inputRange: [0, 1], outputRange: [-8, 0] }) }], opacity: menuAnim }}>
                 <TouchableOpacity onPress={() => { setMenuOpen(false); setSearchOpen(true) }} style={{ paddingVertical: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
                   <Icon name="search" size={18} color={colors.text} /><Text style={{ marginLeft: 10, color: colors.text, fontSize: 15 }}>Search</Text>
                 </TouchableOpacity>
@@ -1987,7 +1988,7 @@ export default function ChatScreen() {
               <Icon name="more-vert" size={22} color="#666" />
             </TouchableOpacity>
             {menuOpen && (
-              <Animated.View style={{ position: 'absolute', top: 28, right: 0, backgroundColor: colors.surface, borderRadius: 12, borderWidth: 1, borderColor: colors.border, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 12, elevation: 16, width: 200, overflow: 'hidden', zIndex: 9999, transform: [{ translateY: menuAnim.interpolate({ inputRange: [0, 1], outputRange: [-8, 0] }) }], opacity: menuAnim }}>
+              <Animated.View style={{ position: 'absolute', top: 28, right: 0, backgroundColor: colors.surface, borderRadius: 12, borderWidth: 1, borderColor: colors.border, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 12, elevation: 50, width: 220, overflow: 'hidden', zIndex: 10001, transform: [{ translateY: menuAnim.interpolate({ inputRange: [0, 1], outputRange: [-8, 0] }) }], opacity: menuAnim }}>
                 <TouchableOpacity onPress={() => { setMenuOpen(false); setSearchOpen(true) }} style={{ paddingVertical: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
                   <Icon name="search" size={18} color={colors.text} /><Text style={{ marginLeft: 10, color: colors.text, fontSize: 15 }}>Search</Text>
                 </TouchableOpacity>
@@ -2047,7 +2048,7 @@ export default function ChatScreen() {
         data={chatItems}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
-        contentContainerStyle={{ padding: 10 }}
+        contentContainerStyle={{ padding: 10, paddingTop: searchOpen ? 56 : 10 }}
         showsVerticalScrollIndicator={false}
         onScroll={handleScroll}
         scrollEventThrottle={16}
