@@ -62,6 +62,14 @@ exports.getSwarm = async (req, res) => {
   const group = await Group.findById(doc.group)
   if (!group) return res.status(404).json({ success: false, message: "Group not found" })
   if (!isMember(group, req.user._id)) return res.status(403).json({ success: false, message: "Forbidden" })
+  // Auto-end if past endsAt
+  try {
+    if (doc.status === 'active' && doc.endsAt && new Date(doc.endsAt).getTime() < Date.now()) {
+      doc.status = 'ended'
+      doc.lastPhase = 'ended'
+      await doc.save()
+    }
+  } catch {}
   const isHost = isAdmin(group, req.user._id) || String(doc.creator) === String(req.user._id)
   return res.json({ success: true, swarm: doc, me: String(req.user._id), isHost, serverNow: new Date().toISOString() })
 }
@@ -295,5 +303,40 @@ exports.listGroupOutcomes = async (req, res) => {
   if (!isMember(group, req.user._id)) return res.status(403).json({ success: false, message: 'Forbidden' })
   const swarms = await SwarmSession.find({ group: groupId, status: 'ended' }).sort({ updatedAt: -1 }).limit(50)
   return res.json({ success: true, swarms })
+}
+
+// Heuristic suggestions (fallback when LLM not configured)
+function keywordCluster(ideas) {
+  const buckets = {}
+  for (const it of ideas) {
+    const t = String(it.text || '').toLowerCase()
+    const key = /design|ui|ux/.test(t) ? 'Design/UX' : /bug|issue|error|fix|broken/.test(t) ? 'Bugs/Issues' : /growth|marketing|share|reach|seo/.test(t) ? 'Growth' : /perf|speed|optimi/.test(t) ? 'Performance' : 'General'
+    buckets[key] = buckets[key] || []
+    buckets[key].push(String(it._id))
+  }
+  return Object.entries(buckets).map(([title, ideaIds]) => ({ title, ideaIds }))
+}
+
+exports.suggestClusters = async (req, res) => {
+  const { swarmId } = req.params
+  const doc = await SwarmSession.findById(swarmId)
+  if (!doc) return res.status(404).json({ success: false, message: 'Not found' })
+  const group = await Group.findById(doc.group)
+  if (!group) return res.status(404).json({ success: false, message: 'Group not found' })
+  if (!isMember(group, req.user._id)) return res.status(403).json({ success: false, message: 'Forbidden' })
+  const clusters = keywordCluster(doc.ideas || [])
+  return res.json({ success: true, clusters })
+}
+
+exports.suggestActions = async (req, res) => {
+  const { swarmId } = req.params
+  const doc = await SwarmSession.findById(swarmId)
+  if (!doc) return res.status(404).json({ success: false, message: 'Not found' })
+  const group = await Group.findById(doc.group)
+  if (!group) return res.status(404).json({ success: false, message: 'Group not found' })
+  if (!isMember(group, req.user._id)) return res.status(403).json({ success: false, message: 'Forbidden' })
+  const top = (doc.ideas || []).slice().sort((a, b) => Number(b.votes || 0) - Number(a.votes || 0)).slice(0, 3)
+  const actions = top.map((i) => ({ text: `Prototype: ${i.text.slice(0, 120)}` }))
+  return res.json({ success: true, actions })
 }
 

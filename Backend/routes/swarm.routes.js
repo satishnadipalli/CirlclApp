@@ -27,6 +27,9 @@ router.post("/:swarmId/end", ctrl.endSwarm)
 // List by group
 router.get("/group/:groupId", ctrl.listGroupSwarms)
 router.get("/group/:groupId/outcomes", ctrl.listGroupOutcomes)
+// Suggestions
+router.get("/:swarmId/suggest/clusters", ctrl.suggestClusters)
+router.get("/:swarmId/suggest/actions", ctrl.suggestActions)
 
 module.exports = router
 

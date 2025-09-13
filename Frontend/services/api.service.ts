@@ -443,6 +443,8 @@ class ApiService {
   async endSwarm(swarmId: string) { return this.request(`/swarms/${swarmId}/end`, { method: 'POST' }) }
   async listGroupSwarms(groupId: string) { return this.request(`/swarms/group/${groupId}`) }
   async listGroupOutcomes(groupId: string) { return this.request(`/swarms/group/${groupId}/outcomes`) }
+  async suggestSwarmClusters(swarmId: string) { return this.request(`/swarms/${swarmId}/suggest/clusters`) }
+  async suggestSwarmActions(swarmId: string) { return this.request(`/swarms/${swarmId}/suggest/actions`) }
 
   // Auth Methods
   async login(email, password) {

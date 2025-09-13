@@ -211,6 +211,14 @@ export default function SwarmLiveScreen() {
               <TextInput value={newClusterTitle} onChangeText={setNewClusterTitle} placeholder="Cluster title" placeholderTextColor="#999" style={[styles.input, { flex: 0.7 }]} />
               <TouchableOpacity onPress={addCluster}><Text style={styles.primary}>Add cluster</Text></TouchableOpacity>
             </View>
+            <View style={{ flexDirection: 'row', gap: 12, marginTop: 10 }}>
+              <TouchableOpacity onPress={async () => {
+                const r: any = await apiService.suggestSwarmClusters(String(swarmId))
+                if (r?.success) setClusters(r.clusters || [])
+                else Alert.alert('Failed', r?.message || 'No suggestions')
+              }}><Text style={styles.primary}>Suggest clusters</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => gotoPhase('vote')}><Text style={styles.primary}>Open voting</Text></TouchableOpacity>
+            </View>
           </View>
         )}
 
@@ -224,6 +232,17 @@ export default function SwarmLiveScreen() {
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 }}>
               <TextInput value={actionText} onChangeText={setActionText} placeholder="Add action" placeholderTextColor="#999" style={[styles.input, { flex: 0.7 }]} />
               <TouchableOpacity onPress={setAction}><Text style={styles.primary}>Save</Text></TouchableOpacity>
+            </View>
+            <View style={{ flexDirection: 'row', gap: 12, marginTop: 10 }}>
+              <TouchableOpacity onPress={async () => {
+                const r: any = await apiService.suggestSwarmActions(String(swarmId))
+                if (r?.success) {
+                  const a = Array.isArray(r.actions) ? r.actions : []
+                  const s: any = await apiService.setActions(String(swarmId), a)
+                  if (!(s?.success)) Alert.alert('Failed', s?.message || 'Could not save')
+                } else Alert.alert('Failed', r?.message || 'No suggestions')
+              }}><Text style={styles.primary}>Suggest actions</Text></TouchableOpacity>
+              <TouchableOpacity onPress={endIfHost}><Text style={styles.actionDanger}>End session</Text></TouchableOpacity>
             </View>
           </View>
         )}
