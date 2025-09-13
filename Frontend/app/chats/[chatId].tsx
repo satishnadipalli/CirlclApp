@@ -1935,7 +1935,7 @@ export default function ChatScreen() {
             <TouchableOpacity onPress={() => setMenuOpen((v) => !v)}>
               <Icon name="more-vert" size={22} color="#666" />
             </TouchableOpacity>
-            {menuOpen && (
+            {false && menuOpen && (
               <Animated.View style={{ position: 'absolute', top: 28, right: 0, backgroundColor: colors.surface, borderRadius: 12, borderWidth: 1, borderColor: colors.border, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 12, elevation: 50, width: 220, overflow: 'hidden', zIndex: 10001, transform: [{ translateY: menuAnim.interpolate({ inputRange: [0, 1], outputRange: [-8, 0] }) }], opacity: menuAnim }}>
                 <TouchableOpacity onPress={() => { setMenuOpen(false); setSearchOpen(true) }} style={{ paddingVertical: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
                   <Icon name="search" size={18} color={colors.text} /><Text style={{ marginLeft: 10, color: colors.text, fontSize: 15 }}>Search</Text>
@@ -1990,6 +1990,65 @@ export default function ChatScreen() {
           </View>
         )}
       </LinearGradient>
+
+      {/* Menu overlay (Modal to guarantee top z-layer) */}
+      {menuOpen && (
+        <Modal visible transparent animationType="fade" onRequestClose={() => setMenuOpen(false)}>
+          <TouchableOpacity activeOpacity={1} onPress={() => setMenuOpen(false)} style={{ flex: 1 }}>
+            <View style={{ position: 'absolute', top: (Platform.OS === 'android' ? (StatusBar.currentHeight || 0) : 0) + 56, right: 10, backgroundColor: colors.surface, borderRadius: 12, borderWidth: 1, borderColor: colors.border, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 12, elevation: 50, width: 220, overflow: 'hidden' }}>
+              {params.chatType === 'group' ? (
+                <>
+                  <TouchableOpacity onPress={() => { setMenuOpen(false); setSearchOpen(true) }} style={{ paddingVertical: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
+                    <Icon name="search" size={18} color={colors.text} /><Text style={{ marginLeft: 10, color: colors.text, fontSize: 15 }}>Search</Text>
+                  </TouchableOpacity>
+                  <View style={{ height: 1, backgroundColor: '#f1f1f1' }} />
+                  <TouchableOpacity onPress={() => { setMenuOpen(false); setPollComposerOpen(true) }} style={{ paddingVertical: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
+                    <Icon name="bar-chart" size={18} color={colors.text} /><Text style={{ marginLeft: 10, color: colors.text, fontSize: 15 }}>Create poll</Text>
+                  </TouchableOpacity>
+                  <View style={{ height: 1, backgroundColor: '#f1f1f1' }} />
+                  <TouchableOpacity onPress={() => { setMenuOpen(false); router.push({ pathname: '/groups/[groupId]', params: { groupId: String(params.chatId), openSwarmStart: '1' } as any }) }} style={{ paddingVertical: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
+                    <Icon name="flash-on" size={18} color={colors.text} /><Text style={{ marginLeft: 10, color: colors.text, fontSize: 15 }}>Start Swarm</Text>
+                  </TouchableOpacity>
+                  <View style={{ height: 1, backgroundColor: '#f1f1f1' }} />
+                  <TouchableOpacity onPress={() => { setMenuOpen(false); router.push({ pathname: '/mediaGallery', params: { chatType: 'group', chatId: String(params.chatId) } }) }} style={{ paddingVertical: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
+                    <Icon name="collections" size={18} color={colors.text} /><Text style={{ marginLeft: 10, color: colors.text, fontSize: 15 }}>Media gallery</Text>
+                    <View style={{ marginLeft: 8, backgroundColor: '#eef3ff', borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2 }}>
+                      <Text style={{ color: '#4a68a0', fontSize: 12 }}>{messages.filter((m: any) => Array.isArray(m?.attachments) && m.attachments.length).length}</Text>
+                    </View>
+                  </TouchableOpacity>
+                  <View style={{ height: 1, backgroundColor: '#f1f1f1' }} />
+                  <TouchableOpacity onPress={() => { setMenuOpen(false); router.push({ pathname: '/bookmarks', params: { chatType: 'group', chatId: String(params.chatId), kind: 'starred' } }) }} style={{ paddingVertical: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
+                    <Icon name="star" size={18} color={colors.text} /><Text style={{ marginLeft: 10, color: colors.text, fontSize: 15 }}>Starred</Text>
+                    <View style={{ marginLeft: 8, backgroundColor: '#fff3c8', borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2 }}>
+                      <Text style={{ color: '#7a5200', fontSize: 12 }}>{starredCount}</Text>
+                    </View>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => { setMenuOpen(false); router.push({ pathname: '/bookmarks', params: { chatType: 'group', chatId: String(params.chatId), kind: 'pinned' } }) }} style={{ paddingVertical: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
+                    <Icon name="push-pin" size={18} color={colors.text} /><Text style={{ marginLeft: 10, color: colors.text, fontSize: 15 }}>Pinned</Text>
+                    <View style={{ marginLeft: 8, backgroundColor: '#eaf4ff', borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2 }}>
+                      <Text style={{ color: '#29527a', fontSize: 12 }}>{pinnedCount}</Text>
+                    </View>
+                  </TouchableOpacity>
+                  <View style={{ height: 1, backgroundColor: '#f1f1f1' }} />
+                  <TouchableOpacity onPress={() => { setMenuOpen(false); router.push({ pathname: '/groups/[groupId]', params: { groupId: String(params.chatId) } as any }) }} style={{ paddingVertical: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
+                    <Icon name="info-outline" size={18} color={colors.text} /><Text style={{ marginLeft: 10, color: colors.text, fontSize: 15 }}>Group info</Text>
+                  </TouchableOpacity>
+                  <View style={{ height: 1, backgroundColor: '#f1f1f1' }} />
+                  <TouchableOpacity onPress={() => { setMenuOpen(false); router.push({ pathname: '/swarms/outcomes/[groupId]', params: { groupId: String(params.chatId) } as any }) }} style={{ paddingVertical: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
+                    <Icon name="flash-on" size={18} color={colors.text} /><Text style={{ marginLeft: 10, color: colors.text, fontSize: 15 }}>Swarm outcomes</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <>
+                  <TouchableOpacity onPress={() => { setMenuOpen(false); setSearchOpen(true) }} style={{ paddingVertical: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
+                    <Icon name="search" size={18} color={colors.text} /><Text style={{ marginLeft: 10, color: colors.text, fontSize: 15 }}>Search</Text>
+                  </TouchableOpacity>
+                </>
+              )}
+            </View>
+          </TouchableOpacity>
+        </Modal>
+      )}
 
       {/* Pinned messages banner */}
       {messages.some((m: any) => !!(m as any)?.pinnedAt) && (
