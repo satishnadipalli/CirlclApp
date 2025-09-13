@@ -14,10 +14,11 @@ export default function RootLayout() {
   useEffect(() => {
   async function initSocket() {
     const userData = await AsyncStorage.getItem("user");
-    if (!userData) return;
+    const token = await AsyncStorage.getItem('token')
+    if (!userData || !token) return;
 
     const parsedUser = JSON.parse(userData);
-    console.log(parsedUser)
+    try { socketService.updateAuthToken(token) } catch {}
     await socketService.connect();
     try {
       const res: any = await (await import('@/services/api.service')).apiService.getPrivacy()

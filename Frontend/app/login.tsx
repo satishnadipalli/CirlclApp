@@ -47,8 +47,9 @@ export default function LoginScreen() {
       if (data?.refreshToken) await AsyncStorage.setItem("refreshToken", data.refreshToken);
       await AsyncStorage.setItem("user", JSON.stringify(data.user));
 
-      // Ensure socket is connected and user is registered for in-app notifications
+      // Ensure socket uses fresh token and then connect
       try {
+        if (data?.token) socketService.updateAuthToken(data.token)
         await socketService.connect();
         if (data?.user?.id) socketService.registerUser(data.user.id);
       } catch {}

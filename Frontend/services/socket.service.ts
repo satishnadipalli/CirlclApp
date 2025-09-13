@@ -45,11 +45,16 @@ class SocketService {
     const token = await AsyncStorage.getItem("token");
 
     if (!this.socket) {
-      this.socket = io(require("../constants/Config").API_ORIGIN, {
+      const { API_ORIGIN } = require("../constants/Config")
+      this.socket = io(API_ORIGIN, {
         auth: { token },
-        transports: ["websocket"],
+        transports: ["websocket", "polling"],
         timeout: 20000,
-        forceNew: false, // ✅ important
+        forceNew: false,
+        reconnection: true,
+        reconnectionAttempts: 10,
+        reconnectionDelay: 1000,
+        path: "/socket.io",
       });
 
       this.setupEventListeners();

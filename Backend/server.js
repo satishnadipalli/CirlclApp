@@ -86,7 +86,8 @@ const server = http.createServer(app);
 
 // Socket.io setup
 const io = new Server(server, {
-  cors: { origin: process.env.ALLOWED_ORIGIN || "*", methods: ["GET", "POST"], credentials: Boolean(process.env.CORS_CREDENTIALS === 'true') },
+  cors: { origin: process.env.ALLOWED_ORIGIN || process.env.ALLOWED_ORIGINS || "*", methods: ["GET", "POST"], credentials: Boolean(process.env.CORS_CREDENTIALS === 'true') },
+  path: "/socket.io",
 });
 
 // Map to track online users
