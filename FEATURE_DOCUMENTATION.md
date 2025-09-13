@@ -1,3 +1,35 @@
+## Swarm Sessions (AI‑facilitated micro‑brainstorms)
+
+MVP implementation details:
+
+- Backend:
+  - Model: `Backend/models/swarmSession.model.js` (ideas, clusters, votes, actions, phases)
+  - Routes: `POST /api/swarms` create; `GET /api/swarms/:swarmId` get; `POST /:id/join`, `/start`, `/phase`, `/ideas`, `/clusters`, `/ideas/:ideaId/vote`, `/actions`, `/end`.
+  - Group lists: `GET /api/swarms/group/:groupId`, `/group/:groupId/outcomes`.
+  - Summary: On `/end`, posts a summary group message.
+
+- Realtime:
+  - Socket rooms: `joinSwarm`/`leaveSwarm` join `swarm_<id>`
+  - Events: `swarm:phase`, `swarm:idea`, `swarm:votes`, `swarm:clusters`, `swarm:actions`, `swarm:ended`.
+
+- Frontend (Expo Router):
+  - Start from group: `app/groups/[groupId].tsx` → “Start Swarm” modal, “Outcomes” link.
+  - Live session: `app/swarms/[swarmId].tsx` with phases, idea input (diverge only), clustering (host), voting (vote phase), converge actions (host), countdown.
+  - Outcomes list: `app/swarms/outcomes/[groupId].tsx`.
+
+### How to test
+1) Create a group or open existing.
+2) Tap “Start Swarm”, keep default prompt, start.
+3) Live screen: in Diverge, submit a few ideas from multiple devices/users.
+4) Switch to Cluster (host), select ideas → add clusters.
+5) Switch to Vote (host), vote on ideas (one per idea per user).
+6) Switch to Converge (host), add actions and then End.
+7) Check group chat for summary message; check “Outcomes” list.
+
+Permissions & notes:
+- Only group creator/admin (host) can start, change phase, cluster, set actions, and end.
+- Ideas accepted only during Diverge; votes accepted only during Vote.
+- Countdown reflects session end; host can end early.
 # Feature Documentation
 
 ## Overview

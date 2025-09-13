@@ -230,8 +230,8 @@ export default function SwarmLiveScreen() {
       </ScrollView>
 
       <View style={styles.inputBar}>
-        <TextInput value={ideaText} onChangeText={setIdeaText} placeholder="Add an idea…" placeholderTextColor="#999" style={styles.input} />
-        <TouchableOpacity onPress={sendIdea}><Text style={styles.send}>Send</Text></TouchableOpacity>
+        <TextInput value={ideaText} onChangeText={setIdeaText} placeholder="Add an idea…" placeholderTextColor="#999" style={styles.input} editable={phase === 'diverge'} />
+        <TouchableOpacity disabled={phase !== 'diverge'} onPress={sendIdea}><Text style={[styles.send, phase !== 'diverge' && { opacity: 0.4 }]}>Send</Text></TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
   )

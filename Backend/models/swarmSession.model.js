@@ -56,5 +56,8 @@ const swarmSessionSchema = new mongoose.Schema(
   { timestamps: true }
 )
 
+swarmSessionSchema.index({ group: 1, createdAt: -1 })
+swarmSessionSchema.index({ group: 1, status: 1, updatedAt: -1 })
+
 module.exports = mongoose.model("SwarmSession", swarmSessionSchema)
 

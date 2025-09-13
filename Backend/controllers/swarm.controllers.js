@@ -143,7 +143,7 @@ exports.addIdea = async (req, res) => {
   if (!group) return res.status(404).json({ success: false, message: "Group not found" })
   if (!isMember(group, req.user._id)) return res.status(403).json({ success: false, message: "Forbidden" })
   if (doc.status !== "active") return res.status(400).json({ success: false, message: "Session not active" })
-  if (!['diverge', 'vote'].includes(doc.lastPhase)) return res.status(400).json({ success: false, message: "Not accepting ideas now" })
+  if (doc.lastPhase !== 'diverge') return res.status(400).json({ success: false, message: "Not accepting ideas now" })
   const idea = { author: req.user._id, text: String(text).trim(), votes: 0 }
   doc.ideas.push(idea)
   await doc.save()
