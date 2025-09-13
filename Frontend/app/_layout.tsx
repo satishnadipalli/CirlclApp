@@ -109,6 +109,9 @@ export default function RootLayout() {
         <Stack.Screen name="create/edit-post" />
         <Stack.Screen name="create/compose-post" />
 
+        {/* Swarm session screen */}
+        <Stack.Screen name="swarms/[swarmId]" />
+
       </Stack>
       </NotificationProvider>
       </ThemeProvider>

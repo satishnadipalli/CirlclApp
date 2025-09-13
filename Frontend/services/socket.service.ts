@@ -25,6 +25,12 @@ class SocketService {
     this.messageEditListeners = [];
     this.messageReadListeners = [];
     this.pollUpdatedListeners = [];
+    this.swarmIdeaListeners = [] as any;
+    this.swarmPhaseListeners = [] as any;
+    this.swarmVotesListeners = [] as any;
+    this.swarmClustersListeners = [] as any;
+    this.swarmActionsListeners = [] as any;
+    this.swarmEndedListeners = [] as any;
     this.currentUserId = null;
     this.heartbeatInterval = null as any;
     this.clientPrivacy = { sendTypingIndicators: true } as any
@@ -180,6 +186,25 @@ class SocketService {
     this.socket.on("pollUpdated", (payload) => {
       try { (this.pollUpdatedListeners || []).forEach((l) => l(payload)); } catch {}
     });
+    // Swarm events
+    this.socket.on("swarm:idea", (payload) => {
+      try { (this.swarmIdeaListeners || []).forEach((l) => l(payload)) } catch {}
+    })
+    this.socket.on("swarm:phase", (payload) => {
+      try { (this.swarmPhaseListeners || []).forEach((l) => l(payload)) } catch {}
+    })
+    this.socket.on("swarm:votes", (payload) => {
+      try { (this.swarmVotesListeners || []).forEach((l) => l(payload)) } catch {}
+    })
+    this.socket.on("swarm:clusters", (payload) => {
+      try { (this.swarmClustersListeners || []).forEach((l) => l(payload)) } catch {}
+    })
+    this.socket.on("swarm:actions", (payload) => {
+      try { (this.swarmActionsListeners || []).forEach((l) => l(payload)) } catch {}
+    })
+    this.socket.on("swarm:ended", (payload) => {
+      try { (this.swarmEndedListeners || []).forEach((l) => l(payload)) } catch {}
+    })
     this.socket.on("messagesDelivered", (payload) => {
       try { (this.messageReadListeners || []).forEach((l) => l({ ...(payload || {}), chatType: 'direct', delivered: true })); } catch {}
     });
@@ -266,6 +291,9 @@ class SocketService {
   leaveGroup(groupId) {
     this.socket?.emit("leaveGroup", groupId);
   }
+  // swarms
+  joinSwarm(swarmId: string) { this.socket?.emit('joinSwarm', swarmId) }
+  leaveSwarm(swarmId: string) { this.socket?.emit('leaveSwarm', swarmId) }
   sendGroupMessage(groupId, text, replyTo) {
     this.socket?.emit("sendGroupMessage", { groupId, text, senderId: this.currentUserId, replyTo });
   }
@@ -353,6 +381,12 @@ class SocketService {
   onMessageEdited(cb) { this.messageEditListeners.push(cb); }
   onMessagesRead(cb) { this.messageReadListeners.push(cb); }
   onPollUpdated(cb) { (this.pollUpdatedListeners || (this.pollUpdatedListeners = [])).push(cb); }
+  onSwarmIdea(cb) { (this.swarmIdeaListeners || (this.swarmIdeaListeners = [])).push(cb) }
+  onSwarmPhase(cb) { (this.swarmPhaseListeners || (this.swarmPhaseListeners = [])).push(cb) }
+  onSwarmVotes(cb) { (this.swarmVotesListeners || (this.swarmVotesListeners = [])).push(cb) }
+  onSwarmClusters(cb) { (this.swarmClustersListeners || (this.swarmClustersListeners = [])).push(cb) }
+  onSwarmActions(cb) { (this.swarmActionsListeners || (this.swarmActionsListeners = [])).push(cb) }
+  onSwarmEnded(cb) { (this.swarmEndedListeners || (this.swarmEndedListeners = [])).push(cb) }
 
   onGroupTyping(callback) {
     this.typingListeners.push(callback);
@@ -429,6 +463,12 @@ class SocketService {
   removeMessageEdited(cb) { const i = this.messageEditListeners.indexOf(cb); if (i>-1) this.messageEditListeners.splice(i,1); }
   removeMessagesRead(cb) { const i = this.messageReadListeners.indexOf(cb); if (i>-1) this.messageReadListeners.splice(i,1); }
   removePollUpdated(cb) { const i = (this.pollUpdatedListeners || []).indexOf(cb); if (i>-1) this.pollUpdatedListeners.splice(i,1); }
+  removeSwarmIdea(cb) { const i = (this.swarmIdeaListeners || []).indexOf(cb); if (i>-1) this.swarmIdeaListeners.splice(i,1); }
+  removeSwarmPhase(cb) { const i = (this.swarmPhaseListeners || []).indexOf(cb); if (i>-1) this.swarmPhaseListeners.splice(i,1); }
+  removeSwarmVotes(cb) { const i = (this.swarmVotesListeners || []).indexOf(cb); if (i>-1) this.swarmVotesListeners.splice(i,1); }
+  removeSwarmClusters(cb) { const i = (this.swarmClustersListeners || []).indexOf(cb); if (i>-1) this.swarmClustersListeners.splice(i,1); }
+  removeSwarmActions(cb) { const i = (this.swarmActionsListeners || []).indexOf(cb); if (i>-1) this.swarmActionsListeners.splice(i,1); }
+  removeSwarmEnded(cb) { const i = (this.swarmEndedListeners || []).indexOf(cb); if (i>-1) this.swarmEndedListeners.splice(i,1); }
 
   // Clear all listeners
   clearAllListeners() {
@@ -448,6 +488,12 @@ class SocketService {
     this.messageEditListeners = [];
     this.messageReadListeners = [];
     this.pollUpdatedListeners = [] as any;
+    this.swarmIdeaListeners = [] as any;
+    this.swarmPhaseListeners = [] as any;
+    this.swarmVotesListeners = [] as any;
+    this.swarmClustersListeners = [] as any;
+    this.swarmActionsListeners = [] as any;
+    this.swarmEndedListeners = [] as any;
   }
 }
 

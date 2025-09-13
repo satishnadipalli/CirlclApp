@@ -428,6 +428,20 @@ class ApiService {
     } catch (e) { return { success: false, message: e instanceof Error ? e.message : 'Failed' } }
   }
 
+  // Swarm Sessions
+  async createSwarm(payload: { groupId: string; prompt: string; invitedUserIds?: string[]; durationMinutes?: number }) {
+    return this.request(`/swarms`, { method: 'POST', body: JSON.stringify(payload) })
+  }
+  async getSwarm(swarmId: string) { return this.request(`/swarms/${swarmId}`) }
+  async joinSwarm(swarmId: string) { return this.request(`/swarms/${swarmId}/join`, { method: 'POST' }) }
+  async startSwarm(swarmId: string) { return this.request(`/swarms/${swarmId}/start`, { method: 'POST' }) }
+  async addIdea(swarmId: string, text: string) { return this.request(`/swarms/${swarmId}/ideas`, { method: 'POST', body: JSON.stringify({ text }) }) }
+  async clusterIdeas(swarmId: string, clusters: Array<{ title: string; ideaIds: string[] }>) { return this.request(`/swarms/${swarmId}/clusters`, { method: 'POST', body: JSON.stringify({ clusters }) }) }
+  async voteIdea(swarmId: string, ideaId: string) { return this.request(`/swarms/${swarmId}/ideas/${ideaId}/vote`, { method: 'POST' }) }
+  async setActions(swarmId: string, actions: Array<{ text: string; owner?: string; dueAt?: string }>) { return this.request(`/swarms/${swarmId}/actions`, { method: 'POST', body: JSON.stringify({ actions }) }) }
+  async endSwarm(swarmId: string) { return this.request(`/swarms/${swarmId}/end`, { method: 'POST' }) }
+  async listGroupSwarms(groupId: string) { return this.request(`/swarms/group/${groupId}`) }
+
   // Auth Methods
   async login(email, password) {
     const res = await this.request("/users/login", { method: "POST", body: JSON.stringify({ email, password }) })

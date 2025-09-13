@@ -7,6 +7,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react"
 import { Alert, FlatList, Image, StyleSheet, Text, TextInput, TouchableOpacity, View, Modal, ActivityIndicator, Platform, StatusBar } from "react-native"
 import Icon from "react-native-vector-icons/MaterialIcons"
 import * as ImagePicker from 'expo-image-picker'
+import socketService from "@/services/socket.service"
 
 interface Member { _id: string; name: string; profilePic?: string }
 interface Group {
@@ -190,6 +191,19 @@ export default function GroupDetailsScreen() {
           </TouchableOpacity>
           <TouchableOpacity onPress={() => router.push({ pathname: '/bookmarks', params: { chatType: 'group', chatId: String(groupId), kind: 'pinned' } })} style={{ backgroundColor: '#f1f1f1', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 }}>
             <Text style={{ color: '#111', fontWeight: '800' }}>Pinned</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={async () => {
+            try {
+              const resp: any = await apiService.createSwarm({ groupId: String(groupId), prompt: `Quick brainstorm: How might we improve ${group.name}?`, invitedUserIds: (group.members || []).slice(0, 6).map((m) => (typeof m === 'string' ? m : (m as any)._id)) })
+              if (resp?.success && resp?.swarm?._id) {
+                try { socketService.joinSwarm(String(resp.swarm._id)) } catch {}
+                router.push({ pathname: '/swarms/[swarmId]', params: { swarmId: String(resp.swarm._id) } })
+              } else {
+                Alert.alert('Failed', resp?.message || 'Could not start')
+              }
+            } catch (e) { Alert.alert('Error', (e as Error).message) }
+          }} style={{ backgroundColor: '#111', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 }}>
+            <Text style={{ color: '#fff', fontWeight: '800' }}>Start Swarm</Text>
           </TouchableOpacity>
         </View>
       </View>
