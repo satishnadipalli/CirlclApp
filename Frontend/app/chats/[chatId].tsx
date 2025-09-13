@@ -1944,6 +1944,10 @@ export default function ChatScreen() {
                   <Icon name="bar-chart" size={18} color={colors.text} /><Text style={{ marginLeft: 10, color: colors.text, fontSize: 15 }}>Create poll</Text>
                 </TouchableOpacity>
                 <View style={{ height: 1, backgroundColor: '#f1f1f1' }} />
+                <TouchableOpacity onPress={() => { setMenuOpen(false); router.push({ pathname: '/groups/[groupId]', params: { groupId: String(params.chatId), openSwarmStart: '1' } as any }) }} style={{ paddingVertical: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
+                  <Icon name="flash-on" size={18} color={colors.text} /><Text style={{ marginLeft: 10, color: colors.text, fontSize: 15 }}>Start Swarm</Text>
+                </TouchableOpacity>
+                <View style={{ height: 1, backgroundColor: '#f1f1f1' }} />
                 <TouchableOpacity onPress={() => { setMenuOpen(false); router.push({ pathname: '/mediaGallery', params: { chatType: 'group', chatId: String(params.chatId) } }) }} style={{ paddingVertical: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
                   <Icon name="collections" size={18} color={colors.text} /><Text style={{ marginLeft: 10, color: colors.text, fontSize: 15 }}>Media gallery</Text>
                   <View style={{ marginLeft: 8, backgroundColor: '#eef3ff', borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2 }}>
@@ -1966,6 +1970,13 @@ export default function ChatScreen() {
                 <View style={{ height: 1, backgroundColor: '#f1f1f1' }} />
                 <TouchableOpacity onPress={() => { setMenuOpen(false); router.push({ pathname: '/groups/[groupId]', params: { groupId: String(params.chatId) } as any }) }} style={{ paddingVertical: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
                   <Icon name="info-outline" size={18} color={colors.text} /><Text style={{ marginLeft: 10, color: colors.text, fontSize: 15 }}>Group info</Text>
+                </TouchableOpacity>
+                <View style={{ height: 1, backgroundColor: '#f1f1f1' }} />
+                <TouchableOpacity onPress={() => { setMenuOpen(false); router.push({ pathname: '/swarms/outcomes/[groupId]', params: { groupId: String(params.chatId) } as any }) }} style={{ paddingVertical: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' }}>
+                  <Icon name="flash-on" size={18} color={colors.text} /><Text style={{ marginLeft: 10, color: colors.text, fontSize: 15 }}>Swarm outcomes</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => { setMenuOpen(false); router.push({ pathname: '/groups/[groupId]', params: { groupId: String(params.chatId) } as any }); setTimeout(() => { try { router.push({ pathname: '/groups/[groupId]', params: { groupId: String(params.chatId) } as any }) } catch {} }, 0) }} style={{ display: 'none' }}>
+                  <Text></Text>
                 </TouchableOpacity>
               </Animated.View>
             )}
@@ -2017,7 +2028,7 @@ export default function ChatScreen() {
       )}
 
       {searchOpen && (
-        <View style={{ paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: colors.border, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.background }}>
+        <View style={{ paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: colors.border, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.background, position: 'absolute', top: (Platform.OS === 'android' ? (StatusBar.currentHeight || 0) : 0) + 56, left: 0, right: 0, zIndex: 9999 }}>
           <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#f2f2f2', borderRadius: 10, paddingHorizontal: 10 }}>
             <Icon name="search" size={18} color={colors.muted} />
             <TextInput value={searchQuery} onChangeText={setSearchQuery} placeholder="Search in conversation" placeholderTextColor={colors.muted} style={{ flex: 1, height: 38, color: colors.text, marginLeft: 6 }} />

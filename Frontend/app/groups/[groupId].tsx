@@ -23,6 +23,7 @@ interface Group {
 
 export default function GroupDetailsScreen() {
   const { groupId } = useLocalSearchParams<{ groupId: string }>()
+  const routeParams = useLocalSearchParams<any>()
   const [group, setGroup] = useState<Group | null>(null)
   const [search, setSearch] = useState("")
   const [searchResults, setSearchResults] = useState<Member[]>([])
@@ -66,6 +67,12 @@ export default function GroupDetailsScreen() {
   useEffect(() => {
     loadGroup()
   }, [groupId])
+
+  useEffect(() => {
+    if ((routeParams as any)?.openSwarmStart === '1') {
+      setStartModal(true)
+    }
+  }, [routeParams])
 
   const members = useMemo(() => {
     const list = group?.members || []
