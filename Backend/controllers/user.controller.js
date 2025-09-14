@@ -184,21 +184,18 @@ const followUser = async (req, res) => {
     await User.findByIdAndUpdate(currentUser._id, { $addToSet: { following: userToFollow._id }, $pull: { sentFollowRequests: userToFollow._id } })
     await User.findByIdAndUpdate(userToFollow._id, { $addToSet: { followers: currentUser._id }, $pull: { pendingFollowRequests: currentUser._id } })
 
-    // inside followUser
-    const io = req.app.get("io");
-    const onlineUsers = req.app.get("onlineUsers");
-
-    // Emit socket event to user being followed
-    const socketId = onlineUsers.get(userToFollow._id.toString());
-    if (socketId) {
-      io.to(socketId).emit("newFollower", {
-        followerId: currentUser._id,
-        followerName: currentUser.name,
-        followedId: userToFollow._id.toString(),
-      });
-    }
-
+    // inside followUser (public only): notify target
     try {
+      const io = req.app.get("io");
+      const onlineUsers = req.app.get("onlineUsers");
+      const socketId = onlineUsers.get(userToFollow._id.toString());
+      if (socketId) {
+        io.to(socketId).emit("newFollower", {
+          followerId: currentUser._id,
+          followerName: currentUser.name,
+          followedId: userToFollow._id.toString(),
+        });
+      }
       const { createNotification } = require("../utils/functions");
       await createNotification({ req, receiverId: userToFollow._id, senderId: currentUser._id, type: "follow", text: "started following you" });
     } catch {}
