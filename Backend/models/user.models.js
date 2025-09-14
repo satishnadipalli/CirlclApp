@@ -11,6 +11,10 @@ const userSchema = new mongoose.Schema({
   ],
   followers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   following: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+  // Account type and follow requests
+  accountType: { type: String, enum: ['public', 'private', 'professional'], default: 'public' },
+  pendingFollowRequests: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], // inbound (users who requested to follow me)
+  sentFollowRequests: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], // outbound (users I requested to follow)
   highlights: [{ type: mongoose.Schema.Types.ObjectId, ref: "DailyCircleEntry" }],
   closeFriends: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   expoPushTokens: [{ type: String }],

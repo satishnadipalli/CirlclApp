@@ -11,18 +11,21 @@ type Privacy = {
   sendReadReceipts: boolean
   allowDMsFrom: 'everyone'|'followers'|'none'
 }
+type AccountType = 'public'|'private'|'professional'
 
 export default function PrivacySettings() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [privacy, setPrivacy] = useState<Privacy>({ showOnline: true, showLastSeen: true, sendTypingIndicators: true, sendReadReceipts: true, allowDMsFrom: 'everyone' })
+  const [accountType, setAccountType] = useState<AccountType>('public')
 
   useEffect(() => {
     ;(async () => {
       try {
         const res: any = await api.getPrivacy()
         if (res?.success && res?.privacy) setPrivacy({ ...privacy, ...res.privacy })
+        try { const me: any = await api.getMe(); const at = (me?.user?.accountType || me?.accountType) as AccountType; if (at) setAccountType(at) } catch {}
       } finally { setLoading(false) }
     })()
   }, [])
@@ -51,6 +54,17 @@ export default function PrivacySettings() {
         <Text style={styles.title}>Privacy</Text>
         <TouchableOpacity onPress={save} disabled={saving}><Text style={[styles.link, saving && { opacity: 0.6 }]}>{saving ? 'Saving…' : 'Save'}</Text></TouchableOpacity>
       </View>
+
+      <View style={[styles.row, { backgroundColor: '#F7F8FA' }]}>
+        <Text style={[styles.label, { fontWeight: '800' }]}>Account type</Text>
+        <Text style={styles.link}>Change</Text>
+      </View>
+      {(['public','private'] as AccountType[]).map((t) => (
+        <TouchableOpacity key={t} onPress={async () => { try { setAccountType(t); await (await import('@/services/api.service')).apiService.updateAccountType(t) } catch {} }} style={styles.row}>
+          <Text style={styles.label}>{t === 'public' ? 'Public' : t === 'private' ? 'Private' : 'Professional'}</Text>
+          <Text style={styles.link}>{accountType === t ? '●' : '○'}</Text>
+        </TouchableOpacity>
+      ))}
 
       <TouchableOpacity style={[styles.row, { backgroundColor: '#F7F8FA' }]} onPress={() => router.push('/settings/theme')}>
         <Text style={[styles.label, { fontWeight: '800' }]}>Appearance</Text>

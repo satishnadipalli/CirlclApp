@@ -88,6 +88,20 @@ const getAllPosts = async (req, res) => {
 
     const totalPosts = await Post.countDocuments(filter);
 
+    // If requesting a user's posts, enforce privacy: private accounts visible only to followers or self
+    if (filter.user) {
+      try {
+        const target = await User.findById(filter.user).select('accountType followers')
+        const meId = String(req.user.id)
+        const isMe = String(filter.user) === meId
+        const isFollower = Array.isArray(target?.followers) && target.followers.some((x) => String(x) === meId)
+        const isPrivate = target?.accountType === 'private'
+        if (isPrivate && !isMe && !isFollower) {
+          return res.status(403).json({ success: false, message: 'Private account' })
+        }
+      } catch {}
+    }
+
     const posts = await Post.find(filter)
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)

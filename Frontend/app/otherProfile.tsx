@@ -36,6 +36,8 @@ export default function ProfileScreen() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [isFollowing, setIsFollowing] = useState(false)
+  const [hasRequested, setHasRequested] = useState(false)
+  const [viewer, setViewer] = useState<any>(null)
   const [activeTab, setActiveTab] = useState("posts")
   const [myHighlights, setMyHighlights] = useState<any[]>([])
   const router = useRouter()
@@ -50,10 +52,21 @@ export default function ProfileScreen() {
       }
 
       const api = (await import("@/services/api.service")).apiService
-      if (isFollowing) await api.unfollowUser(String(userId))
-      else await api.followUser(String(userId))
-
-      setIsFollowing(!isFollowing)
+      if (isFollowing) {
+        await api.unfollowUser(String(userId))
+        setIsFollowing(false)
+        setHasRequested(false)
+        setViewer((v: any) => v ? { ...v, isFollowing: false, hasRequested: false, canViewPosts: false } : v)
+      } else {
+        const res: any = await api.followUser(String(userId))
+        if (res?.requested) {
+          setHasRequested(true)
+          setViewer((v: any) => v ? { ...v, hasRequested: true } : v)
+        } else {
+          setIsFollowing(true)
+          setViewer((v: any) => v ? { ...v, isFollowing: true, canViewPosts: true } : v)
+        }
+      }
     } catch (error) {
       console.error("Error toggling follow:", error)
       Alert.alert("Error", "Failed to toggle follow")
@@ -173,6 +186,11 @@ export default function ProfileScreen() {
       const data = targetUserId ? await api.getUserProfile(String(targetUserId)) : await api.getMe()
       const payload: any = data
       setUser(payload.user || payload)
+      if (payload.viewer) {
+        setViewer(payload.viewer)
+        setIsFollowing(!!payload.viewer.isFollowing)
+        setHasRequested(!!payload.viewer.hasRequested)
+      }
 
       const currentUserToCheck = currentUserData || currentUser
       if (targetUserId && currentUserToCheck) {
@@ -367,6 +385,18 @@ export default function ProfileScreen() {
   }
 
   const renderPostsContent = () => {
+    const canView = viewer?.canViewPosts !== false
+    if (!canView && !isOwnProfile) {
+      return (
+        <View style={styles.tabContentContainer}>
+          <View style={styles.emptyState}>
+            <View style={styles.emptyStateIcon}><Text style={styles.emptyStateIconText}>🔒</Text></View>
+            <Text style={styles.emptyStateTitle}>This account is private</Text>
+            <Text style={styles.emptyStateDescription}>Follow to see their photos and videos.</Text>
+          </View>
+        </View>
+      )
+    }
     if (posts && posts.length > 0) {
       return (
         <View style={styles.tabContentContainer}>
@@ -473,11 +503,11 @@ export default function ProfileScreen() {
             <Text style={[styles.statNumber, { color: colors.text }]}>{posts?.length || 0}</Text>
             <Text style={[styles.statLabel, { color: colors.muted }]}>Posts</Text>
           </View>
-          <TouchableOpacity style={styles.stat} onPress={() => router.push(`/followers/${(user as any)?._id || (userId as any)}`)}>
+          <TouchableOpacity style={styles.stat} onPress={() => { if (viewer && viewer.canViewPosts === false && !isOwnProfile) return; router.push(`/followers/${(user as any)?._id || (userId as any)}`) }}>
             <Text style={[styles.statNumber, { color: colors.text }]}>{(user as any)?.followers?.length || 0}</Text>
             <Text style={[styles.statLabel, { color: colors.muted }]}>Followers</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.stat} onPress={() => router.push(`/following/${(user as any)?._id || (userId as any)}`)}>
+          <TouchableOpacity style={styles.stat} onPress={() => { if (viewer && viewer.canViewPosts === false && !isOwnProfile) return; router.push(`/following/${(user as any)?._id || (userId as any)}`) }}>
             <Text style={[styles.statNumber, { color: colors.text }]}>{(user as any)?.following?.length || 0}</Text>
             <Text style={[styles.statLabel, { color: colors.muted }]}>Following</Text>
           </TouchableOpacity>
@@ -534,11 +564,11 @@ export default function ProfileScreen() {
         ) : (
           <>
             <TouchableOpacity
-              style={[styles.button, isFollowing ? { backgroundColor: colors.surface } : { backgroundColor: colors.primary }, { borderColor: colors.border }]}
+              style={[styles.button, (isFollowing || hasRequested) ? { backgroundColor: colors.surface } : { backgroundColor: colors.primary }, { borderColor: colors.border }]}
               onPress={handleFollowToggle}
             >
-              <Text style={[styles.buttonText, { color: isFollowing ? colors.text : '#fff' }]}>
-                {isFollowing ? "Following" : "Follow"}
+              <Text style={[styles.buttonText, { color: (isFollowing || hasRequested) ? colors.text : '#fff' }]}> 
+                {isFollowing ? "Following" : hasRequested ? "Requested" : "Follow"}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity style={[styles.button, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={() => router.push({ pathname: '/chats/[chatId]', params: { chatId: String((user as any)?._id || '') } })}>
