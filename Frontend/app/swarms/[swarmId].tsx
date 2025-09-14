@@ -69,7 +69,10 @@ export default function SwarmLiveScreen() {
     }
     const onPhase = (payload: any) => {
       if (String(payload?.swarmId) !== String(swarmId)) return
-      setPhase(String(payload?.phase || 'lobby'))
+      const next = String(payload?.phase || 'lobby')
+      setPhase(next)
+      // Reset cluster selections when leaving cluster phase
+      if (next !== 'cluster') setSelectedForCluster({})
     }
     const onVotes = (payload: any) => {
       if (String(payload?.swarmId) !== String(swarmId)) return
@@ -85,8 +88,15 @@ export default function SwarmLiveScreen() {
     }
     const onClusters = (p: any) => {
       if (String(p?.swarmId) !== String(swarmId)) return
-      setSwarm((prev: any) => ({ ...(prev || {}), clusters: p.clusters || [] }))
-      setClusters((p?.clusters || []) as any)
+      const incoming = Array.isArray(p?.clusters) ? p.clusters : []
+      setSwarm((prev: any) => {
+        const prevList = (prev?.clusters || [])
+        const sameLen = prevList.length === incoming.length
+        const same = sameLen && prevList.every((c: any, i: number) => String(c.title) === String(incoming[i].title) && String((c.ideaIds||[]).join(',')) === String((incoming[i].ideaIds||[]).join(',')))
+        if (same) return prev
+        return { ...(prev || {}), clusters: incoming }
+      })
+      setClusters(incoming as any)
       setPhase('cluster')
     }
     const onActions = (p: any) => {
@@ -229,6 +239,9 @@ export default function SwarmLiveScreen() {
       <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 140 }}>
         {/* Ideas list */}
         <Text style={{ fontWeight: '800', marginBottom: 6 }}>Ideas</Text>
+        {ideas.length === 0 && (
+          <Text style={{ color: '#6b7280', marginBottom: 8 }}>No ideas yet. {phase === 'diverge' ? 'Be the first to add one!' : 'Waiting for Diverge phase.'}</Text>
+        )}
         {ideas.map((item) => (
           <View key={item._id} style={styles.ideaCard}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
