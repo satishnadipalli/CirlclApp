@@ -50,6 +50,10 @@ const Search = () => {
   const [groups, setGroups] = useState<any[]>([])
   const [groupsLoading, setGroupsLoading] = useState(false)
   const [groupCounts, setGroupCounts] = useState<Record<string, number>>({})
+  const [groupPostedByMe, setGroupPostedByMe] = useState<Record<string, boolean>>({})
+  const [groupCompleted, setGroupCompleted] = useState<Record<string, boolean>>({})
+  const [groupStreaks, setGroupStreaks] = useState<Record<string, number>>({})
+  const [celebrateGroupId, setCelebrateGroupId] = useState<string | null>(null)
   const [postToGroup, setPostToGroup] = useState(false)
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null)
   const [streak, setStreak] = useState<{ current?: number; longest?: number; nextMilestone?: number | null; hitMilestone?: boolean } | null>(null)
@@ -58,6 +62,7 @@ const Search = () => {
   const params = useLocalSearchParams() as any
   const openHandledRef = useRef(false)
   const focusDailyHandledRef = useRef(false)
+  const [myId, setMyId] = useState<string | null>(null)
 
   // New: search recents and filters state
   const RECENTS_KEY = 'recent_searches_v1'
@@ -82,6 +87,15 @@ const Search = () => {
   useEffect(() => {
     loadExplore(1, true)
     loadRecentSearches()
+    ;(async () => {
+      try {
+        const raw = await AsyncStorage.getItem('user')
+        if (raw) {
+          const obj = JSON.parse(raw)
+          setMyId(obj?.id || obj?._id || null)
+        }
+      } catch {}
+    })()
   }, [])
 
   useEffect(() => {
@@ -189,14 +203,75 @@ const Search = () => {
       const gs = Array.isArray(res?.groups) ? res.groups : []
       setGroups(gs)
       const counts: Record<string, number> = {}
+      const postedMap: Record<string, boolean> = {}
+      const completedMap: Record<string, boolean> = {}
+
+      // Load local streak state and celebrations
+      const STREAKS_KEY = 'group_streaks_v1'
+      const CELEB_KEY = 'group_celebrated_v1'
+      let streaks: Record<string, { last: string; streak: number }> = {}
+      let celebrated: Record<string, string> = {}
+      try {
+        const raw = await AsyncStorage.getItem(STREAKS_KEY)
+        if (raw) streaks = JSON.parse(raw)
+      } catch {}
+      try {
+        const raw = await AsyncStorage.getItem(CELEB_KEY)
+        if (raw) celebrated = JSON.parse(raw)
+      } catch {}
+
+      const today = new Date()
+      const yyyy = today.getFullYear()
+      const mm = String(today.getMonth() + 1).padStart(2, '0')
+      const dd = String(today.getDate()).padStart(2, '0')
+      const todayStr = `${yyyy}-${mm}-${dd}`
+      const yest = new Date(today)
+      yest.setDate(today.getDate() - 1)
+      const yyyyy = yest.getFullYear()
+      const ymm = String(yest.getMonth() + 1).padStart(2, '0')
+      const ydd = String(yest.getDate()).padStart(2, '0')
+      const yesterdayStr = `${yyyyy}-${ymm}-${ydd}`
+
       await Promise.all(gs.map(async (g: any) => {
         try {
-          const gr: any = await apiService.getGroupDailyFeed(String(g._id))
+          const gid = String(g._id)
+          const gr: any = await apiService.getGroupDailyFeed(gid)
           const entries = Array.isArray(gr?.entries) ? gr.entries : []
-          counts[String(g._id)] = entries.length
+          counts[gid] = entries.length
+          const total = Array.isArray(g?.members) ? g.members.length : 0
+          const amIPosted = entries.some((e: any) => String(e?.user?._id || '') === String(myId || ''))
+          postedMap[gid] = amIPosted
+          const completed = total > 0 && entries.length >= total
+          completedMap[gid] = completed
+
+          // Update local streaks if completed today
+          if (completed) {
+            const prev = streaks[gid]
+            let nextNum = 1
+            if (prev?.last === todayStr) {
+              nextNum = prev.streak || 1
+            } else if (prev?.last === yesterdayStr) {
+              nextNum = (prev.streak || 0) + 1
+            }
+            streaks[gid] = { last: todayStr, streak: nextNum }
+            // Trigger celebration once per day per group
+            if (celebrated[gid] !== todayStr) {
+              celebrated[gid] = todayStr
+              // Only surface one celebration at a time
+              if (!celebrateGroupId) setCelebrateGroupId(gid)
+            }
+          }
         } catch {}
       }))
+
       setGroupCounts(counts)
+      setGroupPostedByMe(postedMap)
+      setGroupCompleted(completedMap)
+      const streakNumbers: Record<string, number> = {}
+      Object.keys(streaks).forEach((k) => { streakNumbers[k] = Number(streaks[k]?.streak || 0) })
+      setGroupStreaks(streakNumbers)
+      try { await AsyncStorage.setItem(STREAKS_KEY, JSON.stringify(streaks)) } catch {}
+      try { await AsyncStorage.setItem(CELEB_KEY, JSON.stringify(celebrated)) } catch {}
     } finally {
       setGroupsLoading(false)
     }
@@ -531,24 +606,89 @@ const Search = () => {
           data={groups}
           keyExtractor={(item, idx) => item._id || String(idx)}
           renderItem={({ item }) => (
-            <TouchableOpacity style={styles.userRow} onPress={() => router.push({ pathname: "/daily/viewer", params: { groupId: item._id } })}>
-              <Image source={{ uri: item.groupPic || "https://i.pravatar.cc/100?img=18" }} style={styles.userAvatar} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.userName}>{item.name}</Text>
-                <Text style={{ color: '#666', fontSize: 12 }}>
+            <View>
+              <TouchableOpacity style={styles.userRow} onPress={() => router.push({ pathname: "/daily/viewer", params: { groupId: item._id } })}>
+                <Image source={{ uri: item.groupPic || "https://i.pravatar.cc/100?img=18" }} style={styles.userAvatar} />
+                <View style={{ flex: 1 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Text style={styles.userName}>{item.name}</Text>
+                    {(() => {
+                      const gid = String(item._id)
+                      const streakNum = Number(groupStreaks[gid] || 0)
+                      if (streakNum > 0 && groupCompleted[gid]) {
+                        return (
+                          <View style={{ backgroundColor: '#f6f7ff', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: '#eef0ff' }}>
+                            <Text style={{ color: '#556', fontSize: 11, fontWeight: '800' }}>Streak {streakNum}</Text>
+                          </View>
+                        )
+                      }
+                      return null
+                    })()}
+                  </View>
+                  <Text style={{ color: '#666', fontSize: 12 }}>
+                    {(() => {
+                      const posted = groupCounts[String(item._id)] || 0
+                      const total = Array.isArray(item?.members) ? item.members.length : undefined
+                      if (typeof total === 'number' && total > 0) {
+                        const pct = Math.round((posted / total) * 100)
+                        return `${posted}/${total} posted today (${pct}%)`
+                      }
+                      return `${posted} posted today`
+                    })()}
+                  </Text>
                   {(() => {
-                    const posted = groupCounts[String(item._id)] || 0
-                    const total = Array.isArray(item?.members) ? item.members.length : undefined
-                    if (typeof total === 'number' && total > 0) {
-                      const pct = Math.round((posted / total) * 100)
-                      return `${posted}/${total} posted today (${pct}%)`
+                    const gid = String(item._id)
+                    const completed = !!groupCompleted[gid]
+                    const iPosted = !!groupPostedByMe[gid]
+                    const total = Array.isArray(item?.members) ? item.members.length : 0
+                    const remaining = Math.max(0, total - (groupCounts[gid] || 0))
+                    if (completed && total > 0) {
+                      return (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 }}>
+                          <TouchableOpacity onPress={() => router.push({ pathname: '/daily/viewer', params: { groupId: item._id } })} style={{ backgroundColor: '#0095f6', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 }}>
+                            <Text style={{ color: '#fff', fontWeight: '800' }}>All posted! View Today</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity onPress={() => { /* future: open recap viewer */ }} style={{ backgroundColor: '#eee', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 }}>
+                            <Text style={{ color: '#000', fontWeight: '800' }}>Create Recap</Text>
+                          </TouchableOpacity>
+                        </View>
+                      )
                     }
-                    return `${posted} posted today`
+                    if (!completed && !iPosted) {
+                      return (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 }}>
+                          <TouchableOpacity onPress={() => { setShowComposer(true); setPostToGroup(true); setSelectedGroupId(String(item._id)) }} style={{ backgroundColor: '#34c759', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 }}>
+                            <Text style={{ color: '#fff', fontWeight: '800' }}>Post to group</Text>
+                          </TouchableOpacity>
+                          {remaining > 0 && (
+                            <Text style={{ color: '#666', fontSize: 12 }}>{remaining} remaining today</Text>
+                          )}
+                        </View>
+                      )
+                    }
+                    if (!completed && iPosted && remaining > 0) {
+                      return (
+                        <View style={{ marginTop: 8 }}>
+                          <Text style={{ color: '#666', fontSize: 12 }}>Waiting on {remaining} {remaining === 1 ? 'member' : 'members'}…</Text>
+                        </View>
+                      )
+                    }
+                    return null
                   })()}
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color="#999" />
-            </TouchableOpacity>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#999" />
+              </TouchableOpacity>
+              {celebrateGroupId && String(celebrateGroupId) === String(item._id) && (
+                <View style={{ position: 'absolute', left: 0, right: 0, top: 0 }}>
+                  <View style={{ marginHorizontal: 12, marginTop: 6, backgroundColor: '#f0fff4', borderColor: '#c6f6d5', borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Text style={{ color: '#066e2c', fontWeight: '800' }}>🎉 All posted today! Keep the streak going.</Text>
+                    <TouchableOpacity onPress={() => setCelebrateGroupId(null)} style={{ marginLeft: 10 }}>
+                      <Ionicons name="close" size={18} color="#066e2c" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+            </View>
           )}
           ItemSeparatorComponent={() => <View style={styles.sep} />}
           onRefresh={loadGroups}
