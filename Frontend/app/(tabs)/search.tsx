@@ -13,6 +13,7 @@ import {
   ScrollView,
   Modal,
   Share,
+  Animated,
 } from "react-native"
 import * as ImagePicker from "expo-image-picker"
 import { Camera } from "expo-camera"
@@ -20,6 +21,7 @@ import { useLocalSearchParams, useRouter } from "expo-router"
 import { apiService } from "@/services/api.service"
 import { Ionicons } from "@expo/vector-icons"
 import AsyncStorage from "@react-native-async-storage/async-storage"
+import * as Haptics from "expo-haptics"
 
 const Search = () => {
   const [query, setQuery] = useState("")
@@ -62,6 +64,12 @@ const Search = () => {
   const [showFilters, setShowFilters] = useState(false)
   const [nearbyEnabled, setNearbyEnabled] = useState(false)
   const [radiusKm, setRadiusKm] = useState<15 | 25 | 50>(25)
+
+  // Long-press preview state
+  const [previewPost, setPreviewPost] = useState<any | null>(null)
+  const [previewVisible, setPreviewVisible] = useState(false)
+  const scaleAnim = useRef(new Animated.Value(0.95)).current
+  const opacityAnim = useRef(new Animated.Value(0)).current
 
   useEffect(() => {
     loadExplore(1, true)
@@ -271,6 +279,45 @@ const Search = () => {
 
   const onEndReached = () => {
     if (!isSearching && hasMore && !loadingMoreRef.current) loadExplore(page + 1)
+  }
+
+  const openPreview = async (item: any) => {
+    try { await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium) } catch {}
+    setPreviewPost(item)
+    setPreviewVisible(true)
+    try {
+      scaleAnim.setValue(0.95)
+      opacityAnim.setValue(0)
+      Animated.parallel([
+        Animated.timing(scaleAnim, { toValue: 1, duration: 140, useNativeDriver: true }),
+        Animated.timing(opacityAnim, { toValue: 1, duration: 140, useNativeDriver: true }),
+      ]).start()
+    } catch {}
+  }
+  const closePreview = () => {
+    Animated.parallel([
+      Animated.timing(scaleAnim, { toValue: 0.95, duration: 120, useNativeDriver: true }),
+      Animated.timing(opacityAnim, { toValue: 0, duration: 120, useNativeDriver: true }),
+    ]).start(({ finished }) => {
+      if (finished) { setPreviewVisible(false); setPreviewPost(null) }
+    })
+  }
+  const onLike = async () => {
+    if (!previewPost?._id) return
+    try { await apiService.likePost(String(previewPost._id)) } catch {}
+    closePreview()
+  }
+  const onSave = async () => {
+    if (!previewPost?._id) return
+    try { await apiService.toggleSave(String(previewPost._id)) } catch {}
+    closePreview()
+  }
+  const onShare = async () => {
+    try {
+      const link = previewPost?.shareUrl || previewPost?.mediaUrl || ""
+      await Share.share({ message: link || "Check this post on CirclApp" })
+    } catch {}
+    closePreview()
   }
 
   const onChangeQuery = (text) => {
@@ -515,17 +562,17 @@ const Search = () => {
           data={explore}
           keyExtractor={(item, idx) => item._id || String(idx)}
           renderItem={({ item }) => (
-            <View style={{ position: 'relative' }}>
+            <TouchableOpacity activeOpacity={0.8} onLongPress={() => openPreview(item)} style={{ position: 'relative' }}>
               <Image
                 source={{ uri: item.mediaUrl || "https://i.pravatar.cc/500?img=21" }}
                 style={styles.image}
               />
-              {/(\.mp4|\.mov|\.m4v|\.webm)$/i.test(String(item?.mediaUrl || '')) && (
+              {(/(\.mp4|\.mov|\.m4v|\.webm)$/i).test(String(item?.mediaUrl || '')) && (
                 <View style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
                   <Ionicons name="play-circle" size={26} color="#fff" />
                 </View>
               )}
-            </View>
+            </TouchableOpacity>
           )}
           numColumns={3}
           onEndReached={onEndReached}
@@ -561,6 +608,40 @@ const Search = () => {
           )}
         />
       )}
+
+      {/* Long-press preview modal */}
+      <Modal visible={previewVisible} transparent animationType="none" onRequestClose={closePreview}>
+        <Animated.View style={{ flex: 1, backgroundColor: opacityAnim.interpolate({ inputRange: [0,1], outputRange: ['rgba(0,0,0,0)','rgba(0,0,0,0.35)'] }), justifyContent: 'center', alignItems: 'center' }}>
+          <TouchableOpacity style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }} activeOpacity={1} onPress={closePreview} />
+          <Animated.View style={{ transform: [{ scale: scaleAnim }], width: width * 0.9, borderRadius: 16, overflow: 'hidden', backgroundColor: '#111' }}>
+            {previewPost?.mediaUrl ? (
+              <Image source={{ uri: previewPost.mediaUrl }} style={{ width: '100%', height: width * 0.9 }} resizeMode="cover" />
+            ) : (
+              <View style={{ width: '100%', height: width * 0.9, backgroundColor: '#222', alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="image" size={36} color="#666" />
+              </View>
+            )}
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', paddingVertical: 12, backgroundColor: '#fff' }}>
+              <TouchableOpacity onPress={onLike} style={{ alignItems: 'center' }}>
+                <Ionicons name="heart" size={22} color="#ef4444" />
+                <Text style={{ marginTop: 4, color: '#111', fontWeight: '700' }}>Like</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={onSave} style={{ alignItems: 'center' }}>
+                <Ionicons name="bookmark" size={22} color="#111827" />
+                <Text style={{ marginTop: 4, color: '#111', fontWeight: '700' }}>Save</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={onShare} style={{ alignItems: 'center' }}>
+                <Ionicons name="share-social" size={22} color="#0ea5e9" />
+                <Text style={{ marginTop: 4, color: '#111', fontWeight: '700' }}>Share</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={closePreview} style={{ alignItems: 'center' }}>
+                <Ionicons name="close" size={22} color="#6b7280" />
+                <Text style={{ marginTop: 4, color: '#111', fontWeight: '700' }}>Close</Text>
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+        </Animated.View>
+      </Modal>
 
       {/* Filters modal */}
       <Modal visible={showFilters} animationType="slide" onRequestClose={() => setShowFilters(false)}>
