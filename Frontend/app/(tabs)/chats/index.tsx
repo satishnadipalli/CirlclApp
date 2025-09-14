@@ -236,13 +236,15 @@ export default function ChatsScreen() {
     socketService.onTyping((data: any) => {
       const fromId = data?.from
       if (!fromId || fromId === uid) return
-      setTypingState((p) => ({ ...p, [fromId]: `${data?.name || "Someone"} is typing...` }))
-      setTimeout(() => setTypingState((cur) => ({ ...cur, [fromId]: "" })), 1500)
+      // Only show direct typing in the chat list for that peer id, not groups
+      setTypingState((p) => ({ ...p, [String(fromId)]: `${data?.name || "Someone"} is typing...` }))
+      setTimeout(() => setTypingState((cur) => ({ ...cur, [String(fromId)]: "" })), 1500)
     })
     socketService.onGroupTyping((data: any) => {
-      const gid = data?.groupId
-      const fromId = data?.from
+      const gid = String(data?.groupId || '')
+      const fromId = String(data?.from || '')
       if (!gid || fromId === uid) return
+      // Only show typing for that specific group id
       setTypingState((p) => ({ ...p, [gid]: `${data?.name || "Someone"} is typing...` }))
       setTimeout(() => setTypingState((cur) => ({ ...cur, [gid]: "" })), 1500)
     })

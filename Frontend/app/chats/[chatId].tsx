@@ -560,9 +560,11 @@ export default function ChatScreen() {
         socketService.onStopTyping(onStopTypingCb)
         stopTypingListenerRef.current = onStopTypingCb
       } else {
-        const onGroupTypingCb = (data: { from: string; name: string }) => {
+        const onGroupTypingCb = (data: { from: string; name: string; groupId?: string }) => {
           console.log("[v0] Received group typing event:", data)
           const fromUserId = typeof data.from === "object" ? data.from._id : data.from
+          // Ensure this typing event is for THIS group only
+          if (String(data?.groupId || '') !== String(params.chatId)) return
           if (fromUserId !== user._id) {
             setTypingUsers((prev) => {
               const exists = prev.find((user) => user._id === fromUserId)
@@ -584,9 +586,10 @@ export default function ChatScreen() {
         socketService.onGroupTyping(onGroupTypingCb)
         typingListenerRef.current = onGroupTypingCb
 
-        const onGroupStopTypingCb = (data: { from: string }) => {
+        const onGroupStopTypingCb = (data: { from: string; groupId?: string }) => {
           console.log("[v0] Received group stop typing event:", data)
           const fromUserId = typeof data.from === "object" ? data.from._id : data.from
+          if (String(data?.groupId || '') !== String(params.chatId)) return
           setTypingUsers((prev) => {
             const filtered = prev.filter((user) => user._id !== fromUserId)
             if (filtered.length === 0) {
