@@ -689,6 +689,11 @@ export default function DailyViewer() {
             >
               <Text style={{ color: '#fff', fontWeight: '800' }}>Auto CC</Text>
             </TouchableOpacity>
+            <TouchableOpacity onPress={async () => {
+              try { await api.dailyHighlight(String(item._id), true); setHighlightIds((prev) => new Set(Array.from(prev).concat(String(item._id)))) } catch {}
+            }}>
+              <Text style={{ color: '#fff', fontWeight: '800' }}>{highlightIds.has(String(item._id)) ? 'In Highlights' : 'Add to Highlights'}</Text>
+            </TouchableOpacity>
             <TouchableOpacity onPress={async () => { await loadViewers(); setShowViewers(true) }}>
               <Text style={{ color: '#fff', fontWeight: '800' }}>Viewers</Text>
             </TouchableOpacity>
@@ -712,6 +717,14 @@ export default function DailyViewer() {
               }}
             >
               <Text style={{ color: '#f55', fontWeight: '800' }}>Delete</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+        {String(item?.user?._id || '') !== String(myId || '') && (
+          <View style={{ marginTop: 8, flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: 14 }}>
+            {/* Hide viewers/reactors for others; keep only report */}
+            <TouchableOpacity onPress={() => setShowReport(true)}>
+              <Text style={{ color: '#fff', fontWeight: '800' }}>Report</Text>
             </TouchableOpacity>
           </View>
         )}
