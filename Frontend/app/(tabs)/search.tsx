@@ -21,6 +21,7 @@ import { useLocalSearchParams, useRouter } from "expo-router"
 import { apiService } from "@/services/api.service"
 import { Ionicons } from "@expo/vector-icons"
 import AsyncStorage from "@react-native-async-storage/async-storage"
+import socketService from "@/services/socket.service"
 import * as Haptics from "expo-haptics"
 import * as Clipboard from "expo-clipboard"
 
@@ -124,6 +125,21 @@ const Search = () => {
     if (tab === 'groups') loadGroups()
     if (tab === 'daily') { loadStreak() }
   }, [tab])
+
+  // React to server-side group completion events
+  useEffect(() => {
+    const handler = (payload: any) => {
+      try {
+        const gid = String(payload?.groupId || '')
+        if (!gid) return
+        // Surface banner and refresh group counts
+        setCelebrateGroupId(gid)
+        loadGroups()
+      } catch {}
+    }
+    try { (socketService as any).onGroupDailyComplete(handler) } catch {}
+    return () => { try { (socketService as any).removeGroupDailyComplete(handler) } catch {} }
+  }, [])
 
   const loadDaily = async (reset = false) => {
     try {
@@ -648,7 +664,7 @@ const Search = () => {
                           <TouchableOpacity onPress={() => router.push({ pathname: '/daily/viewer', params: { groupId: item._id } })} style={{ backgroundColor: '#0095f6', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 }}>
                             <Text style={{ color: '#fff', fontWeight: '800' }}>All posted! View Today</Text>
                           </TouchableOpacity>
-                          <TouchableOpacity onPress={() => { /* future: open recap viewer */ }} style={{ backgroundColor: '#eee', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 }}>
+                          <TouchableOpacity onPress={() => router.push({ pathname: '/daily/viewer', params: { groupId: item._id, dur: '3000' } })} style={{ backgroundColor: '#eee', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 }}>
                             <Text style={{ color: '#000', fontWeight: '800' }}>Create Recap</Text>
                           </TouchableOpacity>
                         </View>

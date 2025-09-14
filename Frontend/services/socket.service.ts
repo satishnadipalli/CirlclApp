@@ -31,6 +31,7 @@ class SocketService {
     this.swarmClustersListeners = [] as any;
     this.swarmActionsListeners = [] as any;
     this.swarmEndedListeners = [] as any;
+    this.groupCompleteListeners = [] as any;
     this.currentUserId = null;
     this.heartbeatInterval = null as any;
     this.clientPrivacy = { sendTypingIndicators: true } as any
@@ -219,6 +220,10 @@ class SocketService {
     this.socket.on("messagePinned", (payload) => {
       try { (this.messageEditListeners || []).forEach((l) => l({ ...payload, pinned: true })) } catch {}
     });
+    // Group daily completion
+    this.socket.on("groupDailyComplete", (payload) => {
+      try { (this.groupCompleteListeners || []).forEach((l) => l(payload)) } catch {}
+    });
 
     this.socket.on("connect", () => {
       console.log("[v0] Socket connected:", this.socket.id);
@@ -392,6 +397,7 @@ class SocketService {
   onSwarmClusters(cb) { (this.swarmClustersListeners || (this.swarmClustersListeners = [])).push(cb) }
   onSwarmActions(cb) { (this.swarmActionsListeners || (this.swarmActionsListeners = [])).push(cb) }
   onSwarmEnded(cb) { (this.swarmEndedListeners || (this.swarmEndedListeners = [])).push(cb) }
+  onGroupDailyComplete(cb) { (this.groupCompleteListeners || (this.groupCompleteListeners = [])).push(cb) }
 
   onGroupTyping(callback) {
     this.typingListeners.push(callback);
@@ -474,6 +480,7 @@ class SocketService {
   removeSwarmClusters(cb) { const i = (this.swarmClustersListeners || []).indexOf(cb); if (i>-1) this.swarmClustersListeners.splice(i,1); }
   removeSwarmActions(cb) { const i = (this.swarmActionsListeners || []).indexOf(cb); if (i>-1) this.swarmActionsListeners.splice(i,1); }
   removeSwarmEnded(cb) { const i = (this.swarmEndedListeners || []).indexOf(cb); if (i>-1) this.swarmEndedListeners.splice(i,1); }
+  removeGroupDailyComplete(cb) { const i = (this.groupCompleteListeners || []).indexOf(cb); if (i>-1) this.groupCompleteListeners.splice(i,1); }
 
   // Clear all listeners
   clearAllListeners() {
@@ -499,6 +506,7 @@ class SocketService {
     this.swarmClustersListeners = [] as any;
     this.swarmActionsListeners = [] as any;
     this.swarmEndedListeners = [] as any;
+    this.groupCompleteListeners = [] as any;
   }
 }
 
