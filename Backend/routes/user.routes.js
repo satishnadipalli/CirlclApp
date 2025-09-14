@@ -29,6 +29,10 @@ router.get("/search", auth, searchuser);
 router.get("/me/close-friends", auth, listCloseFriends)
 router.post("/close-friends/:id", auth, addCloseFriend)
 router.delete("/close-friends/:id", auth, removeCloseFriend)
+// Follow requests
+router.get('/me/follow-requests', auth, require('../controllers/user.controller').listFollowRequests)
+router.post('/follow-requests/:id/accept', auth, require('../controllers/user.controller').acceptFollowRequest)
+router.post('/follow-requests/:id/decline', auth, require('../controllers/user.controller').declineFollowRequest)
 // Push
 router.post("/me/push-token", auth, registerPushToken)
 // Safety
