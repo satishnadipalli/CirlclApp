@@ -1,151 +1,18 @@
-import React, { useEffect, useState } from 'react'
-import { View, Text, Switch, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native'
-import { useRouter } from 'expo-router'
-import * as Notifications from 'expo-notifications'
-import api from '@/services/api.service'
+import React from "react"
+import { View, Text, TouchableOpacity } from "react-native"
+import { useRouter } from "expo-router"
 
-type Prefs = {
-  like: boolean
-  comment: boolean
-  reply: boolean
-  mention: boolean
-  follow: boolean
-  save: boolean
-  daily: boolean
-  quiet: { enabled: boolean; start: string; end: string }
-}
-
-const defaultPrefs: Prefs = {
-  like: true,
-  comment: true,
-  reply: true,
-  mention: true,
-  follow: true,
-  save: true,
-  daily: true,
-  quiet: { enabled: false, start: '22:00', end: '07:00' },
-}
-
-export default function NotificationSettings() {
+export default function NotificationsSettings() {
   const router = useRouter()
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [prefs, setPrefs] = useState<Prefs>(defaultPrefs)
-
-  useEffect(() => {
-    ;(async () => {
-      try {
-        const res: any = await api.getNotificationPrefs()
-        if (res?.success && res?.prefs) setPrefs({ ...defaultPrefs, ...res.prefs, quiet: { ...defaultPrefs.quiet, ...(res.prefs.quiet || {}) } })
-      } catch (e) {
-      } finally {
-        setLoading(false)
-      }
-    })()
-  }, [])
-
-  const onToggle = (key: keyof Omit<Prefs, 'quiet'>) => (val: boolean) => {
-    setPrefs((p) => ({ ...p, [key]: val }))
-  }
-
-  const onQuietToggle = (val: boolean) => {
-    setPrefs((p) => ({ ...p, quiet: { ...p.quiet, enabled: val } }))
-  }
-
-  const cycleTime = (current: string, list: string[]) => {
-    const idx = list.indexOf(current)
-    const nextIdx = (idx === -1 ? 0 : (idx + 1) % list.length)
-    return list[nextIdx]
-  }
-
-  const presetStarts = ['21:00','22:00','23:00','00:00']
-  const presetEnds = ['06:00','07:00','08:00','09:00']
-
-  const save = async () => {
-    setSaving(true)
-    try {
-      const payload = { like: prefs.like, comment: prefs.comment, reply: prefs.reply, mention: prefs.mention, follow: prefs.follow, save: prefs.save, daily: prefs.daily, quiet: { enabled: !!prefs.quiet?.enabled, start: prefs.quiet?.start || '22:00', end: prefs.quiet?.end || '07:00' } }
-      const res: any = await api.updateNotificationPrefs(payload)
-      if (res?.success) {
-        try {
-          // Reschedule daily reminder based on prefs
-          if (prefs.daily) {
-            try { await Notifications.cancelScheduledNotificationAsync('daily-circle-reminder' as any) } catch {}
-            const trigger = { hour: 19, minute: 0, repeats: true } as any
-            await Notifications.scheduleNotificationAsync({
-              identifier: 'daily-circle-reminder' as any,
-              content: { title: 'Daily Circle', body: "Share today's moment with your circle ✨", sound: 'default' },
-              trigger,
-            })
-          } else {
-            try { await Notifications.cancelScheduledNotificationAsync('daily-circle-reminder' as any) } catch {}
-          }
-        } catch {}
-        router.back()
-      } else {
-        Alert.alert('Error', res?.message || 'Failed to save preferences')
-      }
-    } catch (e) {
-      Alert.alert('Error', e instanceof Error ? e.message : 'Failed to save')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  if (loading) return <View style={styles.container}><Text style={styles.title}>Loading…</Text></View>
-
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}><Text style={styles.link}>Back</Text></TouchableOpacity>
-        <Text style={styles.title}>Notifications</Text>
-        <TouchableOpacity onPress={save} disabled={saving}><Text style={[styles.link, saving && { opacity: 0.6 }]}>{saving ? 'Saving…' : 'Save'}</Text></TouchableOpacity>
+    <View style={{ flex: 1, backgroundColor: '#fff', paddingTop: 50 }}>
+      <View style={{ paddingHorizontal: 16, paddingBottom: 12 }}>
+        <Text style={{ fontWeight: '800', fontSize: 18 }}>Settings</Text>
       </View>
-
-      <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
-        <TouchableOpacity style={[styles.row, { backgroundColor: '#F7F8FA' }]} onPress={() => router.push('/settings/theme')}>
-          <Text style={[styles.label, { fontWeight: '800' }]}>Appearance</Text>
-          <Text style={styles.link}>Theme ›</Text>
-        </TouchableOpacity>
-        <Text style={styles.section}>Activity</Text>
-        <View style={styles.row}><Text style={styles.label}>Likes</Text><Switch value={prefs.like} onValueChange={onToggle('like')} /></View>
-        <View style={styles.row}><Text style={styles.label}>Comments</Text><Switch value={prefs.comment} onValueChange={onToggle('comment')} /></View>
-        <View style={styles.row}><Text style={styles.label}>Replies</Text><Switch value={prefs.reply} onValueChange={onToggle('reply')} /></View>
-        <View style={styles.row}><Text style={styles.label}>Mentions</Text><Switch value={prefs.mention} onValueChange={onToggle('mention')} /></View>
-        <View style={styles.row}><Text style={styles.label}>Saves</Text><Switch value={prefs.save} onValueChange={onToggle('save')} /></View>
-        <View style={styles.row}><Text style={styles.label}>New followers</Text><Switch value={prefs.follow} onValueChange={onToggle('follow')} /></View>
-
-        <Text style={styles.section}>Daily Circle</Text>
-        <View style={styles.row}><Text style={styles.label}>Daily reminder</Text><Switch value={prefs.daily} onValueChange={onToggle('daily')} /></View>
-
-        <Text style={styles.section}>Quiet hours</Text>
-        <View style={styles.row}>
-          <Text style={styles.label}>Enable quiet hours</Text>
-          <Switch value={!!prefs.quiet?.enabled} onValueChange={onQuietToggle} />
-        </View>
-        <View style={[styles.row, { opacity: prefs.quiet.enabled ? 1 : 0.5 }]}> 
-          <Text style={styles.label}>Start</Text>
-          <TouchableOpacity disabled={!prefs.quiet.enabled} onPress={() => setPrefs((p) => ({ ...p, quiet: { ...p.quiet, start: cycleTime(p.quiet.start, presetStarts) } }))}>
-            <Text style={styles.link}>{prefs.quiet.start}</Text>
-          </TouchableOpacity>
-        </View>
-        <View style={[styles.row, { opacity: prefs.quiet.enabled ? 1 : 0.5 }]}> 
-          <Text style={styles.label}>End</Text>
-          <TouchableOpacity disabled={!prefs.quiet.enabled} onPress={() => setPrefs((p) => ({ ...p, quiet: { ...p.quiet, end: cycleTime(p.quiet.end, presetEnds) } }))}>
-            <Text style={styles.link}>{prefs.quiet.end}</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
+      <TouchableOpacity onPress={() => router.push('/settings/blocked')} style={{ paddingHorizontal: 16, paddingVertical: 12 }}>
+        <Text style={{ fontWeight: '700' }}>Blocked users</Text>
+        <Text style={{ color: '#666' }}>Manage who you’ve blocked</Text>
+      </TouchableOpacity>
     </View>
   )
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff', paddingTop: 50 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: '#eee' },
-  title: { fontSize: 18, fontWeight: '800', color: '#000' },
-  link: { color: '#007aff', fontWeight: '700' },
-  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#f3f3f3' },
-  label: { color: '#000', fontSize: 16 },
-  section: { color: '#555', fontSize: 14, fontWeight: '700', paddingHorizontal: 16, paddingTop: 18, paddingBottom: 8 },
-})

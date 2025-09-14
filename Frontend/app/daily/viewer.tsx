@@ -6,6 +6,7 @@ import { Video } from "expo-av"
 import api from "@/services/api.service"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import socketService from "@/services/socket.service"
+import React from "react"
 
 const { width, height } = Dimensions.get('window')
 
@@ -97,6 +98,9 @@ export default function DailyViewer() {
     })()
   }, [])
 
+  const blockedRef = React.useRef<Set<string>>(new Set())
+  useEffect(() => { (async () => { try { const me: any = await api.getMe(); const ids: string[] = (me?.blockedUsers || me?.user?.blockedUsers || []) as any; blockedRef.current = new Set((ids || []).map(String)) } catch {} })() }, [])
+
   // Group mode: simple list of today's entries
   useEffect(() => {
     if (!groupId) return
@@ -105,15 +109,16 @@ export default function DailyViewer() {
       try {
         const res = await api.getGroupDailyFeed(String(groupId))
         const list = Array.isArray((res as any)?.entries) ? (res as any).entries : []
-        setEntries(list)
+        const filtered = list.filter((e: any) => !blockedRef.current.has(String(e?.user?._id || e?.user)))
+        setEntries(filtered)
         setEntryIndex(0)
-        setProgress(Array.from({ length: list.length }, () => 0))
+        setProgress(Array.from({ length: filtered.length }, () => 0))
         segMsRef.current = defaultSegMs
         // Build rings from latest entries per user
         const seen = new Set<string>()
         const rings: Array<{ _id: string; name: string; profilePic?: string; index: number }> = []
-        for (let i = 0; i < list.length; i++) {
-          const u = list[i]?.user
+        for (let i = 0; i < filtered.length; i++) {
+          const u = filtered[i]?.user
           const uid = String(u?._id || '')
           if (uid && !seen.has(uid)) {
             seen.add(uid)
@@ -158,14 +163,15 @@ export default function DailyViewer() {
       try {
         const res = await api.getDailyEntryByUser(String(uid))
         const list = Array.isArray((res as any)?.entries) ? (res as any).entries : []
+        const filtered = list.filter((e: any) => !blockedRef.current.has(String(e?.user?._id || e?.user)))
         if (!cancelled) {
           if (list.length === 0) {
             if (currentUserIndex < sequence.length - 1) setCurrentUserIndex((i) => i + 1)
             else setEntries([])
           } else {
-            setEntries(list)
+            setEntries(filtered)
             setEntryIndex(0)
-            setProgress(Array.from({ length: list.length }, () => 0))
+            setProgress(Array.from({ length: filtered.length }, () => 0))
             segMsRef.current = defaultSegMs
           }
         }

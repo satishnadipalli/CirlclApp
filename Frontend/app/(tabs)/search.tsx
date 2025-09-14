@@ -71,6 +71,13 @@ const Search = () => {
   const [previewVisible, setPreviewVisible] = useState(false)
   const scaleAnim = useRef(new Animated.Value(0.95)).current
   const opacityAnim = useRef(new Animated.Value(0)).current
+  const blockedSetRef = useRef<Set<string>>(new Set())
+
+  useEffect(() => {
+    (async () => {
+      try { const me: any = await apiService.getMe(); const ids: string[] = (me?.blockedUsers || me?.user?.blockedUsers || []) as any; blockedSetRef.current = new Set((ids || []).map(String)) } catch {}
+    })()
+  }, [])
 
   useEffect(() => {
     loadExplore(1, true)
@@ -271,6 +278,8 @@ const Search = () => {
         res = await apiService.getExplore(p, 18)
         items = (res && (res.posts || [])) || []
       }
+      // Filter out posts from blocked users (client-side)
+      try { items = items.filter((it: any) => !blockedSetRef.current.has(String(it?.user?._id || it?.user))) } catch {}
       setExplore((prev) => (replace ? items : p === 1 ? items : [...prev, ...items]))
       setHasMore((res && res.hasMore) ?? items.length > 0)
       setPage(p)
@@ -425,6 +434,11 @@ const Search = () => {
           returnKeyType="search"
           onSubmitEditing={() => addRecentSearch(query)}
         />
+        {blockedSetRef.current.size > 0 && (
+          <View style={{ backgroundColor: '#eef2ff', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 4, marginRight: 6 }}>
+            <Text style={{ color: '#3730a3', fontWeight: '700', fontSize: 10 }}>Circle users only</Text>
+          </View>
+        )}
         <TouchableOpacity onPress={() => setShowFilters(true)} style={{ padding: 6 }}>
           <Ionicons name="options-outline" size={18} color="#666" />
         </TouchableOpacity>

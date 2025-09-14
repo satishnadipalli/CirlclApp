@@ -515,17 +515,43 @@ export default function ProfileScreen() {
           </>
         ) : (
           <>
-            <TouchableOpacity
-              style={[styles.button, isFollowing ? { backgroundColor: colors.surface } : { backgroundColor: colors.primary }, { borderColor: colors.border }]}
-              onPress={handleFollowToggle}
-            >
-              <Text style={[styles.buttonText, { color: isFollowing ? colors.text : '#fff' }]}>
-                {isFollowing ? "Following" : "Follow"}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.button, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={handleMessage}>
-              <Text style={[styles.buttonText, { color: colors.text }]}>Message</Text>
-            </TouchableOpacity>
+            {/* If blocked, show Unblock; else show Follow/Message and Block */}
+            {(() => {
+              const meBlockedThisUser = Array.isArray((currentUser as any)?.blockedUsers) && (currentUser as any).blockedUsers.some((id: any) => String(id) === String((user as any)?._id))
+              if (meBlockedThisUser) {
+                return (
+                  <>
+                    <TouchableOpacity
+                      style={[styles.button, { backgroundColor: '#fee2e2', borderColor: colors.border }]}
+                      onPress={async () => { try { const api = (await import("@/services/api.service")).apiService; await api.unblockUser(String((user as any)?._id)); await fetchCurrentUser(); Alert.alert('Unblocked', 'User unblocked'); } catch (e) { Alert.alert('Error', (e as Error).message) } }}
+                    >
+                      <Text style={[styles.buttonText, { color: '#991b1b' }]}>Unblock</Text>
+                    </TouchableOpacity>
+                  </>
+                )
+              }
+              return (
+                <>
+                  <TouchableOpacity
+                    style={[styles.button, isFollowing ? { backgroundColor: colors.surface } : { backgroundColor: colors.primary }, { borderColor: colors.border }]}
+                    onPress={handleFollowToggle}
+                  >
+                    <Text style={[styles.buttonText, { color: isFollowing ? colors.text : '#fff' }]}>
+                      {isFollowing ? "Following" : "Follow"}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.button, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={handleMessage}>
+                    <Text style={[styles.buttonText, { color: colors.text }]}>Message</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.button, { backgroundColor: '#fee2e2', borderColor: colors.border }]}
+                    onPress={async () => { try { const api = (await import("@/services/api.service")).apiService; await api.blockUser(String((user as any)?._id)); await fetchCurrentUser(); Alert.alert('Blocked', 'You will no longer see this user'); } catch (e) { Alert.alert('Error', (e as Error).message) } }}
+                  >
+                    <Text style={[styles.buttonText, { color: '#991b1b' }]}>Block</Text>
+                  </TouchableOpacity>
+                </>
+              )
+            })()}
           </>
         )}
       </View>
