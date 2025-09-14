@@ -125,6 +125,9 @@ export default function ChatScreen() {
   const [rate, setRate] = useState(1.0)
   const [sndSend, setSndSend] = useState<Audio.Sound | null>(null)
   const [sndRecv, setSndRecv] = useState<Audio.Sound | null>(null)
+  const [presenceLastSeen, setPresenceLastSeen] = useState<string | undefined>(undefined)
+  const blockedRef = useRef<Set<string>>(new Set())
+  useEffect(() => { (async () => { try { const me: any = await (await import('@/services/api.service')).apiService.getMe(); const ids: string[] = (me?.blockedUsers || me?.user?.blockedUsers || []) as any; blockedRef.current = new Set((ids || []).map(String)) } catch {} })() }, [])
 
   useEffect(() => {
     Animated.timing(menuAnim, { toValue: menuOpen ? 1 : 0, duration: 160, useNativeDriver: true }).start()
@@ -525,6 +528,7 @@ export default function ChatScreen() {
         const onTypingCb = (data: { from: string; name: string }) => {
           console.log("[v0] Received typing event:", data)
           const fromUserId = typeof data.from === "object" ? data.from._id : data.from
+          if (blockedRef.current.has(String(fromUserId))) return
           if (fromUserId !== user._id) {
             setTypingUsers((prev) => {
               const exists = prev.find((user) => user._id === fromUserId)
@@ -549,6 +553,7 @@ export default function ChatScreen() {
         const onStopTypingCb = (data: { from: string }) => {
           console.log("[v0] Received stop typing event:", data)
           const fromUserId = typeof data.from === "object" ? data.from._id : data.from
+          if (blockedRef.current.has(String(fromUserId))) return
           setTypingUsers((prev) => {
             const filtered = prev.filter((user) => user._id !== fromUserId)
             if (filtered.length === 0) {
@@ -803,6 +808,8 @@ export default function ChatScreen() {
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current)
     }
+
+    if (params.chatType === "direct" && blockedRef.current.has(String(params.chatId))) { return }
 
     if (params.chatType === "direct") {
       socketService.sendStopTyping(params.chatId, currentUser._id)

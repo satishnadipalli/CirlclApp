@@ -25,6 +25,7 @@ export default function ChatsScreen() {
   const [onlineMap, setOnlineMap] = useState<Set<string>>(new Set())
   const [lastSeenMap, setLastSeenMap] = useState<Record<string, string>>({})
   const router = useRouter()
+  const blockedRef = useRef<Set<string>>(new Set())
 
   const directListenerRef = useRef<((msg: any) => void) | null>(null)
   const groupListenerRef = useRef<((msg: any) => void) | null>(null)
@@ -41,6 +42,7 @@ export default function ChatsScreen() {
   useEffect(() => {
     if (!userId) return
     console.log("working: userId available, fetching chats for", userId)
+    ;(async () => { try { const me: any = await apiService.getMe(); const ids: string[] = (me?.blockedUsers || me?.user?.blockedUsers || []) as any; blockedRef.current = new Set((ids || []).map(String)) } catch {} })()
     fetchChats()
     loadSuggestions()
     seedPresence()
@@ -106,7 +108,9 @@ export default function ChatsScreen() {
       const res = await apiService.getChats()
       if (res && (res as any).success !== false) {
         const list = normalize(Array.isArray(res?.chats) ? res.chats : [])
-        setChats(sortChats(list))
+        // Filter out direct chats with blocked users
+        const filtered = list.filter((c: any) => !(c.chatType === 'direct' && blockedRef.current.has(String((c.user || c.participant)?._id || ''))))
+        setChats(sortChats(filtered))
       } else {
         setChats([])
       }
