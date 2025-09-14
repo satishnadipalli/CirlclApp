@@ -22,6 +22,7 @@ import { apiService } from "@/services/api.service"
 import { Ionicons } from "@expo/vector-icons"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import * as Haptics from "expo-haptics"
+import * as Clipboard from "expo-clipboard"
 
 const Search = () => {
   const [query, setQuery] = useState("")
@@ -293,6 +294,7 @@ const Search = () => {
         Animated.timing(opacityAnim, { toValue: 1, duration: 140, useNativeDriver: true }),
       ]).start()
     } catch {}
+    try { if (item?._id) await apiService.postMetric(String(item._id), { event: 'impression' } as any) } catch {}
   }
   const closePreview = () => {
     Animated.parallel([
@@ -302,23 +304,11 @@ const Search = () => {
       if (finished) { setPreviewVisible(false); setPreviewPost(null) }
     })
   }
-  const onLike = async () => {
-    if (!previewPost?._id) return
-    try { await apiService.likePost(String(previewPost._id)) } catch {}
-    closePreview()
-  }
-  const onSave = async () => {
-    if (!previewPost?._id) return
-    try { await apiService.toggleSave(String(previewPost._id)) } catch {}
-    closePreview()
-  }
-  const onShare = async () => {
-    try {
-      const link = previewPost?.shareUrl || previewPost?.mediaUrl || ""
-      await Share.share({ message: link || "Check this post on CirclApp" })
-    } catch {}
-    closePreview()
-  }
+  const onLike = async () => { if (!previewPost?._id) return; try { await apiService.likePost(String(previewPost._id)) } catch {}; closePreview() }
+  const onSave = async () => { if (!previewPost?._id) return; try { await apiService.toggleSave(String(previewPost._id)) } catch {}; closePreview() }
+  const onShare = async () => { try { const link = previewPost?.shareUrl || previewPost?.mediaUrl || ""; await Share.share({ message: link || "Check this post on CirclApp" }) } catch {}; closePreview() }
+  const onCopyLink = async () => { try { const link = previewPost?.shareUrl || previewPost?.mediaUrl || ""; if (link) await Clipboard.setStringAsync(link) } catch {}; closePreview() }
+  const onReport = async () => { try { if (previewPost?._id) await apiService.report('post' as any, String(previewPost._id), 'other' as any, 'Explore preview report') } catch {}; closePreview() }
 
   const onChangeQuery = (text) => {
     setQuery(text)
@@ -633,6 +623,14 @@ const Search = () => {
               <TouchableOpacity onPress={onShare} style={{ alignItems: 'center' }}>
                 <Ionicons name="share-social" size={22} color="#0ea5e9" />
                 <Text style={{ marginTop: 4, color: '#111', fontWeight: '700' }}>Share</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={onCopyLink} style={{ alignItems: 'center' }}>
+                <Ionicons name="link" size={22} color="#111827" />
+                <Text style={{ marginTop: 4, color: '#111', fontWeight: '700' }}>Copy</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={onReport} style={{ alignItems: 'center' }}>
+                <Ionicons name="flag-outline" size={22} color="#dc2626" />
+                <Text style={{ marginTop: 4, color: '#111', fontWeight: '700' }}>Report</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={closePreview} style={{ alignItems: 'center' }}>
                 <Ionicons name="close" size={22} color="#6b7280" />
