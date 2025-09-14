@@ -276,6 +276,27 @@ const declineFollowRequest = async (req, res) => {
   } catch (e) { return res.status(500).json({ success: false, message: e.message }) }
 }
 
+// List outbound follow requests sent by current user
+const listSentFollowRequests = async (req, res) => {
+  try {
+    const me = await User.findById(req.user.id).select('sentFollowRequests')
+    const ids = me?.sentFollowRequests || []
+    const users = await User.find({ _id: { $in: ids } }).select('_id name username profilePic')
+    res.json({ success: true, users })
+  } catch (e) { res.status(500).json({ success: false, message: e.message }) }
+}
+
+// Cancel an outbound follow request
+const cancelFollowRequest = async (req, res) => {
+  try {
+    const { id } = req.params // target user id
+    if (!id) return res.status(400).json({ success: false, message: 'id required' })
+    await User.findByIdAndUpdate(req.user.id, { $pull: { sentFollowRequests: id } })
+    await User.findByIdAndUpdate(id, { $pull: { pendingFollowRequests: req.user.id } })
+    return res.json({ success: true })
+  } catch (e) { return res.status(500).json({ success: false, message: e.message }) }
+}
+
 const searchuser = async (req, res) => {
   try {
     const { q, groupId, exclude } = req.query;
@@ -701,4 +722,6 @@ module.exports = {
   listFollowRequests,
   acceptFollowRequest,
   declineFollowRequest
+  , listSentFollowRequests
+  , cancelFollowRequest
 };

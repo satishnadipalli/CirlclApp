@@ -586,6 +586,9 @@ export default function ProfileScreen() {
             <TouchableOpacity style={[styles.button, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={() => router.push('/settings/notifications')}>
               <Text style={[styles.buttonText, { color: colors.text }]}>Settings</Text>
             </TouchableOpacity>
+            <TouchableOpacity style={[styles.button, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={() => router.push('/settings/requests')}>
+              <Text style={[styles.buttonText, { color: colors.text }]}>Requests</Text>
+            </TouchableOpacity>
             <TouchableOpacity style={[styles.button, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={() => router.push('/highlights')}>
               <Text style={[styles.buttonText, { color: colors.text }]}>Highlights</Text>
             </TouchableOpacity>

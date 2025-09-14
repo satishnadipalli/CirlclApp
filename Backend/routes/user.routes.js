@@ -33,6 +33,8 @@ router.delete("/close-friends/:id", auth, removeCloseFriend)
 router.get('/me/follow-requests', auth, require('../controllers/user.controller').listFollowRequests)
 router.post('/follow-requests/:id/accept', auth, require('../controllers/user.controller').acceptFollowRequest)
 router.post('/follow-requests/:id/decline', auth, require('../controllers/user.controller').declineFollowRequest)
+router.get('/me/follow-requests/sent', auth, require('../controllers/user.controller').listSentFollowRequests)
+router.post('/follow-requests/:id/cancel', auth, require('../controllers/user.controller').cancelFollowRequest)
 // Push
 router.post("/me/push-token", auth, registerPushToken)
 // Safety

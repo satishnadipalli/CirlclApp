@@ -405,6 +405,8 @@ class ApiService {
   async getFollowRequests() { return this.request(`/users/me/follow-requests`) }
   async acceptFollowRequest(userId: string) { return this.request(`/users/follow-requests/${userId}/accept`, { method: 'POST' }) }
   async declineFollowRequest(userId: string) { return this.request(`/users/follow-requests/${userId}/decline`, { method: 'POST' }) }
+  async getSentFollowRequests() { return this.request(`/users/me/follow-requests/sent`) }
+  async cancelFollowRequest(userId: string) { return this.request(`/users/follow-requests/${userId}/cancel`, { method: 'POST' }) }
   async searchUsers(q: string, page = 1, limit = 20, groupId?: string) {
     const gid = groupId ? `&groupId=${encodeURIComponent(groupId)}` : ""
     return this.request(`/users/search?q=${encodeURIComponent(q)}&page=${page}&limit=${limit}${gid}`)

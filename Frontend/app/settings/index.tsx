@@ -35,10 +35,20 @@ export default function SettingsIndex() {
       <TouchableOpacity onPress={() => router.push('/settings/privacy')} style={styles.row}>
         <Text style={styles.rowText}>Privacy</Text>
       </TouchableOpacity>
+      <TouchableOpacity onPress={() => router.push('/settings/requests')} style={styles.row}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+          <Text style={styles.rowText}>Follow requests</Text>
+          {requests.length > 0 && (
+            <View style={{ backgroundColor: '#FF3040', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 }}>
+              <Text style={{ color: '#fff', fontWeight: '800', fontSize: 12 }}>{requests.length}</Text>
+            </View>
+          )}
+        </View>
+      </TouchableOpacity>
 
       <View style={{ paddingHorizontal: 16, paddingVertical: 8 }}>
-        <Text style={{ fontWeight: '800', marginBottom: 8 }}>Follow requests</Text>
-        <FlatList data={requests} keyExtractor={(u) => u._id} renderItem={renderReq} ListEmptyComponent={<Text style={{ color: '#666' }}>No requests</Text>} />
+        <Text style={{ fontWeight: '800', marginBottom: 8 }}>Latest requests</Text>
+        <FlatList data={requests.slice(0, 3)} keyExtractor={(u) => u._id} renderItem={renderReq} ListEmptyComponent={<Text style={{ color: '#666' }}>No requests</Text>} />
       </View>
     </View>
   )
