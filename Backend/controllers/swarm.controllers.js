@@ -259,9 +259,8 @@ exports.endSwarm = async (req, res) => {
       .map((i) => ({ id: String(i._id), text: i.text, votes: Number(i.votes || 0) }))
       .sort((a, b) => b.votes - a.votes)
       .slice(0, 5)
-    const actions = (doc.actions || []).map((a) => `- ${a.text}`).join("\n")
-    let summary = `Swarm ended: "${doc.prompt}"
-Top ideas:\n${topIdeas.map((i, idx) => `${idx + 1}. ${i.text} (${i.votes})`).join("\n") || '- none'}\n\nActions:\n${actions || '- none'}`
+    const actions = (doc.actions || []).map((a) => `• ${a.text}`).join("\n")
+    let summary = `🧠 Swarm Summary\n\nPrompt\n“${doc.prompt}”\n\nTop Ideas\n${topIdeas.length ? topIdeas.map((i, idx) => `${idx + 1}. ${i.text}  ·  ${i.votes} votes`).join("\n") : '– none'}\n\nActions\n${actions || '– none'}`
     if (summary.length > 1800) summary = summary.slice(0, 1800) + '…'
     const message = new Message({ from: req.user._id, group: doc.group, text: summary, messageType: 'group', readBy: [req.user._id] })
     await message.save()

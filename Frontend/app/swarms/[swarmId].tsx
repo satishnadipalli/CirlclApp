@@ -25,6 +25,11 @@ export default function SwarmLiveScreen() {
   const [selectedForCluster, setSelectedForCluster] = useState<Record<string, boolean>>({})
   const [actionText, setActionText] = useState("")
   const sendingRef = useRef<boolean>(false)
+  const [busyStart, setBusyStart] = useState(false)
+  const [busyPhase, setBusyPhase] = useState<null | string>(null)
+  const [busyActions, setBusyActions] = useState(false)
+  const [busyEnd, setBusyEnd] = useState(false)
+  const [busyVote, setBusyVote] = useState<string | null>(null)
 
   useEffect(() => {
     let mounted = true
@@ -161,19 +166,47 @@ export default function SwarmLiveScreen() {
   }
 
   const vote = async (ideaId: string) => {
+    if (busyVote) return
+    setBusyVote(ideaId)
+    // Optimistic increment
+    let previousVotes = 0
+    setSwarm((prev: any) => {
+      const list = (prev?.ideas || []).map((it: any) => {
+        if (String(it._id) === String(ideaId)) {
+          previousVotes = Number(it.votes || 0)
+          return { ...it, votes: previousVotes + 1 }
+        }
+        return it
+      })
+      return { ...(prev || {}), ideas: list }
+    })
     const r: any = await apiService.voteIdea(String(swarmId), ideaId)
-    if (!(r?.success)) Alert.alert('Failed', r?.message || 'Already voted?')
+    if (!(r?.success)) {
+      // Revert if failed
+      setSwarm((prev: any) => {
+        const list = (prev?.ideas || []).map((it: any) => String(it._id) === String(ideaId) ? { ...it, votes: previousVotes } : it)
+        return { ...(prev || {}), ideas: list }
+      })
+      Alert.alert('Failed', r?.message || 'Already voted?')
+    }
+    setBusyVote(null)
   }
 
   const startIfHost = async () => {
+    if (busyStart) return
+    setBusyStart(true)
     const r: any = await apiService.startSwarm(String(swarmId))
     if (!(r?.success)) Alert.alert('Start failed', r?.message || 'Not allowed')
     else setPhase(String(r?.swarm?.lastPhase || 'diverge'))
+    setBusyStart(false)
   }
   const gotoPhase = async (p: 'diverge'|'cluster'|'vote'|'converge') => {
+    if (busyPhase) return
+    setBusyPhase(p)
     const r: any = await apiService.setSwarmPhase(String(swarmId), p)
     if (!(r?.success)) Alert.alert('Failed', r?.message || 'Not allowed')
     else setPhase(p)
+    setBusyPhase(null)
   }
 
   const addCluster = async () => {
@@ -193,14 +226,28 @@ export default function SwarmLiveScreen() {
     const t = actionText.trim()
     if (!isHost || !t) return
     const payload = [{ text: t }]
+    if (busyActions) return
+    setBusyActions(true)
     const r: any = await apiService.setActions(String(swarmId), payload)
     if (!(r?.success)) Alert.alert('Failed', r?.message || 'Could not set actions')
     else { setActionText(""); setPhase('converge') }
+    setBusyActions(false)
   }
 
   const endIfHost = async () => {
+    if (busyEnd) return
+    const ok = await new Promise<boolean>((resolve) => {
+      Alert.alert('End session', 'Are you sure you want to end this Swarm?', [
+        { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+        { text: 'End', style: 'destructive', onPress: () => resolve(true) },
+      ])
+    })
+    if (!ok) return
+    setBusyEnd(true)
     const r: any = await apiService.endSwarm(String(swarmId))
     if (!(r?.success)) Alert.alert('End failed', r?.message || 'Not allowed')
+    else setPhase('ended')
+    setBusyEnd(false)
   }
 
   if (loading || !swarm) return <View style={styles.container}><Text style={styles.loading}>Loading…</Text></View>
@@ -224,13 +271,13 @@ export default function SwarmLiveScreen() {
       <View style={styles.promptBox}>
         <Text style={styles.prompt}>{swarm?.prompt}</Text>
         <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-          {isHost && phase === 'lobby' && <TouchableOpacity onPress={startIfHost}><Text style={styles.primary}>Start</Text></TouchableOpacity>}
+          {isHost && phase === 'lobby' && <TouchableOpacity disabled={busyStart} onPress={startIfHost}><Text style={[styles.primary, busyStart && { opacity: 0.6 }]}>{busyStart ? 'Starting…' : 'Start'}</Text></TouchableOpacity>}
           {isHost && phase !== 'lobby' && phase !== 'ended' && (
             <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-              <TouchableOpacity onPress={() => gotoPhase('diverge')}><Text style={[styles.chip, phase==='diverge' && styles.chipOn]}>Diverge</Text></TouchableOpacity>
-              <TouchableOpacity onPress={() => gotoPhase('cluster')}><Text style={[styles.chip, phase==='cluster' && styles.chipOn]}>Cluster</Text></TouchableOpacity>
-              <TouchableOpacity onPress={() => gotoPhase('vote')}><Text style={[styles.chip, phase==='vote' && styles.chipOn]}>Vote</Text></TouchableOpacity>
-              <TouchableOpacity onPress={() => gotoPhase('converge')}><Text style={[styles.chip, phase==='converge' && styles.chipOn]}>Converge</Text></TouchableOpacity>
+              <TouchableOpacity disabled={!!busyPhase} onPress={() => gotoPhase('diverge')}><Text style={[styles.chip, phase==='diverge' && styles.chipOn, busyPhase && styles.chipBusy]}>Diverge</Text></TouchableOpacity>
+              <TouchableOpacity disabled={!!busyPhase} onPress={() => gotoPhase('cluster')}><Text style={[styles.chip, phase==='cluster' && styles.chipOn, busyPhase && styles.chipBusy]}>Cluster</Text></TouchableOpacity>
+              <TouchableOpacity disabled={!!busyPhase} onPress={() => gotoPhase('vote')}><Text style={[styles.chip, phase==='vote' && styles.chipOn, busyPhase && styles.chipBusy]}>Vote</Text></TouchableOpacity>
+              <TouchableOpacity disabled={!!busyPhase} onPress={() => gotoPhase('converge')}><Text style={[styles.chip, phase==='converge' && styles.chipOn, busyPhase && styles.chipBusy]}>Converge</Text></TouchableOpacity>
             </View>
           )}
         </View>
@@ -248,9 +295,9 @@ export default function SwarmLiveScreen() {
               <TouchableOpacity disabled={!isHost || phase !== 'cluster'} onPress={() => setSelectedForCluster((p) => ({ ...p, [item._id]: !p[item._id] }))}>
                 <Text style={[styles.selector, selectedForCluster[item._id] && styles.selectorOn]}>{selectedForCluster[item._id] ? '●' : '○'}</Text>
               </TouchableOpacity>
-              <Text style={styles.ideaText}>{item.text}</Text>
+              <Text style={styles.ideaText} numberOfLines={3} ellipsizeMode='tail'>{item.text}</Text>
             </View>
-            <TouchableOpacity disabled={phase !== 'vote'} onPress={() => vote(item._id)}><Text style={[styles.voteBtn, phase !== 'vote' && { opacity: 0.4 }]}>▲ {item.votes || 0}</Text></TouchableOpacity>
+            <TouchableOpacity disabled={phase !== 'vote' || busyVote === item._id} onPress={() => vote(item._id)}><Text style={[styles.voteBtn, (phase !== 'vote' || busyVote === item._id) && { opacity: 0.4 }]}>{busyVote === item._id ? '…' : `▲ ${item.votes || 0}`}</Text></TouchableOpacity>
           </View>
         ))}
         <View style={styles.sep} />
@@ -272,7 +319,7 @@ export default function SwarmLiveScreen() {
                 if (r?.success) setClusters(r.clusters || [])
                 else Alert.alert('Failed', r?.message || 'No suggestions')
               }}><Text style={styles.primary}>Suggest clusters</Text></TouchableOpacity>
-              <TouchableOpacity onPress={() => gotoPhase('vote')}><Text style={styles.primary}>Open voting</Text></TouchableOpacity>
+              <TouchableOpacity disabled={!!busyPhase} onPress={() => gotoPhase('vote')}><Text style={[styles.primary, busyPhase && { opacity: 0.6 }]}>Open voting</Text></TouchableOpacity>
             </View>
           </View>
         )}
@@ -286,7 +333,7 @@ export default function SwarmLiveScreen() {
             ))}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 }}>
               <TextInput value={actionText} onChangeText={setActionText} placeholder="Add action" placeholderTextColor="#999" style={[styles.input, { flex: 0.7 }]} />
-              <TouchableOpacity onPress={setAction}><Text style={styles.primary}>Save</Text></TouchableOpacity>
+              <TouchableOpacity disabled={busyActions} onPress={setAction}><Text style={[styles.primary, busyActions && { opacity: 0.6 }]}>{busyActions ? 'Saving…' : 'Save'}</Text></TouchableOpacity>
             </View>
             <View style={{ flexDirection: 'row', gap: 12, marginTop: 10 }}>
               <TouchableOpacity onPress={async () => {
@@ -335,6 +382,7 @@ const styles = StyleSheet.create({
   phase: { color: '#555', fontWeight: '600' },
   chip: { color: '#111', backgroundColor: '#eef2ff', borderRadius: 999, overflow: 'hidden', paddingHorizontal: 10, paddingVertical: 6, fontWeight: '800' },
   chipOn: { backgroundColor: '#c7d2fe' },
+  chipBusy: { opacity: 0.6 },
   ideaCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fff', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, borderWidth: 1, borderColor: '#eee' },
   ideaText: { flex: 1, fontSize: 14, fontWeight: '600', marginRight: 10 },
   voteBtn: { color: '#0095f6', fontWeight: '800' },
