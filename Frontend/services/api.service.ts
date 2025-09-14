@@ -372,6 +372,7 @@ class ApiService {
   async getMe() { return this.request("/users/me") }
   async getUserProfile(userId) { return this.request(`/users/${userId}`) }
   async getLastSeen(userId: string) { return this.request(`/users/${userId}/last-seen`) }
+  async getUserStreak(userId: string) { return this.request(`/users/${userId}/streak`) }
   async getFollowers(userId, page = 1, limit = 20) {
     try {
       let id = userId

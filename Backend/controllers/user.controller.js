@@ -647,6 +647,28 @@ const getLastSeen = async (req, res) => {
   } catch (e) { res.status(500).json({ success: false, message: e.message }) }
 }
 
+// Public: get a user's daily streak summary (tiered)
+const getUserStreak = async (req, res) => {
+  try {
+    const id = String(req.params.id || '')
+    if (!id) return res.status(400).json({ success: false, message: 'id required' })
+    const DailyStreak = require('../models/dailyStreak.model')
+    const st = await DailyStreak.findOne({ user: id }).select('current longest')
+    const current = Number(st?.current || 0)
+    const longest = Number(st?.longest || 0)
+    const tiers = [
+      { name: 'Bronze', min: 1, color: '#cd7f32' },
+      { name: 'Silver', min: 7, color: '#c0c0c0' },
+      { name: 'Gold', min: 14, color: '#ffd700' },
+      { name: 'Platinum', min: 30, color: '#e5e4e2' },
+      { name: 'Diamond', min: 60, color: '#7dd3fc' },
+    ]
+    let tier = { name: 'New', min: 0, color: '#ddd' }
+    for (const t of tiers) { if (current >= t.min) tier = t }
+    return res.json({ success: true, streak: { current, longest, tier } })
+  } catch (e) { return res.status(500).json({ success: false, message: e.message }) }
+}
+
 module.exports = {
   register,
   login,
@@ -674,6 +696,7 @@ module.exports = {
   getSuggestions,
   getMutuals,
   getLastSeen,
+  getUserStreak,
   setCustomStatus,
   listFollowRequests,
   acceptFollowRequest,

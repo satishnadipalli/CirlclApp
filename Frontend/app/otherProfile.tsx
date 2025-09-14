@@ -38,6 +38,7 @@ export default function ProfileScreen() {
   const [isFollowing, setIsFollowing] = useState(false)
   const [hasRequested, setHasRequested] = useState(false)
   const [viewer, setViewer] = useState<any>(null)
+  const [streakBadge, setStreakBadge] = useState<{ current: number; longest: number; tier: { name: string; color: string } } | null>(null)
   const [activeTab, setActiveTab] = useState("posts")
   const [myHighlights, setMyHighlights] = useState<any[]>([])
   const router = useRouter()
@@ -186,6 +187,15 @@ export default function ProfileScreen() {
       const data = targetUserId ? await api.getUserProfile(String(targetUserId)) : await api.getMe()
       const payload: any = data
       setUser(payload.user || payload)
+      // Load target user's streak for badge
+      try {
+        const target = String(targetUserId || (payload?.user?._id || payload?._id || ''))
+        if (target) {
+          const s: any = await apiService.getUserStreak(target)
+          if (s?.success && s?.streak) setStreakBadge({ current: Number(s.streak.current||0), longest: Number(s.streak.longest||0), tier: { name: String(s.streak.tier?.name || 'New'), color: String(s.streak.tier?.color || '#ddd') } })
+          else setStreakBadge(null)
+        }
+      } catch { setStreakBadge(null) }
       if (payload.viewer) {
         setViewer(payload.viewer)
         setIsFollowing(!!payload.viewer.isFollowing)
@@ -519,6 +529,15 @@ export default function ProfileScreen() {
         <Text style={[styles.username, { color: colors.text }]}>{user?.name}</Text>
         <Text style={[styles.bio, { color: colors.text }]}>{user?.bio || "📍 Traveler | 📸 Photographer | ☕ Coffee Lover"}</Text>
         {user?.website && <Text style={[styles.bioLink, { color: colors.primary }]}>{user?.website}</Text>}
+        {streakBadge && (
+          <View style={{ marginTop: 8, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <View style={{ backgroundColor: streakBadge.tier.color, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 }}>
+              <Text style={{ color: '#000', fontWeight: '900', fontSize: 12 }}>{streakBadge.tier.name}</Text>
+            </View>
+            <Text style={{ color: colors.muted, fontWeight: '700' }}>Streak {streakBadge.current}</Text>
+            <Text style={{ color: colors.muted, fontSize: 12 }}>Longest {streakBadge.longest}</Text>
+          </View>
+        )}
         <View style={{ marginTop: 6 }}>
           <PresenceBadge isOnline={false} lastSeen={undefined} size="sm" />
         </View>
