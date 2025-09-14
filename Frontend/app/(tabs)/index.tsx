@@ -38,6 +38,7 @@ export default function HomeScreen() {
   const likeCountLocalRef = React.useRef<Record<string, number>>({})
   const [suggestions, setSuggestions] = useState<Array<{ user: any; mutualCount: number; mutualNames: string[] }>>([])
   const [suggestionsLoading, setSuggestionsLoading] = useState(false)
+  const [tierByUser, setTierByUser] = useState<Record<string, { color: string }>>({})
 
   const router = useRouter()
   const notifHandlerRef = React.useRef<((data: any)=>void)|null>(null)
@@ -216,6 +217,18 @@ export default function HomeScreen() {
       }
       const items: any[] = Array.isArray(res?.posts) ? res.posts : []
       setFeed((prev) => (replace ? items : p === 1 ? items : [...prev, ...items]))
+      // Fetch streak tiers for users in this page (lightweight cache)
+      try {
+        const ids = Array.from(new Set(items.map((it: any) => String(it?.user?._id || '')).filter(Boolean)))
+        const missing = ids.filter((id) => !(id in (tierByUser || {})))
+        if (missing.length > 0) {
+          const chunks = missing.slice(0, 20) // cap per page
+          const results = await Promise.all(chunks.map(async (id) => {
+            try { const r: any = await (api as any).getUserStreak(id); const color = String(r?.streak?.tier?.color || '#dbdbdb'); return [id, { color }] as const } catch { return [id, { color: '#dbdbdb' }] as const }
+          }))
+          setTierByUser((prev) => { const next = { ...(prev || {}) } as any; results.forEach(([id, v]) => next[id] = v); return next })
+        }
+      } catch {}
       const totalPages = Number(res?.totalPages || Math.ceil((Number(res?.total || 0) || 0) / 10) || 1)
       setFeedHasMore((res?.success !== false) && p < totalPages)
       setFeedPage(p)
@@ -481,10 +494,14 @@ export default function HomeScreen() {
           const user = item?.user || {}
           const likesCount = likesCountOptimistic(item)
           const liked = likedOptimistic(item)
+          const uid = String(user?._id || '')
+          const ringColor = (tierByUser && uid && tierByUser[uid]?.color) ? tierByUser[uid].color : '#dbdbdb'
           return (
             <View style={styles.postContainer}>
               <View style={styles.postHeader}>
-                <Image source={{ uri: user?.profilePic || 'https://i.pravatar.cc/150?img=3' }} style={styles.userImage} />
+                <View style={{ borderWidth: 2, borderColor: ringColor, borderRadius: 25, padding: 1 }}>
+                  <Image source={{ uri: user?.profilePic || 'https://i.pravatar.cc/150?img=3' }} style={styles.userImage} />
+                </View>
                 <View style={styles.userInfo}>
                   <Text style={styles.username}>{user?.name || 'User'}</Text>
                   {!!item?.locationName && (
