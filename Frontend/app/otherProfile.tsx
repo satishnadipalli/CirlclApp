@@ -543,7 +543,7 @@ export default function ProfileScreen() {
         </View>
       </View>
 
-      {/* Highlights Rings (own profile) */}
+      {/* Own profile: streak card + highlights */}
       {!userId || (currentUser && String((user as any)?._id) === String(currentUser?._id)) ? (
         <FlatList
           data={myHighlights}
@@ -565,6 +565,9 @@ export default function ProfileScreen() {
                 <Text numberOfLines={1} style={{ marginTop: 6, maxWidth: 80, textAlign: 'center', color: colors.text, fontWeight: '700', fontSize: 12 }}>{(item.text && item.text.slice(0, 12)) || 'Highlight'}</Text>
               </View>
             </TouchableOpacity>
+          )}
+          ListHeaderComponent={() => (
+            <StreakCard />
           )}
         />
       ) : null}
@@ -620,6 +623,50 @@ export default function ProfileScreen() {
       </View>
     </View>
   )
+
+  const StreakCard = () => {
+    const [meStreak, setMeStreak] = useState<{ current: number; longest: number; nextMilestone?: number; hitMilestone?: boolean } | null>(null)
+    useEffect(() => {
+      (async () => {
+        try { const r: any = await apiService.getDailyStreak(); if (r?.success && r?.streak) setMeStreak(r.streak) } catch {}
+      })()
+    }, [])
+    if (!meStreak) return null
+    const current = Number(meStreak.current || 0)
+    const next = Number(meStreak.nextMilestone || 0)
+    const pct = next > 0 ? Math.max(0, Math.min(1, current / next)) : 1
+    const tier = current >= 60 ? { name: 'Diamond', color: '#7dd3fc' } : current >= 30 ? { name: 'Platinum', color: '#e5e4e2' } : current >= 14 ? { name: 'Gold', color: '#ffd700' } : current >= 7 ? { name: 'Silver', color: '#c0c0c0' } : current >= 1 ? { name: 'Bronze', color: '#cd7f32' } : { name: 'New', color: '#ddd' }
+    return (
+      <View style={{ marginRight: 14 }}>
+        <View style={{ width: 220, backgroundColor: '#f8f9ff', borderColor: '#e6e8ff', borderWidth: 1, borderRadius: 14, padding: 12 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Text style={{ color: '#111', fontWeight: '900' }}>Daily Streak</Text>
+            <View style={{ backgroundColor: tier.color, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 4 }}>
+              <Text style={{ color: '#000', fontWeight: '900', fontSize: 11 }}>{tier.name}</Text>
+            </View>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-end', marginTop: 8, gap: 8 }}>
+            <Text style={{ fontSize: 28, fontWeight: '900', color: '#111' }}>{current}</Text>
+            <Text style={{ color: '#666', fontWeight: '700' }}>days</Text>
+          </View>
+          {!!next && (
+            <View style={{ marginTop: 8 }}>
+              <View style={{ height: 8, backgroundColor: '#eef0ff', borderRadius: 6, overflow: 'hidden' }}>
+                <View style={{ width: `${pct * 100}%`, height: 8, backgroundColor: '#6366f1' }} />
+              </View>
+              <Text style={{ color: '#666', fontSize: 12, marginTop: 6 }}>Next milestone: {next}</Text>
+            </View>
+          )}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
+            <Text style={{ color: '#666', fontSize: 12 }}>Longest {meStreak.longest || 0}</Text>
+            <TouchableOpacity onPress={() => router.push({ pathname: '/search', params: { focusDaily: '1' } })}>
+              <Text style={{ color: '#007aff', fontWeight: '800', fontSize: 12 }}>Post now</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    )
+  }
 
   if (loading) {
     return (
