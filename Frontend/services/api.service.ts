@@ -257,6 +257,7 @@ class ApiService {
   async getGroupDailyFeed(groupId: string) {
     return this.request(`/daily/group/${groupId}`)
   }
+  async remindGroup(groupId: string) { return this.request(`/daily/group/${groupId}/remind`, { method: 'POST' }) }
   async getDailyStreak() { return this.request(`/daily/streak`) }
   async getDailyRings() { return this.request(`/daily/rings`) }
   async getDailyEntryByUser(userId: string) { return this.request(`/daily/entry/${userId}`) }

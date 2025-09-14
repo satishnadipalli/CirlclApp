@@ -9,6 +9,7 @@ const { getHighlights } = require("../controllers/daily.controllers")
 const { getReactionsSummary, listReactors } = require("../controllers/daily.controllers")
 const { getCaptions, putCaptions } = require("../controllers/daily.controllers")
 const { autoCaptions } = require("../controllers/daily.controllers")
+const { remindGroupMembers } = require("../controllers/daily.controllers")
 
 // Get today prompt and whether user has posted
 router.get("/prompt", auth, getTodayPrompt)
@@ -36,6 +37,9 @@ router.get("/group/:groupId", auth, getGroupDailyFeed)
 
 // Group admin prompt
 router.post('/group/:groupId/prompt', auth, require('../controllers/daily.controllers').setGroupPrompt)
+
+// Remind remaining members to post today
+router.post('/group/:groupId/remind', auth, remindGroupMembers)
 
 // Views / reactions / highlightss
 router.post("/view", auth, incrementView)

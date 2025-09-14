@@ -135,6 +135,27 @@ const postTodayEntry = async (req, res) => {
           const followerSocketId = onlineUsers.get(String(followerId))
           if (followerSocketId) io.to(followerSocketId).emit("dailyRing", ringPayload)
         }
+      } else {
+        // Group entry: if this completes the group's daily, emit completion event to members
+        try {
+          const grp2 = await Group.findById(groupId).select('members name')
+          const total = Array.isArray(grp2?.members) ? grp2.members.length : 0
+          const count = await DailyCircleEntry.countDocuments({ dateKey, group: groupId })
+          if (total > 0 && count >= total) {
+            const payload = { groupId: String(groupId), dateKey, completedAt: new Date().toISOString(), groupName: grp2?.name || '' }
+            for (const m of (grp2?.members || [])) {
+              const sock = onlineUsers.get(String(m))
+              if (sock) io.to(sock).emit('groupDailyComplete', payload)
+            }
+            // Best-effort in-app notification honoring prefs
+            try {
+              const { createNotification } = require('../utils/functions')
+              for (const m of (grp2?.members || [])) {
+                await createNotification({ req, receiverId: m, senderId: userId, type: 'daily', text: `${grp2?.name || 'Your group'} completed today!`, actionLink: `/daily/group/${groupId}` })
+              }
+            } catch {}
+          }
+        } catch {}
       }
     } catch {}
 
@@ -321,6 +342,42 @@ const getGroupDailyFeed = async (req, res) => {
     res.json({ success: true, entries, promptText })
   } catch (e) {
     res.status(500).json({ success: false, message: e.message })
+  }
+}
+
+// Remind remaining group members to post today's Daily
+const remindGroupMembers = async (req, res) => {
+  try {
+    const { groupId } = req.params
+    const requesterId = String(req.user._id)
+    const dateKey = formatDateKey(new Date())
+
+    const grp = await Group.findById(groupId).select('members name')
+    if (!grp) return res.status(404).json({ success: false, message: 'Group not found' })
+    const isMember = Array.isArray(grp.members) && grp.members.some((m) => String(m) === requesterId)
+    if (!isMember) return res.status(403).json({ success: false, message: 'Not a member' })
+
+    const todays = await DailyCircleEntry.find({ group: groupId, dateKey }).select('user')
+    const postedSet = new Set(todays.map((e) => String(e.user)))
+    const remaining = (grp.members || []).map(String).filter((id) => !postedSet.has(id))
+
+    // Socket + in-app notifications (prefs respected)
+    let reminded = 0
+    try {
+      const io = req.app.get('io')
+      const onlineUsers = req.app.get('onlineUsers')
+      const { createNotification } = require('../utils/functions')
+      for (const uid of remaining) {
+        const sock = onlineUsers.get(String(uid))
+        if (sock) io.to(sock).emit('newNotification', { type: 'daily', text: `${grp?.name || 'Your group'} is waiting for your Daily`, actionLink: `/search?focusDaily=1` })
+        try { await createNotification({ req, receiverId: uid, senderId: requesterId, type: 'daily', text: `${grp?.name || 'Your group'} is waiting for your Daily`, actionLink: `/search?focusDaily=1` }) } catch {}
+        reminded++
+      }
+    } catch {}
+
+    return res.json({ success: true, reminded, remaining: remaining.length })
+  } catch (e) {
+    return res.status(500).json({ success: false, message: e.message })
   }
 }
 
@@ -816,6 +873,7 @@ module.exports = {
   useLatePass,
   deleteEntry,
   listViewers,
-  setGroupPrompt
+  setGroupPrompt,
+  remindGroupMembers
 };
 

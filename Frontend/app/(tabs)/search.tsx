@@ -663,6 +663,9 @@ const Search = () => {
                           {remaining > 0 && (
                             <Text style={{ color: '#666', fontSize: 12 }}>{remaining} remaining today</Text>
                           )}
+                          <TouchableOpacity onPress={async () => { try { await apiService.remindGroup(String(item._id)) } catch {} }} style={{ backgroundColor: '#eee', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 }}>
+                            <Text style={{ color: '#000', fontWeight: '800' }}>Remind remaining</Text>
+                          </TouchableOpacity>
                         </View>
                       )
                     }
