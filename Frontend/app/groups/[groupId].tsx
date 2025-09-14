@@ -40,6 +40,7 @@ export default function GroupDetailsScreen() {
   const [promptModal, setPromptModal] = useState(false)
   const [promptText, setPromptText] = useState("")
   const [startModal, setStartModal] = useState(false)
+  const startCooldownRef = React.useRef<number>(0)
 
   const isAdmin = (userId: string) => {
     const admins = (group?.admins || []) as any[]
@@ -208,7 +209,7 @@ export default function GroupDetailsScreen() {
           <TouchableOpacity onPress={() => router.push({ pathname: '/swarms/outcomes/[groupId]', params: { groupId: String(groupId) } })} style={styles.pill}>
             <Text style={styles.pillText}>Outcomes</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => setStartModal(true)} style={styles.pillPrimary}>
+          <TouchableOpacity onPress={() => { if (Date.now() < (startCooldownRef.current || 0)) return; setStartModal(true) }} style={styles.pillPrimary}>
             <Text style={styles.pillPrimaryText}>Start Swarm</Text>
           </TouchableOpacity>
         </ScrollView>
@@ -384,7 +385,7 @@ export default function GroupDetailsScreen() {
       </Modal>
 
       {/* Start Swarm modal */}
-      <StartSwarmModal visible={startModal} onClose={() => setStartModal(false)} group={group} groupId={String(groupId)} onStarted={(sid) => {
+      <StartSwarmModal visible={startModal} onClose={() => { setStartModal(false); startCooldownRef.current = Date.now() + 600 }} group={group} groupId={String(groupId)} onStarted={(sid) => {
         setStartModal(false)
         router.push({ pathname: '/swarms/[swarmId]', params: { swarmId: String(sid) } })
       }} />
@@ -480,13 +481,13 @@ const StartSwarmModal: React.FC<{ visible: boolean; onClose: () => void; group: 
           <TextInput value={prompt} onChangeText={setPrompt} placeholder="Swarm prompt" placeholderTextColor="#888" style={{ borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 14, paddingHorizontal: 14, height: 52, color: '#000', marginBottom: 12 }} />
           <TextInput value={duration} onChangeText={setDuration} keyboardType="number-pad" placeholder="Duration (minutes)" placeholderTextColor="#888" style={{ borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 14, paddingHorizontal: 14, height: 52, color: '#000', marginBottom: 12 }} />
           <Text style={{ fontWeight: '700', marginTop: 4, marginBottom: 10 }}>Invite (up to 6)</Text>
-          <FlatList data={(group?.members || []) as any} keyExtractor={(m: any) => (typeof m === 'string' ? m : m._id)} horizontal style={{ maxHeight: 64, marginBottom: 16 }} renderItem={({ item }: any) => {
+          <FlatList data={(group?.members || []) as any} keyExtractor={(m: any) => (typeof m === 'string' ? m : m._id)} horizontal style={{ maxHeight: 44, marginBottom: 16 }} renderItem={({ item }: any) => {
             const id = typeof item === 'string' ? item : item._id
             const name = typeof item === 'string' ? id.slice(-4) : (item.name || id.slice(-4))
             const on = !!invited[id]
             return (
-              <TouchableOpacity onPress={() => setInvited((p) => ({ ...p, [id]: !p[id] }))} style={{ marginRight: 10, backgroundColor: on ? '#111827' : '#f1f5f9', borderRadius: 16, paddingHorizontal: 12, paddingVertical: 8 }}>
-                <Text style={{ color: on ? '#fff' : '#111827', fontWeight: '700' }}>{name}</Text>
+              <TouchableOpacity onPress={() => setInvited((p) => ({ ...p, [id]: !p[id] }))} style={{ marginRight: 8, backgroundColor: on ? '#111827' : '#f1f5f9', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 6 }}>
+                <Text style={{ color: on ? '#fff' : '#111827', fontWeight: '700', fontSize: 12 }}>{name}</Text>
               </TouchableOpacity>
             )
           }} />
