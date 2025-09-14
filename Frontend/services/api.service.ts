@@ -322,6 +322,14 @@ class ApiService {
   async sendGroupMessage(groupId, text, replyTo) {
     return this.request("/messages", { method: "POST", body: JSON.stringify({ group: groupId, text, messageType: "group", replyTo, }), }) }
 
+  // Share a post to multiple users (direct chats)
+  async sendSharedPost(postId: string, toUserIds: string[]) {
+    const tasks = (toUserIds || []).map((uid) => this.request('/messages', { method: 'POST', body: JSON.stringify({ to: uid, text: '', messageType: 'direct', sharedPost: postId }) }))
+    const results = await Promise.allSettled(tasks)
+    const ok = results.filter((r: any) => r.status === 'fulfilled' && (r.value?.success !== false)).length
+    return { success: ok > 0, sent: ok, total: toUserIds.length }
+  }
+
   // Message stars/pins
   async toggleStar(messageId: string) { return this.request(`/messages/${messageId}/star`, { method: 'POST' }) }
   async pinMessage(messageId: string) { return this.request(`/messages/${messageId}/pin`, { method: 'POST' }) }

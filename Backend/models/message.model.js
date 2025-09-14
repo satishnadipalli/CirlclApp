@@ -49,6 +49,8 @@ const messageSchema = new mongoose.Schema(
         duration: { type: Number, default: 0 },
       },
     ],
+    // Shared post reference (for share-to-DM)
+    sharedPost: { type: mongoose.Schema.Types.ObjectId, ref: 'Post' },
     reactions: [
       {
         user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

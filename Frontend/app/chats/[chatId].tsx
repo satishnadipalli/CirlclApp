@@ -650,6 +650,7 @@ export default function ChatScreen() {
           messageType: "direct",
           createdAt: msg.createdAt,
           attachments: msg.attachments,
+          sharedPost: (msg as any)?.sharedPost || null,
           starredBy: Array.isArray((msg as any)?.starredBy) ? (msg as any).starredBy : [],
           pinnedBy: (msg as any)?.pinnedBy ? String((msg as any).pinnedBy) : null,
           pinnedAt: (msg as any)?.pinnedAt || null,
@@ -1589,9 +1590,24 @@ export default function ChatScreen() {
               </View>
             )}
 
-            <Text style={[styles.messageText, isMyMessage ? styles.myMessageText : styles.otherMessageText]}>
-              {message.text}
-            </Text>
+            {(() => {
+              const sp: any = (message as any).sharedPost
+              if (sp && sp._id) {
+                return (
+                  <TouchableOpacity onPress={() => router.push({ pathname: '/post/[postId]', params: { postId: String(sp._id) } })} style={{ marginTop: 4 }}>
+                    <View style={{ backgroundColor: isMyMessage ? '#e6f2ff' : '#f5f5f5', borderRadius: 10, padding: 10, maxWidth: 260 }}>
+                      <Text numberOfLines={1} style={{ color: '#000', fontWeight: '800' }}>Shared a post</Text>
+                      <Text numberOfLines={1} style={{ color: '#666', marginTop: 4 }}>{sp.title || 'View post'}</Text>
+                    </View>
+                  </TouchableOpacity>
+                )
+              }
+              return (
+                <Text style={[styles.messageText, isMyMessage ? styles.myMessageText : styles.otherMessageText]}>
+                  {message.text}
+                </Text>
+              )
+            })()}
 
             {/* Simple link preview */}
             {(() => {

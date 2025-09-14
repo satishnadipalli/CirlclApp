@@ -276,7 +276,7 @@ async function fetchLinkPreview(url) {
 // Send message (both direct and group)
 const sendMessage = async (req, res) => {
   try {
-    const { text, to, group, messageType, replyTo, expiresInSeconds, burnAfterReadSeconds } = req.body
+    const { text, to, group, messageType, replyTo, expiresInSeconds, burnAfterReadSeconds, sharedPost } = req.body
     const from = req.user.id
 
     const txt = typeof text === 'string' ? text : ''
@@ -338,6 +338,7 @@ const sendMessage = async (req, res) => {
         messageType: "direct",
         readBy: [from],
         ...(pollDoc ? { poll: pollDoc } : {}),
+        ...(sharedPost && mongoose.Types.ObjectId.isValid(sharedPost) ? { sharedPost } : {}),
       })
     } else {
       // Group message validation
@@ -373,6 +374,7 @@ const sendMessage = async (req, res) => {
         messageType: "group",
         readBy: [from],
         ...(pollDoc ? { poll: pollDoc } : {}),
+        ...(sharedPost && mongoose.Types.ObjectId.isValid(sharedPost) ? { sharedPost } : {}),
       })
     }
 
@@ -443,6 +445,7 @@ const sendMessage = async (req, res) => {
           _id: message._id,
           expiresAt: message.expiresAt || null,
           burnAfterReadSeconds: message.burnAfterReadSeconds || null,
+          sharedPost: message.sharedPost || null,
           ...(message.poll ? { poll: buildPollPayload(message.poll, req.user.id) } : {}),
         }
         if (recipientSocketId) io.to(recipientSocketId).emit("receiveDirectMessage", payload)
@@ -470,6 +473,7 @@ const sendMessage = async (req, res) => {
           _id: message._id,
           expiresAt: message.expiresAt || null,
           burnAfterReadSeconds: message.burnAfterReadSeconds || null,
+          sharedPost: message.sharedPost || null,
           ...(message.poll ? { poll: buildPollPayload(message.poll, req.user.id) } : {}),
         }
         io.to(`group_${message.group?._id || message.group}`).emit("receiveGroupMessage", payload)
@@ -510,6 +514,7 @@ const getDirectMessages = async (req, res) => {
       ],
     })
       .populate("from to", "name profilePic")
+      .populate('sharedPost', '_id mediaUrl title user')
       .populate({
         path: "replyTo",
         select: "text from createdAt",

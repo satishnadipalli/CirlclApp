@@ -7,7 +7,7 @@ import { Ionicons } from "@expo/vector-icons"
 import * as Notifications from "expo-notifications"
 import { useRouter } from "expo-router"
 import React, { useEffect, useState } from "react"
-import { Dimensions, FlatList, Image, Platform, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native"
+import { Dimensions, FlatList, Image, Platform, StatusBar, StyleSheet, Text, TouchableOpacity, View, Modal, ScrollView } from "react-native"
 import Skeleton from "@/components/Skeleton"
 import { useTheme } from "@/contexts/ThemeContext"
 import DailyRing from "@/components/DailyRing"
@@ -36,6 +36,9 @@ export default function HomeScreen() {
   const [feedRefreshing, setFeedRefreshing] = useState(false)
   const likeLocalRef = React.useRef<Record<string, boolean>>({})
   const likeCountLocalRef = React.useRef<Record<string, number>>({})
+  const [shareModal, setShareModal] = useState<{ visible: boolean; postId?: string }>({ visible: false })
+  const [following, setFollowing] = useState<Array<{ _id: string; name: string; profilePic?: string }>>([])
+  const [shareSelected, setShareSelected] = useState<Record<string, boolean>>({})
   const [suggestions, setSuggestions] = useState<Array<{ user: any; mutualCount: number; mutualNames: string[] }>>([])
   const [suggestionsLoading, setSuggestionsLoading] = useState(false)
   const [tierByUser, setTierByUser] = useState<Record<string, { color: string }>>({})
@@ -304,6 +307,26 @@ export default function HomeScreen() {
       setSuggestions([])
     } finally { setSuggestionsLoading(false) }
   }
+  const openShare = async (postId: string) => {
+    try {
+      setShareModal({ visible: true, postId })
+      const me: any = await (api as any).getMe(); const myId = me?.user?._id || me?._id
+      if (myId) {
+        const res: any = await (api as any).getFollowing(myId, 1, 100)
+        const users = Array.isArray(res?.users) ? res.users : []
+        setFollowing(users.map((u: any) => ({ _id: String(u._id), name: u.name || u.username || 'User', profilePic: u.profilePic || '' })))
+      }
+    } catch { setFollowing([]) }
+  }
+  const toggleShareSel = (id: string) => setShareSelected((p) => ({ ...p, [id]: !p[id] }))
+  const sendShare = async () => {
+    try {
+      const ids = Object.entries(shareSelected).filter(([, v]) => v).map(([k]) => k)
+      if (!shareModal.postId || ids.length === 0) { setShareModal({ visible: false }); setShareSelected({}); return }
+      await (api as any).sendSharedPost(String(shareModal.postId), ids)
+    } catch {}
+    setShareModal({ visible: false }); setShareSelected({})
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -549,7 +572,7 @@ export default function HomeScreen() {
                   <TouchableOpacity style={styles.actionButton} onPress={() => router.push(`/post/${item._id}`)}>
                     <Ionicons name="chatbubble-outline" size={28} color="#262626" />
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.actionButton}>
+                  <TouchableOpacity style={styles.actionButton} onPress={() => openShare(String(item._id))}>
                     <Ionicons name="paper-plane-outline" size={28} color="#262626" />
                   </TouchableOpacity>
                 </View>
@@ -587,6 +610,28 @@ export default function HomeScreen() {
         onRefresh={onFeedRefresh}
         ListFooterComponent={feedLoadingMore ? (<View style={{ paddingVertical: 12, alignItems: 'center' }}><Text>Loading…</Text></View>) : null}
       />
+      <Modal visible={shareModal.visible} transparent animationType="slide" onRequestClose={() => setShareModal({ visible: false })}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
+          <View style={{ maxHeight: '60%', backgroundColor: '#fff', borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 12 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text style={{ fontWeight: '900', fontSize: 16 }}>Send to…</Text>
+              <TouchableOpacity onPress={() => setShareModal({ visible: false })}><Text style={{ color: '#007aff', fontWeight: '800' }}>Close</Text></TouchableOpacity>
+            </View>
+            <ScrollView contentContainerStyle={{ paddingVertical: 10 }}>
+              {following.map((u) => (
+                <TouchableOpacity key={u._id} onPress={() => toggleShareSel(u._id)} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 10 }}>
+                  <Image source={{ uri: u.profilePic || 'https://i.pravatar.cc/100?img=13' }} style={{ width: 36, height: 36, borderRadius: 18, marginRight: 10 }} />
+                  <Text style={{ flex: 1 }}>{u.name}</Text>
+                  <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: '#ddd', backgroundColor: shareSelected[u._id] ? '#0095f6' : 'transparent' }} />
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <TouchableOpacity onPress={sendShare} style={{ marginTop: 6, backgroundColor: '#0095f6', paddingVertical: 10, borderRadius: 10, alignItems: 'center' }}>
+              <Text style={{ color: '#fff', fontWeight: '900' }}>Send</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   )
 }
