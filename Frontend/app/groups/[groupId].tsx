@@ -439,6 +439,15 @@ const StartSwarmModal: React.FC<{ visible: boolean; onClose: () => void; group: 
   const [busy, setBusy] = useState(false)
   const suggestedInvites = (group?.members || []).slice(0, 6).map((m) => (typeof m === 'string' ? m : (m as any)._id))
   const [invited, setInvited] = useState<Record<string, boolean>>(() => Object.fromEntries(suggestedInvites.map((id) => [id, true])))
+  // close on hardware back when open
+  React.useEffect(() => {
+    if (!visible) return
+    const sub = (require('react-native') as any).BackHandler.addEventListener('hardwareBackPress', () => {
+      try { onClose() } catch {}
+      return true
+    })
+    return () => { try { sub?.remove?.() } catch {} }
+  }, [visible])
 
   const start = async () => {
     if (busy) return
@@ -456,30 +465,36 @@ const StartSwarmModal: React.FC<{ visible: boolean; onClose: () => void; group: 
   }
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' }}>
+    <Modal visible={visible} transparent onRequestClose={onClose}>
+      <View style={{ flex: 1, justifyContent: 'flex-end' }}>
+        {/* Overlay fades immediately */}
+        <View style={{ ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.35)' }} />
         <TouchableOpacity activeOpacity={1} style={{ flex: 1 }} onPress={onClose} />
-        <View style={{ backgroundColor: '#fff', borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 16 }}>
-          <View style={{ alignItems: 'center', marginBottom: 8 }}>
+        <View style={{ backgroundColor: '#fff', borderTopLeftRadius: 16, borderTopRightRadius: 16, paddingTop: 20, paddingHorizontal: 16, paddingBottom: 24 }}>
+          <View style={{ alignItems: 'center', marginBottom: 12 }}>
             <View style={{ width: 36, height: 4, backgroundColor: '#e5e7eb', borderRadius: 2 }} />
           </View>
-          <Text style={{ fontWeight: '800', fontSize: 16, marginBottom: 8 }}>Start a Swarm</Text>
-          <TextInput value={prompt} onChangeText={setPrompt} placeholder="Swarm prompt" placeholderTextColor="#888" style={{ borderWidth: 1, borderColor: '#eee', borderRadius: 10, paddingHorizontal: 10, height: 44, color: '#000', marginBottom: 8 }} />
-          <TextInput value={duration} onChangeText={setDuration} keyboardType="number-pad" placeholder="Duration (minutes)" placeholderTextColor="#888" style={{ borderWidth: 1, borderColor: '#eee', borderRadius: 10, paddingHorizontal: 10, height: 44, color: '#000', marginBottom: 8 }} />
-          <Text style={{ fontWeight: '700', marginTop: 4, marginBottom: 4 }}>Invite (up to 6)</Text>
-          <FlatList data={(group?.members || []) as any} keyExtractor={(m: any) => (typeof m === 'string' ? m : m._id)} horizontal style={{ maxHeight: 60 }} renderItem={({ item }: any) => {
+          <Text style={{ fontFamily: 'Manrope_800ExtraBold', fontSize: 18, marginBottom: 8 }}>Start a Swarm</Text>
+          <TextInput value={prompt} onChangeText={setPrompt} placeholder="Swarm prompt" placeholderTextColor="#888" style={{ borderWidth: 1, borderColor: '#eee', borderRadius: 12, paddingHorizontal: 12, height: 48, color: '#000', marginBottom: 10 }} />
+          <TextInput value={duration} onChangeText={setDuration} keyboardType="number-pad" placeholder="Duration (minutes)" placeholderTextColor="#888" style={{ borderWidth: 1, borderColor: '#eee', borderRadius: 12, paddingHorizontal: 12, height: 48, color: '#000', marginBottom: 10 }} />
+          <Text style={{ fontWeight: '700', marginTop: 4, marginBottom: 8 }}>Invite (up to 6)</Text>
+          <FlatList data={(group?.members || []) as any} keyExtractor={(m: any) => (typeof m === 'string' ? m : m._id)} horizontal style={{ maxHeight: 60, marginBottom: 12 }} renderItem={({ item }: any) => {
             const id = typeof item === 'string' ? item : item._id
             const name = typeof item === 'string' ? id.slice(-4) : (item.name || id.slice(-4))
             const on = !!invited[id]
             return (
-              <TouchableOpacity onPress={() => setInvited((p) => ({ ...p, [id]: !p[id] }))} style={{ marginRight: 8, backgroundColor: on ? '#0095f6' : '#eee', borderRadius: 14, paddingHorizontal: 10, paddingVertical: 6 }}>
+              <TouchableOpacity onPress={() => setInvited((p) => ({ ...p, [id]: !p[id] }))} style={{ marginRight: 8, backgroundColor: on ? '#111827' : '#f1f5f9', borderRadius: 16, paddingHorizontal: 12, paddingVertical: 8 }}>
                 <Text style={{ color: on ? '#fff' : '#111', fontWeight: '700' }}>{name}</Text>
               </TouchableOpacity>
             )
           }} />
-          <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 12 }}>
-            <TouchableOpacity onPress={onClose}><Text style={{ color: '#666', fontWeight: '700' }}>Cancel</Text></TouchableOpacity>
-            <TouchableOpacity disabled={busy} onPress={start}><Text style={{ color: busy ? '#aaa' : '#0095f6', fontWeight: '800' }}>{busy ? 'Starting…' : 'Start'}</Text></TouchableOpacity>
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}>
+            <TouchableOpacity onPress={onClose} style={{ flex: 1, backgroundColor: '#f3f4f6', height: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{ color: '#111', fontWeight: '800' }}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity disabled={busy} onPress={start} style={{ flex: 1, backgroundColor: '#111827', height: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center', opacity: busy ? 0.6 : 1 }}>
+              <Text style={{ color: '#fff', fontWeight: '800' }}>{busy ? 'Starting…' : 'Start'}</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </View>

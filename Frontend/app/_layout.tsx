@@ -8,8 +8,29 @@ import * as Location from "expo-location";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import * as Notifications from "expo-notifications";
 import api from "@/services/api.service";
+import { useFonts, Manrope_400Regular, Manrope_600SemiBold, Manrope_700Bold, Manrope_800ExtraBold } from "@expo-google-fonts/manrope";
+import { Text, TextInput } from "react-native";
 
 export default function RootLayout() {
+  const [fontsLoaded] = useFonts({
+    Manrope_400Regular,
+    Manrope_600SemiBold,
+    Manrope_700Bold,
+    Manrope_800ExtraBold,
+  })
+
+  useEffect(() => {
+    if (!fontsLoaded) return
+    try {
+      // Set global default font family for Text and TextInput
+      ;(Text as any).defaultProps = (Text as any).defaultProps || {}
+      const prevText = (Text as any).defaultProps.style
+      ;(Text as any).defaultProps.style = [{ fontFamily: "Manrope_400Regular" }, prevText].filter(Boolean)
+      ;(TextInput as any).defaultProps = (TextInput as any).defaultProps || {}
+      const prevInput = (TextInput as any).defaultProps.style
+      ;(TextInput as any).defaultProps.style = [{ fontFamily: "Manrope_400Regular" }, prevInput].filter(Boolean)
+    } catch {}
+  }, [fontsLoaded])
 
   useEffect(() => {
   async function initSocket() {
@@ -83,6 +104,8 @@ export default function RootLayout() {
 }, []);
 
 
+
+  if (!fontsLoaded) return null
 
   return (
 
