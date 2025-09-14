@@ -525,6 +525,9 @@ const Search = () => {
           returnKeyType="search"
           onSubmitEditing={() => addRecentSearch(query)}
         />
+        <TouchableOpacity onPress={() => router.push('/settings')} style={{ padding: 6 }}>
+          <Ionicons name="settings-outline" size={18} color="#666" />
+        </TouchableOpacity>
         {blockedSetRef.current.size > 0 && (
           <View style={{ backgroundColor: '#eef2ff', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 4, marginRight: 6 }}>
             <Text style={{ color: '#3730a3', fontWeight: '700', fontSize: 10 }}>Circle users only</Text>
