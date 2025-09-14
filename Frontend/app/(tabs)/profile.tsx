@@ -19,6 +19,7 @@ import {
 import socketService from "@/services/socket.service"
 import { Brand } from "@/constants/Colors"
 import { LinearGradient } from "expo-linear-gradient"
+import { apiService } from "@/services/api.service"
 import SetStatusModal from "@/components/SetStatusModal"
 import { Video } from "expo-av"
 import MasonryGrid from "@/components/MasonryGrid"
@@ -47,13 +48,6 @@ interface Post {
   author: { name: string }
 }
 
-const highlights = [
-  { id: "1", image: "https://i.pravatar.cc/150?img=31", label: "Travel" },
-  { id: "2", image: "https://i.pravatar.cc/150?img=32", label: "Food" },
-  { id: "3", image: "https://i.pravatar.cc/150?img=33", label: "Pets" },
-  { id: "4", image: "https://i.pravatar.cc/150?img=34", label: "Gym" },
-]
-
 export default function ProfileScreen() {
   const [user, setUser] = useState<User | null>(null)
   const [posts, setPosts] = useState<Post[]>([])
@@ -70,6 +64,7 @@ export default function ProfileScreen() {
   const [reels, setReels] = useState<any[]>([])
   const [statusModal, setStatusModal] = useState<{ visible: boolean }>({ visible: false })
   const [customStatus, setCustomStatus] = useState<{ text?: string; emoji?: string } | null>(null)
+  const [myHighlights, setMyHighlights] = useState<any[]>([])
   const router = useRouter()
 
   const onRefresh = async () => {
@@ -96,6 +91,7 @@ export default function ProfileScreen() {
       await loadUserFromStorage()
       await fetchUserProfile()
       await fetchUserPosts()
+      try { const r: any = await apiService.getDailyHighlights(); const list = Array.isArray(r?.entries) ? r.entries : []; setMyHighlights(list) } catch { setMyHighlights([]) }
     } catch (error) {
       console.error("Error initializing profile:", error)
       Alert.alert("Error", "Failed to load profile data")
@@ -528,16 +524,25 @@ export default function ProfileScreen() {
             </View>
 
             <FlatList
-              data={highlights}
-              keyExtractor={(item) => item.id}
+              data={myHighlights}
+              keyExtractor={(item) => String(item._id)}
               horizontal
               showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ paddingVertical: 15, paddingLeft: 10 }}
-              renderItem={({ item }) => (
-                <View style={styles.highlight}>
-                  <Image source={{ uri: item.image }} style={styles.highlightImage} />
-                  <Text style={styles.highlightLabel}>{item.label}</Text>
+              contentContainerStyle={{ paddingVertical: 15, paddingLeft: 10, gap: 14 }}
+              ListEmptyComponent={() => (
+                <View style={{ paddingHorizontal: 16 }}>
+                  <Text style={{ color: '#666' }}>No highlights yet. Add from your Daily.</Text>
                 </View>
+              )}
+              renderItem={({ item }) => (
+                <TouchableOpacity onPress={() => router.push({ pathname: '/daily/viewer', params: { userId: String(item?.user?._id || '') } })}>
+                  <View style={{ alignItems: 'center' }}>
+                    <View style={{ width: 72, height: 72, borderRadius: 36, borderWidth: 3, borderColor: '#f59e0b', padding: 3 }}>
+                      <Image source={{ uri: item.mediaUrl || 'https://i.pravatar.cc/100?img=17' }} style={{ width: '100%', height: '100%', borderRadius: 36, backgroundColor: '#eee' }} />
+                    </View>
+                    <Text numberOfLines={1} style={{ marginTop: 6, maxWidth: 80, textAlign: 'center' }}>{(item.text && item.text.slice(0, 12)) || 'Highlight'}</Text>
+                  </View>
+                </TouchableOpacity>
               )}
             />
 
