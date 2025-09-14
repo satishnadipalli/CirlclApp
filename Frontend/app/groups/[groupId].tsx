@@ -4,11 +4,11 @@ import { apiService } from "@/services/api.service"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import { useLocalSearchParams, useRouter } from "expo-router"
 import React, { useEffect, useMemo, useRef, useState } from "react"
-import { Alert, FlatList, Image, StyleSheet, Text, TextInput, TouchableOpacity, View, Modal, ActivityIndicator, Platform, StatusBar } from "react-native"
+import { Alert, FlatList, Image, StyleSheet, Text, TextInput, TouchableOpacity, View, Modal, ActivityIndicator, Platform, StatusBar, ScrollView } from "react-native"
 import Icon from "react-native-vector-icons/MaterialIcons"
 import * as ImagePicker from 'expo-image-picker'
 import socketService from "@/services/socket.service"
-import { Modal } from "react-native"
+ 
 
 interface Member { _id: string; name: string; profilePic?: string }
 interface Group {
@@ -195,23 +195,23 @@ export default function GroupDetailsScreen() {
             {group.description ? <Text style={styles.heroDesc}>{group.description}</Text> : null}
           </View>
         </View>
-        <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
-          <TouchableOpacity onPress={() => router.push({ pathname: '/mediaGallery', params: { chatType: 'group', chatId: String(groupId) } })} style={{ backgroundColor: '#111', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 }}>
-            <Text style={{ color: '#fff', fontWeight: '800' }}>Media gallery</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, marginTop: 12, paddingHorizontal: 2 }}>
+          <TouchableOpacity onPress={() => router.push({ pathname: '/mediaGallery', params: { chatType: 'group', chatId: String(groupId) } })} style={styles.pillPrimary}>
+            <Text style={styles.pillPrimaryText}>Media gallery</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => router.push({ pathname: '/bookmarks', params: { chatType: 'group', chatId: String(groupId), kind: 'starred' } })} style={{ backgroundColor: '#f1f1f1', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 }}>
-            <Text style={{ color: '#111', fontWeight: '800' }}>Starred</Text>
+          <TouchableOpacity onPress={() => router.push({ pathname: '/bookmarks', params: { chatType: 'group', chatId: String(groupId), kind: 'starred' } })} style={styles.pill}>
+            <Text style={styles.pillText}>Starred</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => router.push({ pathname: '/bookmarks', params: { chatType: 'group', chatId: String(groupId), kind: 'pinned' } })} style={{ backgroundColor: '#f1f1f1', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 }}>
-            <Text style={{ color: '#111', fontWeight: '800' }}>Pinned</Text>
+          <TouchableOpacity onPress={() => router.push({ pathname: '/bookmarks', params: { chatType: 'group', chatId: String(groupId), kind: 'pinned' } })} style={styles.pill}>
+            <Text style={styles.pillText}>Pinned</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => router.push({ pathname: '/swarms/outcomes/[groupId]', params: { groupId: String(groupId) } })} style={{ backgroundColor: '#f1f1f1', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 }}>
-            <Text style={{ color: '#111', fontWeight: '800' }}>Outcomes</Text>
+          <TouchableOpacity onPress={() => router.push({ pathname: '/swarms/outcomes/[groupId]', params: { groupId: String(groupId) } })} style={styles.pill}>
+            <Text style={styles.pillText}>Outcomes</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => setStartModal(true)} style={{ backgroundColor: '#111', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 }}>
-            <Text style={{ color: '#fff', fontWeight: '800' }}>Start Swarm</Text>
+          <TouchableOpacity onPress={() => setStartModal(true)} style={styles.pillPrimary}>
+            <Text style={styles.pillPrimaryText}>Start Swarm</Text>
           </TouchableOpacity>
-        </View>
+        </ScrollView>
       </View>
 
       <View style={styles.actionsBar}>
@@ -456,9 +456,13 @@ const StartSwarmModal: React.FC<{ visible: boolean; onClose: () => void; group: 
   }
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
-        <View style={{ backgroundColor: '#fff', borderRadius: 14, padding: 16, width: '100%' }}>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' }}>
+        <TouchableOpacity activeOpacity={1} style={{ flex: 1 }} onPress={onClose} />
+        <View style={{ backgroundColor: '#fff', borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 16 }}>
+          <View style={{ alignItems: 'center', marginBottom: 8 }}>
+            <View style={{ width: 36, height: 4, backgroundColor: '#e5e7eb', borderRadius: 2 }} />
+          </View>
           <Text style={{ fontWeight: '800', fontSize: 16, marginBottom: 8 }}>Start a Swarm</Text>
           <TextInput value={prompt} onChangeText={setPrompt} placeholder="Swarm prompt" placeholderTextColor="#888" style={{ borderWidth: 1, borderColor: '#eee', borderRadius: 10, paddingHorizontal: 10, height: 44, color: '#000', marginBottom: 8 }} />
           <TextInput value={duration} onChangeText={setDuration} keyboardType="number-pad" placeholder="Duration (minutes)" placeholderTextColor="#888" style={{ borderWidth: 1, borderColor: '#eee', borderRadius: 10, paddingHorizontal: 10, height: 44, color: '#000', marginBottom: 8 }} />
@@ -540,6 +544,10 @@ const styles = StyleSheet.create({
   heroAvatar: { width: 80, height: 80, borderRadius: 40, backgroundColor: "#eee" },
   heroName: { fontSize: 20, fontWeight: "700", marginTop: 8 },
   heroDesc: { fontSize: 12, color: "#666", marginTop: 4 },
+  pill: { backgroundColor: '#f1f5f9', borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8 },
+  pillText: { color: '#111', fontWeight: '800' },
+  pillPrimary: { backgroundColor: '#111827', borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8 },
+  pillPrimaryText: { color: '#fff', fontWeight: '800' },
   actionsBar: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, gap: 8, marginVertical: 8 },
   search: { flex: 1, backgroundColor: "#f2f2f2", borderRadius: 10, paddingHorizontal: 12, height: 40 },
   addBtn: { color: "#0095f6", fontSize: 16, fontWeight: "600" },

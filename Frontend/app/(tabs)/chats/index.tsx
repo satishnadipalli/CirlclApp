@@ -317,13 +317,18 @@ export default function ChatsScreen() {
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <StatusBar barStyle={colors.background === '#0B0F14' ? 'light-content' : 'dark-content'} />
       <View style={{ paddingHorizontal: 12, paddingTop:Platform.OS == "android" ? (StatusBar.currentHeight || 0) + 20 : 0, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: colors.background }}>
-        <TextInput
-          value={search}
-          onChangeText={setSearch}
-          placeholder="Search"
-          placeholderTextColor={colors.muted}
-          style={{ backgroundColor: colors.surface, borderRadius: 10, paddingHorizontal: 12, height: 40, color: colors.text, borderWidth: 1, borderColor: colors.border }}
-        />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <TextInput
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Search"
+            placeholderTextColor={colors.muted}
+            style={{ flex: 1, backgroundColor: colors.surface, borderRadius: 10, paddingHorizontal: 12, height: 40, color: colors.text, borderWidth: 1, borderColor: colors.border }}
+          />
+          <TouchableOpacity onPress={() => router.push('/groups/create')} style={{ backgroundColor: '#111827', paddingHorizontal: 12, height: 40, borderRadius: 10, justifyContent: 'center' }}>
+            <Text style={{ color: '#fff', fontWeight: '800' }}>New Group</Text>
+          </TouchableOpacity>
+        </View>
       </View>
       {suggestions.length > 0 && (
         <View style={{ paddingVertical: 10 }}>
