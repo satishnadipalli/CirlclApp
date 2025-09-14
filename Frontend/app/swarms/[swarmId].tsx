@@ -60,7 +60,12 @@ export default function SwarmLiveScreen() {
 
     const onIdea = (payload: any) => {
       if (String(payload?.swarmId) !== String(swarmId)) return
-      setSwarm((prev: any) => ({ ...(prev || {}), ideas: ([...(prev?.ideas || []), payload.idea]) }))
+      setSwarm((prev: any) => {
+        const current = (prev?.ideas || [])
+        const exists = current.some((i: any) => String(i?._id) === String(payload?.idea?._id))
+        if (exists) return prev
+        return { ...(prev || {}), ideas: ([...current, payload.idea]) }
+      })
     }
     const onPhase = (payload: any) => {
       if (String(payload?.swarmId) !== String(swarmId)) return
@@ -127,8 +132,15 @@ export default function SwarmLiveScreen() {
         setSwarm((prev: any) => ({ ...(prev || {}), ideas: (prev?.ideas || []).filter((i: any) => String(i._id) !== tempId) }))
         Alert.alert('Failed', r?.message || 'Could not add idea')
       } else {
-        // Replace temp with server idea
-        setSwarm((prev: any) => ({ ...(prev || {}), ideas: (prev?.ideas || []).map((i: any) => String(i._id) === tempId ? r.idea : i) }))
+        // Replace temp with server idea, or if socket already added it, just remove the temp
+        setSwarm((prev: any) => {
+          const list = (prev?.ideas || [])
+          const alreadyThere = list.some((i: any) => String(i._id) === String(r.idea._id))
+          if (alreadyThere) {
+            return { ...(prev || {}), ideas: list.filter((i: any) => String(i._id) !== tempId) }
+          }
+          return { ...(prev || {}), ideas: list.map((i: any) => String(i._id) === tempId ? r.idea : i) }
+        })
       }
     } catch (e) {
       setSwarm((prev: any) => ({ ...(prev || {}), ideas: (prev?.ideas || []).filter((i: any) => String(i._id) !== tempId) }))
@@ -146,10 +158,12 @@ export default function SwarmLiveScreen() {
   const startIfHost = async () => {
     const r: any = await apiService.startSwarm(String(swarmId))
     if (!(r?.success)) Alert.alert('Start failed', r?.message || 'Not allowed')
+    else setPhase(String(r?.swarm?.lastPhase || 'diverge'))
   }
   const gotoPhase = async (p: 'diverge'|'cluster'|'vote'|'converge') => {
     const r: any = await apiService.setSwarmPhase(String(swarmId), p)
     if (!(r?.success)) Alert.alert('Failed', r?.message || 'Not allowed')
+    else setPhase(p)
   }
 
   const addCluster = async () => {
@@ -171,7 +185,7 @@ export default function SwarmLiveScreen() {
     const payload = [{ text: t }]
     const r: any = await apiService.setActions(String(swarmId), payload)
     if (!(r?.success)) Alert.alert('Failed', r?.message || 'Could not set actions')
-    else setActionText("")
+    else { setActionText(""); setPhase('converge') }
   }
 
   const endIfHost = async () => {
