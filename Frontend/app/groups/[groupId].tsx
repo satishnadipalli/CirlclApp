@@ -434,6 +434,8 @@ export default function GroupDetailsScreen() {
   )
 }
 const StartSwarmModal: React.FC<{ visible: boolean; onClose: () => void; group: Group; groupId: string; onStarted: (sid: string) => void }> = ({ visible, onClose, group, groupId, onStarted }) => {
+  const { useSafeAreaInsets } = require('react-native-safe-area-context')
+  const insets = useSafeAreaInsets ? useSafeAreaInsets() : { bottom: 0 }
   const [prompt, setPrompt] = useState(`Quick brainstorm: How might we improve ${group?.name || 'this group'}?`)
   const [duration, setDuration] = useState('15')
   const [busy, setBusy] = useState(false)
@@ -470,29 +472,29 @@ const StartSwarmModal: React.FC<{ visible: boolean; onClose: () => void; group: 
         {/* Overlay fades immediately */}
         <View style={{ ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.35)' }} />
         <TouchableOpacity activeOpacity={1} style={{ flex: 1 }} onPress={onClose} />
-        <View style={{ backgroundColor: '#fff', borderTopLeftRadius: 16, borderTopRightRadius: 16, paddingTop: 20, paddingHorizontal: 16, paddingBottom: 24 }}>
-          <View style={{ alignItems: 'center', marginBottom: 12 }}>
+        <View style={{ backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingTop: 24, paddingHorizontal: 18, paddingBottom: (insets?.bottom || 0) + 28, minHeight: 420 }}>
+          <View style={{ alignItems: 'center', marginBottom: 16 }}>
             <View style={{ width: 36, height: 4, backgroundColor: '#e5e7eb', borderRadius: 2 }} />
           </View>
-          <Text style={{ fontFamily: 'Manrope_800ExtraBold', fontSize: 18, marginBottom: 8 }}>Start a Swarm</Text>
-          <TextInput value={prompt} onChangeText={setPrompt} placeholder="Swarm prompt" placeholderTextColor="#888" style={{ borderWidth: 1, borderColor: '#eee', borderRadius: 12, paddingHorizontal: 12, height: 48, color: '#000', marginBottom: 10 }} />
-          <TextInput value={duration} onChangeText={setDuration} keyboardType="number-pad" placeholder="Duration (minutes)" placeholderTextColor="#888" style={{ borderWidth: 1, borderColor: '#eee', borderRadius: 12, paddingHorizontal: 12, height: 48, color: '#000', marginBottom: 10 }} />
-          <Text style={{ fontWeight: '700', marginTop: 4, marginBottom: 8 }}>Invite (up to 6)</Text>
-          <FlatList data={(group?.members || []) as any} keyExtractor={(m: any) => (typeof m === 'string' ? m : m._id)} horizontal style={{ maxHeight: 60, marginBottom: 12 }} renderItem={({ item }: any) => {
+          <Text style={{ fontFamily: 'Manrope_800ExtraBold', fontSize: 20, marginBottom: 10 }}>Start a Swarm</Text>
+          <TextInput value={prompt} onChangeText={setPrompt} placeholder="Swarm prompt" placeholderTextColor="#888" style={{ borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 14, paddingHorizontal: 14, height: 52, color: '#000', marginBottom: 12 }} />
+          <TextInput value={duration} onChangeText={setDuration} keyboardType="number-pad" placeholder="Duration (minutes)" placeholderTextColor="#888" style={{ borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 14, paddingHorizontal: 14, height: 52, color: '#000', marginBottom: 12 }} />
+          <Text style={{ fontWeight: '700', marginTop: 4, marginBottom: 10 }}>Invite (up to 6)</Text>
+          <FlatList data={(group?.members || []) as any} keyExtractor={(m: any) => (typeof m === 'string' ? m : m._id)} horizontal style={{ maxHeight: 64, marginBottom: 16 }} renderItem={({ item }: any) => {
             const id = typeof item === 'string' ? item : item._id
             const name = typeof item === 'string' ? id.slice(-4) : (item.name || id.slice(-4))
             const on = !!invited[id]
             return (
-              <TouchableOpacity onPress={() => setInvited((p) => ({ ...p, [id]: !p[id] }))} style={{ marginRight: 8, backgroundColor: on ? '#111827' : '#f1f5f9', borderRadius: 16, paddingHorizontal: 12, paddingVertical: 8 }}>
-                <Text style={{ color: on ? '#fff' : '#111', fontWeight: '700' }}>{name}</Text>
+              <TouchableOpacity onPress={() => setInvited((p) => ({ ...p, [id]: !p[id] }))} style={{ marginRight: 10, backgroundColor: on ? '#111827' : '#f1f5f9', borderRadius: 16, paddingHorizontal: 12, paddingVertical: 8 }}>
+                <Text style={{ color: on ? '#fff' : '#111827', fontWeight: '700' }}>{name}</Text>
               </TouchableOpacity>
             )
           }} />
-          <View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}>
-            <TouchableOpacity onPress={onClose} style={{ flex: 1, backgroundColor: '#f3f4f6', height: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}>
-              <Text style={{ color: '#111', fontWeight: '800' }}>Cancel</Text>
+          <View style={{ flexDirection: 'row', gap: 12, marginTop: 'auto' }}>
+            <TouchableOpacity onPress={onClose} style={{ flex: 1, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', height: 52, borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{ color: '#111827', fontWeight: '800' }}>Cancel</Text>
             </TouchableOpacity>
-            <TouchableOpacity disabled={busy} onPress={start} style={{ flex: 1, backgroundColor: '#111827', height: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center', opacity: busy ? 0.6 : 1 }}>
+            <TouchableOpacity disabled={busy} onPress={start} style={{ flex: 1, backgroundColor: '#0095f6', height: 52, borderRadius: 12, alignItems: 'center', justifyContent: 'center', opacity: busy ? 0.7 : 1 }}>
               <Text style={{ color: '#fff', fontWeight: '800' }}>{busy ? 'Starting…' : 'Start'}</Text>
             </TouchableOpacity>
           </View>
