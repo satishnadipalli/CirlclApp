@@ -20,14 +20,8 @@ import socketService from "@/services/socket.service"
 import PresenceBadge from "@/components/PresenceBadge"
 import Skeleton from "@/components/Skeleton"
 import { useTheme } from "@/contexts/ThemeContext"
+import { apiService } from "@/services/api.service"
 const { width } = Dimensions.get("window")
-
-const highlights = [
-  { id: "1", image: "https://i.pravatar.cc/150?img=31", label: "Travel" },
-  { id: "2", image: "https://i.pravatar.cc/150?img=32", label: "Food" },
-  { id: "3", image: "https://i.pravatar.cc/150?img=33", label: "Pets" },
-  { id: "4", image: "https://i.pravatar.cc/150?img=34", label: "Gym" },
-]
 
 export default function ProfileScreen() {
   const { colors } = useTheme()
@@ -43,6 +37,7 @@ export default function ProfileScreen() {
   const [refreshing, setRefreshing] = useState(false)
   const [isFollowing, setIsFollowing] = useState(false)
   const [activeTab, setActiveTab] = useState("posts")
+  const [myHighlights, setMyHighlights] = useState<any[]>([])
   const router = useRouter()
   const { userId } = useLocalSearchParams()
 
@@ -78,12 +73,7 @@ export default function ProfileScreen() {
   }, [currentUser])
 
   useEffect(() => {
-    console.log("[v0] Mentioned posts state updated:", mentionedPosts?.length || 0)
-  }, [mentionedPosts])
-
-  useEffect(() => {
     if (activeTab === "tagged" && mentionedPosts.length === 0 && currentUser) {
-      console.log("[v0] Tagged tab selected, fetching mentioned posts...")
       fetchMentionedPosts()
     }
   }, [activeTab, currentUser])
@@ -97,6 +87,14 @@ export default function ProfileScreen() {
         await fetchUserProfile(null, currentUserData)
       }
       await fetchUserPosts()
+      // Load highlights for own profile
+      try {
+        if (!userId || (currentUserData && String(currentUserData?._id) === String(userId))) {
+          const r: any = await apiService.getDailyHighlights()
+          const list = Array.isArray(r?.entries) ? r.entries : []
+          setMyHighlights(list)
+        } else setMyHighlights([])
+      } catch { setMyHighlights([]) }
     } catch (error) {
       console.error("Error initializing profile:", error)
       Alert.alert("Error", "Failed to load profile data")
@@ -180,7 +178,6 @@ export default function ProfileScreen() {
       if (targetUserId && currentUserToCheck) {
         const isCurrentlyFollowing = currentUserToCheck.following?.includes(targetUserId) || false
         setIsFollowing(isCurrentlyFollowing)
-        console.log("[v0] Setting follow status:", isCurrentlyFollowing, "for user:", targetUserId)
       }
     } catch (error) {
       console.error("Error fetching user profile:", error)
@@ -493,83 +490,63 @@ export default function ProfileScreen() {
         <Text style={[styles.bio, { color: colors.text }]}>{user?.bio || "📍 Traveler | 📸 Photographer | ☕ Coffee Lover"}</Text>
         {user?.website && <Text style={[styles.bioLink, { color: colors.primary }]}>{user?.website}</Text>}
         <View style={{ marginTop: 6 }}>
-          <PresenceBadge isOnline={presenceOnline} lastSeen={presenceLastSeen} size="sm" />
-          {!!(user as any)?.customStatus && (
-            <Text style={{ color: colors.muted, marginTop: 4 }}>
-              {((user as any).customStatus?.emoji ? `${(user as any).customStatus.emoji} ` : '') + ((user as any).customStatus?.text || '')}
-            </Text>
-          )}
+          <PresenceBadge isOnline={false} lastSeen={undefined} size="sm" />
         </View>
       </View>
 
+      {/* Highlights Rings (own profile) */}
+      {!userId || (currentUser && String((user as any)?._id) === String(currentUser?._id)) ? (
+        <FlatList
+          data={myHighlights}
+          keyExtractor={(e) => String(e._id)}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ paddingVertical: 12, paddingLeft: 12, gap: 14 }}
+          ListEmptyComponent={() => (
+            <View style={{ paddingHorizontal: 16 }}>
+              <Text style={{ color: colors.muted }}>No highlights yet. Long-press your Daily to add one.</Text>
+            </View>
+          )}
+          renderItem={({ item }) => (
+            <TouchableOpacity onPress={() => router.push({ pathname: '/daily/viewer', params: { userId: String(item?.user?._id || '') } })}>
+              <View style={{ alignItems: 'center' }}>
+                <View style={{ width: 72, height: 72, borderRadius: 36, borderWidth: 3, borderColor: '#f59e0b', padding: 3 }}>
+                  <Image source={{ uri: item.mediaUrl || 'https://i.pravatar.cc/100?img=17' }} style={{ width: '100%', height: '100%', borderRadius: 36, backgroundColor: '#eee' }} />
+                </View>
+                <Text numberOfLines={1} style={{ marginTop: 6, maxWidth: 80, textAlign: 'center', color: colors.text, fontWeight: '700', fontSize: 12 }}>{(item.text && item.text.slice(0, 12)) || 'Highlight'}</Text>
+              </View>
+            </TouchableOpacity>
+          )}
+        />
+      ) : null}
+
       {/* Buttons */}
       <View style={styles.buttonsRow}>
-        {isOwnProfile ? (
+        {(!userId || (currentUser && String((user as any)?._id) === String(currentUser?._id))) ? (
           <>
-            <TouchableOpacity style={[styles.button, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={handleEditProfile}>
-              <Text style={[styles.buttonText, { color: colors.text }]}>Edit Profile</Text>
+            <TouchableOpacity style={[styles.button, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={() => router.push('/settings/notifications')}>
+              <Text style={[styles.buttonText, { color: colors.text }]}>Settings</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.button, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={handleShareProfile}>
-              <Text style={[styles.buttonText, { color: colors.text }]}>Share Profile</Text>
+            <TouchableOpacity style={[styles.button, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={() => router.push('/highlights')}>
+              <Text style={[styles.buttonText, { color: colors.text }]}>Highlights</Text>
             </TouchableOpacity>
           </>
         ) : (
           <>
-            {/* If blocked, show Unblock; else show Follow/Message and Block */}
-            {(() => {
-              const meBlockedThisUser = Array.isArray((currentUser as any)?.blockedUsers) && (currentUser as any).blockedUsers.some((id: any) => String(id) === String((user as any)?._id))
-              if (meBlockedThisUser) {
-                return (
-                  <>
-                    <TouchableOpacity
-                      style={[styles.button, { backgroundColor: '#fee2e2', borderColor: colors.border }]}
-                      onPress={async () => { try { const api = (await import("@/services/api.service")).apiService; await api.unblockUser(String((user as any)?._id)); await fetchCurrentUser(); Alert.alert('Unblocked', 'User unblocked'); } catch (e) { Alert.alert('Error', (e as Error).message) } }}
-                    >
-                      <Text style={[styles.buttonText, { color: '#991b1b' }]}>Unblock</Text>
-                    </TouchableOpacity>
-                  </>
-                )
-              }
-              return (
-                <>
-                  <TouchableOpacity
-                    style={[styles.button, isFollowing ? { backgroundColor: colors.surface } : { backgroundColor: colors.primary }, { borderColor: colors.border }]}
-                    onPress={handleFollowToggle}
-                  >
-                    <Text style={[styles.buttonText, { color: isFollowing ? colors.text : '#fff' }]}>
-                      {isFollowing ? "Following" : "Follow"}
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={[styles.button, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={handleMessage}>
-                    <Text style={[styles.buttonText, { color: colors.text }]}>Message</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.button, { backgroundColor: '#fee2e2', borderColor: colors.border }]}
-                    onPress={async () => { try { const api = (await import("@/services/api.service")).apiService; await api.blockUser(String((user as any)?._id)); await fetchCurrentUser(); Alert.alert('Blocked', 'You will no longer see this user'); } catch (e) { Alert.alert('Error', (e as Error).message) } }}
-                  >
-                    <Text style={[styles.buttonText, { color: '#991b1b' }]}>Block</Text>
-                  </TouchableOpacity>
-                </>
-              )
-            })()}
+            <TouchableOpacity
+              style={[styles.button, isFollowing ? { backgroundColor: colors.surface } : { backgroundColor: colors.primary }, { borderColor: colors.border }]}
+              onPress={handleFollowToggle}
+            >
+              <Text style={[styles.buttonText, { color: isFollowing ? colors.text : '#fff' }]}>
+                {isFollowing ? "Following" : "Follow"}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.button, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={() => router.push({ pathname: '/chats/[chatId]', params: { chatId: String((user as any)?._id || '') } })}>
+              <Text style={[styles.buttonText, { color: colors.text }]}>Message</Text>
+            </TouchableOpacity>
           </>
         )}
       </View>
-
-      {/* Highlights */}
-      <FlatList
-        data={highlights}
-        keyExtractor={(item) => item.id}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingVertical: 15, paddingLeft: 10 }}
-        renderItem={({ item }) => (
-          <View style={styles.highlight}>
-            <Image source={{ uri: item.image }} style={styles.highlightImage} />
-            <Text style={styles.highlightLabel}>{item.label}</Text>
-          </View>
-        )}
-      />
 
       {/* Instagram-like tabs */}
       <View style={[styles.tabsContainer, { borderTopColor: colors.border, backgroundColor: colors.background }]}>
@@ -587,10 +564,7 @@ export default function ProfileScreen() {
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.tab, activeTab === "tagged" && { borderBottomColor: colors.text }]}
-          onPress={() => {
-            console.log("[v0] Switching to tagged tab")
-            setActiveTab("tagged")
-          }}
+          onPress={() => setActiveTab("tagged")}
         >
           <Text style={[styles.tabIcon, { color: colors.muted }, activeTab === "tagged" && { color: colors.text }]}>👤</Text>
         </TouchableOpacity>
