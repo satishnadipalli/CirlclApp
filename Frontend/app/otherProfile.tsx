@@ -506,7 +506,14 @@ export default function ProfileScreen() {
       {/* Top Section */}
       <View style={[styles.topSection, { borderBottomColor: colors.border }]}>
         <View>
-          <Image source={{ uri: user.profilePic || "https://i.pravatar.cc/150?img=30" }} style={[styles.profilePic, { borderColor: colors.border }]} />
+          {(() => {
+            const ringColor = streakBadge?.tier?.color || colors.border
+            return (
+              <View style={{ borderWidth: 3, borderColor: ringColor, borderRadius: 52, padding: 3 }}>
+                <Image source={{ uri: user.profilePic || "https://i.pravatar.cc/150?img=30" }} style={[styles.profilePic]} />
+              </View>
+            )
+          })()}
         </View>
         <View style={styles.stats}>
           <View style={styles.stat}>

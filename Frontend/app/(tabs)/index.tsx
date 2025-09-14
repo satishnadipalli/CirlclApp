@@ -27,6 +27,7 @@ export default function HomeScreen() {
   const [showCelebration, setShowCelebration] = useState(false)
   const [viewedRingKeys, setViewedRingKeys] = useState<Set<string>>(new Set())
   const [loadingRingIndex, setLoadingRingIndex] = useState<number | null>(null)
+  const [dismissedNudge, setDismissedNudge] = useState(false)
 
   const [feed, setFeed] = useState<any[]>([])
   const [feedPage, setFeedPage] = useState(1)
@@ -46,6 +47,11 @@ export default function HomeScreen() {
       try {
         const u = await AsyncStorage.getItem("user")
         if (u) setCurrentUserId(JSON.parse(u)?.id || null)
+      } catch {}
+      try {
+        const key = await AsyncStorage.getItem('home_nudge_dismissed_v1')
+        const d = new Date(); const today = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())).toISOString().slice(0,10)
+        if (key === today) setDismissedNudge(true)
       } catch {}
       try {
         const raw = await AsyncStorage.getItem('daily_viewed_keys_v1')
@@ -126,6 +132,12 @@ export default function HomeScreen() {
       }
       updateCountdown((p as any)?.prompt?.dropsAt)
       if ((p as any)?.posted) loadMyDaily()
+      // Reset dismissal per day
+      try {
+        const d = new Date(); const today = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())).toISOString().slice(0,10)
+        const key = await AsyncStorage.getItem('home_nudge_dismissed_v1')
+        if (key !== today) setDismissedNudge(false)
+      } catch {}
     } catch {}
   }
 
@@ -311,6 +323,20 @@ export default function HomeScreen() {
             </View>
 
             <View style={[styles.storiesContainer, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+              {!daily?.posted && !dismissedNudge && (
+                <View style={{ marginHorizontal: 12, marginTop: 10, marginBottom: 2, backgroundColor: '#fff7ed', borderColor: '#ffedd5', borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <View style={{ flex: 1, paddingRight: 10 }}>
+                    <Text style={{ color: '#9a3412', fontWeight: '900' }}>Don’t break your streak!</Text>
+                    <Text numberOfLines={1} style={{ color: '#9a3412', fontSize: 12 }}>Share your Daily to keep it going.</Text>
+                  </View>
+                  <TouchableOpacity onPress={() => router.push({ pathname: "/(tabs)/search", params: { focusDaily: "1", openComposer: "1" } })} style={{ backgroundColor: '#ea580c', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8 }}>
+                    <Text style={{ color: '#fff', fontWeight: '800' }}>Post now</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={async () => { try { const d=new Date(); const today=new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())).toISOString().slice(0,10); await AsyncStorage.setItem('home_nudge_dismissed_v1', today); setDismissedNudge(true) } catch {} }} style={{ marginLeft: 8, padding: 6 }}>
+                    <Ionicons name="close" size={16} color="#9a3412" />
+                  </TouchableOpacity>
+                </View>
+              )}
               {daily?.prompt && (
                 <TouchableOpacity
                   style={{ backgroundColor: colors.surface, borderWidth: 0, borderRadius: 14, paddingVertical: 10, paddingHorizontal: 12, marginBottom: 8, overflow: 'hidden' }}
