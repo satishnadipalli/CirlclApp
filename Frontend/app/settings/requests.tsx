@@ -8,6 +8,7 @@ export default function FollowRequestsScreen() {
   const [tab, setTab] = useState<'received'|'sent'>('received')
   const [received, setReceived] = useState<Array<any>>([])
   const [sent, setSent] = useState<Array<any>>([])
+  const [accepted, setAccepted] = useState<Record<string, boolean>>({})
 
   const load = async () => {
     try { const r: any = await (api as any).getFollowRequests(); setReceived(Array.isArray(r?.users) ? r.users : []) } catch { setReceived([]) }
@@ -15,9 +16,11 @@ export default function FollowRequestsScreen() {
   }
   useEffect(() => { load() }, [])
 
-  const accept = async (id: string) => { try { await (api as any).acceptFollowRequest(id); setReceived((prev) => prev.filter((u) => u._id !== id)) } catch {} }
+  const accept = async (id: string) => { try { await (api as any).acceptFollowRequest(id); setAccepted((prev) => ({ ...prev, [id]: true })) } catch {} }
   const decline = async (id: string) => { try { await (api as any).declineFollowRequest(id); setReceived((prev) => prev.filter((u) => u._id !== id)) } catch {} }
   const cancel = async (id: string) => { try { await (api as any).cancelFollowRequest(id); setSent((prev) => prev.filter((u) => u._id !== id)) } catch {} }
+  const followBack = async (id: string) => { try { await (api as any).followUser(id) } catch {} ; setReceived((prev) => prev.filter((u) => u._id !== id)); setAccepted((prev) => { const n = { ...prev }; delete n[id]; return n }) }
+  const dismissAccepted = (id: string) => { setReceived((prev) => prev.filter((u) => u._id !== id)); setAccepted((prev) => { const n = { ...prev }; delete n[id]; return n }) }
 
   const renderRow = ({ item }) => (
     <View style={styles.row}> 
@@ -27,10 +30,17 @@ export default function FollowRequestsScreen() {
         {!!item.username && <Text style={styles.username}>@{item.username}</Text>}
       </View>
       {tab === 'received' ? (
-        <>
-          <TouchableOpacity onPress={() => accept(item._id)} style={[styles.btn, styles.accept]}><Text style={styles.btnText}>Accept</Text></TouchableOpacity>
-          <TouchableOpacity onPress={() => decline(item._id)} style={[styles.btn, styles.decline]}><Text style={styles.btnText}>Decline</Text></TouchableOpacity>
-        </>
+        accepted[item._id] ? (
+          <>
+            <TouchableOpacity onPress={() => followBack(item._id)} style={[styles.btn, styles.accept]}><Text style={styles.btnText}>Follow back</Text></TouchableOpacity>
+            <TouchableOpacity onPress={() => dismissAccepted(item._id)} style={[styles.btn, styles.decline]}><Text style={styles.btnText}>Done</Text></TouchableOpacity>
+          </>
+        ) : (
+          <>
+            <TouchableOpacity onPress={() => accept(item._id)} style={[styles.btn, styles.accept]}><Text style={styles.btnText}>Accept</Text></TouchableOpacity>
+            <TouchableOpacity onPress={() => decline(item._id)} style={[styles.btn, styles.decline]}><Text style={styles.btnText}>Decline</Text></TouchableOpacity>
+          </>
+        )
       ) : (
         <TouchableOpacity onPress={() => cancel(item._id)} style={[styles.btn, styles.decline]}><Text style={styles.btnText}>Cancel</Text></TouchableOpacity>
       )}
