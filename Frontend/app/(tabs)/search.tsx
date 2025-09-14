@@ -705,6 +705,12 @@ const Search = () => {
                       <Ionicons name="close" size={18} color="#066e2c" />
                     </TouchableOpacity>
                   </View>
+                  {/* Simple confetti dots */}
+                  <View pointerEvents="none" style={{ position: 'absolute', top: -6, left: 0, right: 0, height: 20, flexDirection: 'row', justifyContent: 'space-around' }}>
+                    {["#ff6b6b","#ffd166","#06d6a0","#4cc9f0","#b5179e"].map((c, i) => (
+                      <View key={i} style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: c, opacity: 0.9 }} />
+                    ))}
+                  </View>
                 </View>
               )}
             </View>

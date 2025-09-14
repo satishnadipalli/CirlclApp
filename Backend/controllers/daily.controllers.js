@@ -345,6 +345,9 @@ const getGroupDailyFeed = async (req, res) => {
   }
 }
 
+// In-memory cooldown for reminders per group per day
+const __remindCooldown = new Map() // key: `${groupId}:${dateKey}` -> lastTs
+
 // Remind remaining group members to post today's Daily
 const remindGroupMembers = async (req, res) => {
   try {
@@ -352,14 +355,26 @@ const remindGroupMembers = async (req, res) => {
     const requesterId = String(req.user._id)
     const dateKey = formatDateKey(new Date())
 
-    const grp = await Group.findById(groupId).select('members name')
+    const grp = await Group.findById(groupId).select('members admins creator name')
     if (!grp) return res.status(404).json({ success: false, message: 'Group not found' })
     const isMember = Array.isArray(grp.members) && grp.members.some((m) => String(m) === requesterId)
     if (!isMember) return res.status(403).json({ success: false, message: 'Not a member' })
 
+    // Gate to admins/creator
+    const isAdmin = Array.isArray(grp.admins) && grp.admins.some((a) => String(a) === requesterId)
+    const isCreator = String(grp.creator) === requesterId
+    if (!isAdmin && !isCreator) return res.status(403).json({ success: false, message: 'Only admins can remind' })
+
     const todays = await DailyCircleEntry.find({ group: groupId, dateKey }).select('user')
     const postedSet = new Set(todays.map((e) => String(e.user)))
     const remaining = (grp.members || []).map(String).filter((id) => !postedSet.has(id))
+
+    // Cooldown 60s to avoid spam
+    const key = `${groupId}:${dateKey}`
+    const last = __remindCooldown.get(key) || 0
+    if (Date.now() - last < 60 * 1000) {
+      return res.status(429).json({ success: false, message: 'Please wait before reminding again' })
+    }
 
     // Socket + in-app notifications (prefs respected)
     let reminded = 0
@@ -374,6 +389,7 @@ const remindGroupMembers = async (req, res) => {
         reminded++
       }
     } catch {}
+    __remindCooldown.set(key, Date.now())
 
     return res.json({ success: true, reminded, remaining: remaining.length })
   } catch (e) {
