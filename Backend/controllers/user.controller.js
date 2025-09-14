@@ -129,12 +129,17 @@ const getProfile = async (req, res) => {
 
 const updateProfile = async (req, res) => {
   try {
-    const { name, bio, website, profilePic, username } = req.body
+    const { name, bio, website, profilePic, username, accountType } = req.body
     const updates = {}
     if (typeof name === 'string') updates.name = name
     if (typeof bio === 'string') updates.bio = bio
     if (typeof website === 'string') updates.website = website
     if (typeof profilePic === 'string') updates.profilePic = profilePic
+    if (typeof accountType === 'string') {
+      const allowed = ['public','private','professional']
+      if (!allowed.includes(accountType)) return res.status(400).json({ success: false, message: 'Invalid accountType' })
+      updates.accountType = accountType
+    }
     if (typeof username === 'string') {
       const raw = username.trim().toLowerCase()
       if (raw.length < 3 || raw.length > 30) return res.status(400).json({ success: false, message: 'Username must be 3-30 characters' })
@@ -153,19 +158,31 @@ const updateProfile = async (req, res) => {
 
 const followUser = async (req, res) => {
   try {
-    const userToFollow = await User.findById(req.params.id);
-    const currentUser = await User.findById(req.user.id);
+    const userToFollow = await User.findById(req.params.id).select('_id name accountType followers pendingFollowRequests');
+    const currentUser = await User.findById(req.user.id).select('_id name following sentFollowRequests');
 
     if (!userToFollow)
       return res.status(404).json({ message: "User not found" });
     if (currentUser.following.includes(userToFollow._id))
       return res.status(400).json({ message: "Already following" });
 
-    currentUser.following.push(userToFollow._id);
-    userToFollow.followers.push(currentUser._id);
+    // Private account -> create follow request instead of immediate follow
+    if (userToFollow.accountType === 'private') {
+      // If already requested
+      const alreadyRequested = Array.isArray(userToFollow.pendingFollowRequests) && userToFollow.pendingFollowRequests.some((id) => String(id) === String(currentUser._id))
+      if (alreadyRequested) return res.status(200).json({ message: 'Already requested', requested: true })
+      await User.findByIdAndUpdate(userToFollow._id, { $addToSet: { pendingFollowRequests: currentUser._id } })
+      await User.findByIdAndUpdate(currentUser._id, { $addToSet: { sentFollowRequests: userToFollow._id } })
+      try {
+        const { createNotification } = require("../utils/functions");
+        await createNotification({ req, receiverId: userToFollow._id, senderId: currentUser._id, type: "follow", text: "requested to follow you" })
+      } catch {}
+      return res.json({ message: 'Follow request sent', requested: true })
+    }
 
-    await currentUser.save();
-    await userToFollow.save();
+    // Public/professional -> immediate follow
+    await User.findByIdAndUpdate(currentUser._id, { $addToSet: { following: userToFollow._id }, $pull: { sentFollowRequests: userToFollow._id } })
+    await User.findByIdAndUpdate(userToFollow._id, { $addToSet: { followers: currentUser._id }, $pull: { pendingFollowRequests: currentUser._id } })
 
     // inside followUser
     const io = req.app.get("io");
@@ -183,13 +200,7 @@ const followUser = async (req, res) => {
 
     try {
       const { createNotification } = require("../utils/functions");
-      await createNotification({
-        req,
-        receiverId: userToFollow._id,
-        senderId: currentUser._id,
-        type: "follow",
-        text: "started following you",
-      });
+      await createNotification({ req, receiverId: userToFollow._id, senderId: currentUser._id, type: "follow", text: "started following you" });
     } catch {}
 
     console.log(`🔹 ${currentUser.name} followed ${userToFollow.name}`);
@@ -202,21 +213,14 @@ const followUser = async (req, res) => {
 // Unfollow user
 const unfollowUser = async (req, res) => {
   try {
-    const userToUnfollow = await User.findById(req.params.id);
-    const currentUser = await User.findById(req.user.id);
+    const userToUnfollow = await User.findById(req.params.id).select('_id');
+    const currentUser = await User.findById(req.user.id).select('_id');
 
     if (!userToUnfollow)
       return res.status(404).json({ message: "User not found" });
 
-    currentUser.following = currentUser.following.filter(
-      (id) => !id.equals(userToUnfollow._id)
-    );
-    userToUnfollow.followers = userToUnfollow.followers.filter(
-      (id) => !id.equals(currentUser._id)
-    );
-
-    await currentUser.save();
-    await userToUnfollow.save();
+    await User.findByIdAndUpdate(currentUser._id, { $pull: { following: userToUnfollow._id, sentFollowRequests: userToUnfollow._id } })
+    await User.findByIdAndUpdate(userToUnfollow._id, { $pull: { followers: currentUser._id, pendingFollowRequests: currentUser._id } })
 
     // inside unfollowUser
     const io = req.app.get("io");
@@ -238,6 +242,39 @@ const unfollowUser = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+// List inbound follow requests for current user
+const listFollowRequests = async (req, res) => {
+  try {
+    const me = await User.findById(req.user.id).select('pendingFollowRequests')
+    const ids = me?.pendingFollowRequests || []
+    const users = await User.find({ _id: { $in: ids } }).select('_id name username profilePic')
+    res.json({ success: true, users })
+  } catch (e) { res.status(500).json({ success: false, message: e.message }) }
+}
+
+// Accept a follow request
+const acceptFollowRequest = async (req, res) => {
+  try {
+    const { id } = req.params // requester id
+    if (!id) return res.status(400).json({ success: false, message: 'id required' })
+    // Move from pending to followers/following
+    await User.findByIdAndUpdate(req.user.id, { $pull: { pendingFollowRequests: id }, $addToSet: { followers: id } })
+    await User.findByIdAndUpdate(id, { $pull: { sentFollowRequests: req.user.id }, $addToSet: { following: req.user.id } })
+    return res.json({ success: true })
+  } catch (e) { return res.status(500).json({ success: false, message: e.message }) }
+}
+
+// Decline a follow request
+const declineFollowRequest = async (req, res) => {
+  try {
+    const { id } = req.params // requester id
+    if (!id) return res.status(400).json({ success: false, message: 'id required' })
+    await User.findByIdAndUpdate(req.user.id, { $pull: { pendingFollowRequests: id } })
+    await User.findByIdAndUpdate(id, { $pull: { sentFollowRequests: req.user.id } })
+    return res.json({ success: true })
+  } catch (e) { return res.status(500).json({ success: false, message: e.message }) }
+}
 
 const searchuser = async (req, res) => {
   try {
@@ -304,11 +341,16 @@ const getUserById = async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ success: false, message: "Invalid user ID" });
     }
-    const user = await User.findById(id).select("_id name profilePic bio followers following lastActiveAt customStatus");
+    const user = await User.findById(id).select("_id name username profilePic bio followers following lastActiveAt customStatus accountType pendingFollowRequests");
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found" });
     }
-    res.json({ success: true, user });
+    const myId = String(req.user?.id || '')
+    const isMe = myId && String(user._id) === myId
+    const isFollowing = Array.isArray(user.followers) && user.followers.some((x) => String(x) === myId)
+    const hasRequested = Array.isArray(user.pendingFollowRequests) && user.pendingFollowRequests.some((x) => String(x) === myId)
+    const viewer = { isMe, isFollowing, hasRequested, canViewPosts: isMe || isFollowing || (user.accountType !== 'private') }
+    res.json({ success: true, user: { _id: user._id, name: user.name, username: user.username, profilePic: user.profilePic, bio: user.bio, followers: user.followers, following: user.following, lastActiveAt: user.lastActiveAt, customStatus: user.customStatus, accountType: user.accountType }, viewer });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: err.message });
@@ -321,8 +363,15 @@ const getFollowers = async (req, res) => {
     const { id } = req.params
     const page = Number.parseInt(req.query.page) || 1
     const limit = Number.parseInt(req.query.limit) || 20
-    const user = await User.findById(id || req.user.id).select("followers")
+    const user = await User.findById(id || req.user.id).select("followers accountType")
     if (!user) return res.status(404).json({ success: false, message: "User not found" })
+    const requesterId = String(req.user.id)
+    const targetId = String(id || req.user.id)
+    const isMe = requesterId === targetId
+    const isFollower = Array.isArray(user.followers) && user.followers.some((x) => String(x) === requesterId)
+    if (user.accountType === 'private' && !isMe && !isFollower) {
+      return res.status(403).json({ success: false, message: 'Private account' })
+    }
     const total = user.followers.length
     const start = (page - 1) * limit
     const end = start + limit
@@ -340,8 +389,15 @@ const getFollowing = async (req, res) => {
     const { id } = req.params
     const page = Number.parseInt(req.query.page) || 1
     const limit = Number.parseInt(req.query.limit) || 20
-    const user = await User.findById(id || req.user.id).select("following")
+    const user = await User.findById(id || req.user.id).select("following accountType followers")
     if (!user) return res.status(404).json({ success: false, message: "User not found" })
+    const requesterId = String(req.user.id)
+    const targetId = String(id || req.user.id)
+    const isMe = requesterId === targetId
+    const isFollower = Array.isArray(user.followers) && user.followers.some((x) => String(x) === requesterId)
+    if (user.accountType === 'private' && !isMe && !isFollower) {
+      return res.status(403).json({ success: false, message: 'Private account' })
+    }
     const total = user.following.length
     const start = (page - 1) * limit
     const end = start + limit
@@ -618,5 +674,8 @@ module.exports = {
   getSuggestions,
   getMutuals,
   getLastSeen,
-  setCustomStatus
+  setCustomStatus,
+  listFollowRequests,
+  acceptFollowRequest,
+  declineFollowRequest
 };

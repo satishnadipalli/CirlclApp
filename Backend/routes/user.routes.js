@@ -5,6 +5,7 @@ const { register, login, getProfile, updateProfile, followUser, unfollowUser, se
 const { getOnlineUsers } = require("../controllers/user.controller");
 const { getSuggestions, getMutuals } = require("../controllers/user.controller");
 const { getLastSeen } = require("../controllers/user.controller");
+const { listFollowRequests, acceptFollowRequest, declineFollowRequest } = require("../controllers/user.controller");
 
 // Public routes
 router.post("/register", register);
@@ -18,6 +19,10 @@ router.put("/profile", auth, updateProfile);
 router.post('/logout', auth, logout);
 router.post("/:id/follow", auth, followUser);
 router.post("/:id/unfollow", auth, unfollowUser);
+// Follow requests (for private accounts)
+router.get('/me/follow-requests', auth, listFollowRequests)
+router.post('/follow-requests/:id/accept', auth, acceptFollowRequest)
+router.post('/follow-requests/:id/decline', auth, declineFollowRequest)
 router.get("/search", auth, searchuser);
 // Close Friends
 router.get("/me/close-friends", auth, listCloseFriends)

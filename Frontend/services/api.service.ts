@@ -138,6 +138,11 @@ class ApiService {
     return this.request(`/users/me/privacy`, { method: 'PUT', body: JSON.stringify(p) })
   }
 
+  // Account type
+  async updateAccountType(type: 'public'|'private'|'professional') {
+    return this.request(`/users/profile`, { method: 'PUT', body: JSON.stringify({ accountType: type }) })
+  }
+
   // Custom status
   async setCustomStatus(text: string, emoji?: string, durationMinutes?: number) {
     return this.request(`/users/me/custom-status`, { method: 'POST', body: JSON.stringify({ text, emoji, durationMinutes }) })
@@ -400,6 +405,11 @@ class ApiService {
   }
   async followUser(userId) { return this.request(`/users/${userId}/follow`, { method: "POST" }) }
   async unfollowUser(userId) { return this.request(`/users/${userId}/unfollow`, { method: "POST" }) }
+
+  // Follow requests
+  async getFollowRequests() { return this.request(`/users/me/follow-requests`) }
+  async acceptFollowRequest(fromUserId: string) { return this.request(`/users/follow-requests/${fromUserId}/accept`, { method: 'POST' }) }
+  async declineFollowRequest(fromUserId: string) { return this.request(`/users/follow-requests/${fromUserId}/decline`, { method: 'POST' }) }
 
   async registerPushToken(token: string) { return this.request(`/users/me/push-token`, { method: 'POST', body: JSON.stringify({ token }) }) }
   async blockUser(userId: string) { return this.request(`/users/${userId}/block`, { method: 'POST' }) }
