@@ -29,6 +29,26 @@ export default function RootLayout() {
       ;(TextInput as any).defaultProps = (TextInput as any).defaultProps || {}
       const prevInput = (TextInput as any).defaultProps.style
       ;(TextInput as any).defaultProps.style = [{ fontFamily: "Manrope_400Regular" }, prevInput].filter(Boolean)
+      // Bold mappings convenience
+      const origRender = (Text as any).render
+      ;(Text as any).render = function(...args: any[]) {
+        const element = origRender.call(this, ...args)
+        try {
+          const props = element?.props || {}
+          const style = Array.isArray(props.style) ? props.style.flat() : [props.style].filter(Boolean)
+          const weight = style.find((s: any) => s?.fontWeight)?.fontWeight
+          if (weight === '700' || weight === 'bold') {
+            return React.cloneElement(element, { style: [{ fontFamily: 'Manrope_700Bold' }, ...style.filter(Boolean)] })
+          }
+          if (weight === '800') {
+            return React.cloneElement(element, { style: [{ fontFamily: 'Manrope_800ExtraBold' }, ...style.filter(Boolean)] })
+          }
+          if (weight === '600') {
+            return React.cloneElement(element, { style: [{ fontFamily: 'Manrope_600SemiBold' }, ...style.filter(Boolean)] })
+          }
+          return React.cloneElement(element, { style: [{ fontFamily: 'Manrope_400Regular' }, ...style.filter(Boolean)] })
+        } catch { return element }
+      }
     } catch {}
   }, [fontsLoaded])
 
