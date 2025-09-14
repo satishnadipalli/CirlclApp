@@ -1388,6 +1388,25 @@ export default function ChatScreen() {
     }
 
     const message = item as ChatMessage
+
+    // Swarm summary special card (distinct styling)
+    if (params.chatType === "group" && typeof (message as any).text === 'string' && /^\s*🧠\s*Swarm Summary/i.test(String((message as any).text))) {
+      try {
+        const lines = String((message as any).text || '').split('\n')
+        return (
+          <View style={styles.swarmSummaryContainer}>
+            <LinearGradient colors={["#0ea5e9", "#6366f1"]} start={[0,0]} end={[1,1]} style={styles.swarmSummaryCard}>
+              <Text style={styles.swarmSummaryTitle}>Swarm Summary</Text>
+              {lines.map((ln, idx) => (
+                <Text key={String(idx)} style={styles.swarmSummaryLine} numberOfLines={idx === 0 ? 2 : undefined}>
+                  {ln}
+                </Text>
+              ))}
+            </LinearGradient>
+          </View>
+        )
+      } catch { /* fallback to normal rendering below */ }
+    }
     const messageTime = message.createdAt ? formatTime(new Date(message.createdAt)) : ""
     const isMyMessage = message.sender === "me"
     const isSelected = isActionMode && selectedMessageIds.has(String(message.id))
@@ -1765,18 +1784,37 @@ export default function ChatScreen() {
 
             <View style={styles.membersSection}>
               <Text style={styles.sectionTitle}>Members</Text>
-              {group.members.map((member) => (
-                <View key={member._id} style={styles.memberItem}>
-                  <Avatar.Image size={40} source={{ uri: member.profilePic }} />
-                  <View style={styles.memberInfo}>
-                    <Text style={styles.memberName}>{member.name}</Text>
-                    <Text style={styles.memberStatus}>
-                      {onlineUsers.has(member._id) ? "Online" : "Offline"}
-                      {group.admins.includes(member._id) && " • Admin"}
-                    </Text>
+              <View style={{ gap: 12 }}>
+                {group.members.map((member) => (
+                  <View key={member._id} style={{ borderWidth: 1, borderColor: '#eee', borderRadius: 12, padding: 10 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                        <Avatar.Image size={40} source={{ uri: member.profilePic }} />
+                        <View>
+                          <Text style={[styles.memberStatus, { color: onlineUsers.has(member._id) ? '#16a34a' : '#6b7280' }]}>{onlineUsers.has(member._id) ? 'Online' : 'Offline'}{group.admins.includes(member._id) ? ' • Admin' : ''}</Text>
+                        </View>
+                      </View>
+                      <View style={{ flexDirection: 'row', gap: 8 }}>
+                        <TouchableOpacity onPress={() => router.push({ pathname: '/otherProfile', params: { userId: String(member._id) } })} style={{ backgroundColor: '#f1f5f9', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6 }}>
+                          <Text style={{ fontWeight: '700' }}>View</Text>
+                        </TouchableOpacity>
+                        {group.admins.includes(currentUser?._id || '') && (
+                          group.admins.includes(member._id) ? (
+                            <TouchableOpacity onPress={async () => { try { await apiService.demoteAdmin(String(group._id), String(member._id)) } catch {} }} style={{ backgroundColor: '#fee2e2', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6 }}>
+                              <Text style={{ fontWeight: '700', color: '#991b1b' }}>Remove admin</Text>
+                            </TouchableOpacity>
+                          ) : (
+                            <TouchableOpacity onPress={async () => { try { await apiService.promoteToAdmin(String(group._id), String(member._id)) } catch {} }} style={{ backgroundColor: '#e0f2fe', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6 }}>
+                              <Text style={{ fontWeight: '700', color: '#075985' }}>Make admin</Text>
+                            </TouchableOpacity>
+                          )
+                        )}
+                      </View>
+                    </View>
+                    <Text style={{ marginTop: 6, fontWeight: '800' }}>{member.name}</Text>
                   </View>
-                </View>
-              ))}
+                ))}
+              </View>
             </View>
           </ScrollView>
         )}
@@ -2135,9 +2173,6 @@ export default function ChatScreen() {
           </View>
         ) : (
           <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-            <TouchableOpacity onPress={() => setInputText((t) => t + ' 😀')} style={[styles.attachButton]}>
-              <Icon name="insert-emoticon" size={22} color="#333" />
-            </TouchableOpacity>
             <TextInput
               style={[styles.input, { flex: 1 }]}
               placeholder="Message..."
@@ -2682,6 +2717,27 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     textAlign: "center",
   },
+  swarmSummaryContainer: {
+    paddingHorizontal: 12,
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  swarmSummaryCard: {
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+  },
+  swarmSummaryTitle: {
+    color: '#fff',
+    fontWeight: '800',
+    fontSize: 14,
+    marginBottom: 6,
+  },
+  swarmSummaryLine: {
+    color: '#eef2ff',
+    fontSize: 12,
+    marginBottom: 2,
+  },
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -2731,12 +2787,12 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    padding: 10,
+    padding: 12,
     borderWidth: 0,
-    borderRadius: 14,
+    borderRadius: 16,
     marginRight: 10,
-    minHeight: 40,
-    maxHeight: 120,
+    minHeight: 44,
+    maxHeight: 140,
     backgroundColor: "#fff",
   },
   attachButton: {
